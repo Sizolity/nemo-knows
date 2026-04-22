@@ -226,7 +226,9 @@ These are deliberate gaps that will be filled as the wiki grows:
 - Ingestion of long sources (books, large repos) that don't fit a
   single read.
 - Per-source confidence weights when multiple sources contradict.
-- A canonical workflow for ingesting `nobody` run handoffs and traces.
+- A canonical workflow for ingesting structured operational logs (e.g.
+  agent run traces, meeting transcripts, chat exports) where each file
+  often produces an entity update rather than a new source page.
 
 When you propose changes to this file, append them under a
 `schema-change` log entry.

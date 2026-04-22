@@ -1,16 +1,15 @@
 # nemo-knows
 
-> An LLM-maintained personal/project wiki — what `nobody` doesn't remember, `nemo` knows.
+> A persistent, LLM-curated wiki — plain Markdown, no servers, no embeddings required.
 
-`nemo-knows` is a **persistent, LLM-curated wiki layer**: a directory of
-interlinked Markdown files that an LLM agent grows and maintains as you
-feed it sources. It is the long-term knowledge counterpart to ephemeral
-chat sessions. You read it; the LLM writes it.
+`nemo-knows` is a **knowledge layer** you grow over time: a directory of
+interlinked Markdown files that an LLM agent writes and maintains as you
+feed it sources. It is the long-term counterpart to ephemeral chat
+sessions. You read it; the LLM writes it.
 
 The pattern is the one described in Andrej Karpathy's
 [`llm-wiki.md`](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) —
-this repo is one concrete instantiation of it, designed to live next to
-the [`nobody`](https://github.com/sizolity/nobody) agent harness.
+this repo is one concrete, opinionated instantiation of it.
 
 ## Why this exists
 
@@ -24,19 +23,6 @@ flags contradictions, and reflects everything you've read.
 The wiki is the compounding artifact. Sessions come and go; `nemo-knows`
 remembers.
 
-## Relationship to `nobody`
-
-| Project       | Role                                                                 |
-|---------------|----------------------------------------------------------------------|
-| `nobody`      | Agent harness — runtime, tools, timeouts, traces, per-run artifacts. |
-| `nemo-knows`  | Knowledge layer — durable wiki maintained by an LLM, read by humans. |
-
-They are **independent repos**. `nemo-knows` does not import `nobody`
-code; `nobody` does not depend on `nemo-knows`. The bridge is editorial:
-when something learned during a `nobody` run is worth keeping, it gets
-ingested here. When `nemo-knows` answers a question well, that answer can
-be filed back as a wiki page so it doesn't evaporate.
-
 ## Three layers
 
 ```
@@ -47,8 +33,8 @@ nemo-knows/
 ```
 
 - **`raw/`** is your source of truth. Articles, papers, transcripts,
-  `nobody` handoffs, anything you want the wiki to be derived from. Files
-  here are **never modified** by the LLM.
+  meeting notes, agent run logs — anything you want the wiki to be
+  derived from. Files here are **never modified** by the LLM.
 - **`wiki/`** is the LLM's working area. It owns every file under here —
   it creates pages, updates them when new sources arrive, maintains
   cross-references with `[[wikilinks]]`, and keeps everything consistent.
