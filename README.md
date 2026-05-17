@@ -69,6 +69,9 @@ and gaps that a follow-up source could fill.
 
 The exact procedures for each of these live in [`AGENTS.md`](AGENTS.md).
 
+For the engineering-facing version of this concept, see
+[`docs/architecture/llm-wiki-core-concept.md`](docs/architecture/llm-wiki-core-concept.md).
+
 ## Getting started
 
 There is no installer and no service to run. The whole repo is a Git
@@ -82,6 +85,10 @@ Code, Cursor, Codex, OpenCode, etc.) can follow. Concretely:
 
 For this to work, the agent must follow [`AGENTS.md`](AGENTS.md). That
 file is the contract.
+
+There is also a small Go CLI under [`cmd/nemo`](cmd/nemo) for local ingest
+drafts, deterministic evaluation, and explicitly approved writes to `wiki/`.
+Start with [`docs/development/local-ingest-mvp.md`](docs/development/local-ingest-mvp.md).
 
 ## Status
 

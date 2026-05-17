@@ -1,0 +1,16 @@
+{
+  "case": "meeting-notes",
+  "source": "fixture:meeting-notes",
+  "bundle": "evals/cases/meeting-notes/bundle",
+  "minimum_scores": {
+    "schema": "pass",
+    "wiki_safety": "pass",
+    "candidate_paths": "pass",
+    "duplicate_detection": "pass",
+    "apply_readiness": "pass",
+    "overall": "pass"
+  },
+  "notes": [
+    "Loose meeting notes should still produce legal source, concept, and topic candidate paths."
+  ]
+}

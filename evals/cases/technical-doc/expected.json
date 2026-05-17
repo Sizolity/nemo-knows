@@ -1,0 +1,16 @@
+{
+  "case": "technical-doc",
+  "source": "fixture:technical-doc",
+  "bundle": "evals/cases/technical-doc/bundle",
+  "minimum_scores": {
+    "schema": "pass",
+    "wiki_safety": "pass",
+    "candidate_paths": "pass",
+    "duplicate_detection": "pass",
+    "apply_readiness": "pass",
+    "overall": "pass"
+  },
+  "notes": [
+    "Structured technical documentation should produce legal source, concept, and topic candidate paths."
+  ]
+}

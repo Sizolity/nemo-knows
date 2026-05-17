@@ -1,0 +1,17 @@
+{
+  "bundle": "drafts/actual-use-llm-wiki",
+  "scores": {
+    "schema": "pass",
+    "wiki_safety": "pass",
+    "candidate_paths": "pass",
+    "duplicate_detection": "pass",
+    "apply_readiness": "pass",
+    "overall": "pass"
+  },
+  "trace": [
+    "schema: all required review checks present",
+    "wiki_safety: no-auto-apply warning present",
+    "candidate_paths: 3 legal candidates",
+    "duplicate_detection: duplicates are labeled or no obvious duplicate"
+  ]
+}

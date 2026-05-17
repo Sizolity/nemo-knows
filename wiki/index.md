@@ -1,7 +1,7 @@
 ---
 title: Index
 kind: index
-updated: 2026-04-22
+updated: 2026-05-16
 ---
 
 # Index
@@ -17,8 +17,8 @@ into its own `index-<category>.md` and have this file link to them.
 ## Sources
 
 _Pages summarising material from `raw/`. Each entry: `[[slug]]` — one-line description._
+- [[llm-wiki]] — Source summary for Karpathy's LLM-maintained wiki pattern.
 
-(none yet — first ingest will populate this section)
 
 ## Entities
 
@@ -29,12 +29,17 @@ _People, organisations, products, places. One page per entity._
 ## Concepts
 
 _Ideas, mechanisms, definitions. One page per concept._
-
-(none yet)
+- [[persistent-wiki]] — A durable Markdown knowledge layer maintained by an LLM.
+- [[wiki-as-compounding-artifact]] — The idea that maintained wiki pages let knowledge accumulate across sources and questions.
+- [[ingest]] — The process of integrating a raw source into the wiki.
+- [[query]] — The process of answering from existing wiki pages.
+- [[lint]] — A maintenance pass for contradictions, orphans, stubs, and stale claims.
+- [[llm-maintenance-pattern]] — LLM Maintenance Pattern.
 
 ## Topics
 
 _Cross-cutting syntheses, comparisons, derived insights — including
 high-value query answers filed back from chat._
-
-(none yet)
+- [[llm-wiki-core-concept]] — Quick explanation of the LLM wiki pattern and its operating loop.
+- [[nemo-knows-mvp]] — Minimal architecture and first working loop for this repository.
+- [[persistent-wiki-architecture]] — Persistent Wiki Architecture.

@@ -1,0 +1,16 @@
+{
+  "case": "git-branching-web",
+  "source": "web:https://git-scm.com/book/en/v2/Git-Branching-Branches-in-a-Nutshell",
+  "bundle": "evals/cases/git-branching-web/bundle",
+  "minimum_scores": {
+    "schema": "pass",
+    "wiki_safety": "pass",
+    "candidate_paths": "pass",
+    "duplicate_detection": "pass",
+    "apply_readiness": "pass",
+    "overall": "pass"
+  },
+  "notes": [
+    "Pro Git branching material should exercise conceptual documentation from a narrative source."
+  ]
+}

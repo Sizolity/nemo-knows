@@ -1,0 +1,16 @@
+{
+  "case": "qwen-llama-cpp-web",
+  "source": "web:https://qwen.readthedocs.io/en/v3.0/run_locally/llama.cpp.html",
+  "bundle": "evals/cases/qwen-llama-cpp-web/bundle",
+  "minimum_scores": {
+    "schema": "pass",
+    "wiki_safety": "pass",
+    "candidate_paths": "pass",
+    "duplicate_detection": "pass",
+    "apply_readiness": "pass",
+    "overall": "pass"
+  },
+  "notes": [
+    "Official Qwen llama.cpp documentation should produce legal source, concept, and topic candidate paths."
+  ]
+}

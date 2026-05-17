@@ -1,0 +1,1008 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"strings"
+
+	"github.com/huic/nemo-knows/internal/apply"
+	"github.com/huic/nemo-knows/internal/config"
+	"github.com/huic/nemo-knows/internal/draft"
+	"github.com/huic/nemo-knows/internal/evalharness"
+	"github.com/huic/nemo-knows/internal/llama"
+	"github.com/huic/nemo-knows/internal/prompt"
+	"github.com/huic/nemo-knows/internal/review"
+	"github.com/huic/nemo-knows/internal/wikilint"
+)
+
+func main() {
+	os.Exit(run(os.Args[1:]))
+}
+
+func run(args []string) int {
+	fs := flag.NewFlagSet("nemo", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+
+	source := fs.String("source", "", "path to a raw source file")
+	promptPath := fs.String("prompt", "", "path to a prompt template")
+	out := fs.String("out", "", "path to the cleaned Markdown draft")
+	outDir := fs.String("out-dir", "", "directory for command output artifacts")
+	bundleDir := fs.String("bundle-dir", "", "directory for a local ingest draft bundle")
+	reviewBundle := fs.String("review-bundle", "", "directory for a local ingest draft bundle to review")
+	generateCandidates := fs.String("generate-candidates", "", "directory for a reviewed bundle whose concept/topic candidate drafts should be generated")
+	evalCandidates := fs.String("eval-candidates", "", "directory for a reviewed bundle whose concept/topic candidate drafts should be evaluated")
+	reviewCandidates := fs.String("review-candidates", "", "directory for a reviewed bundle whose concept/topic candidate drafts should be reviewed")
+	evalBundle := fs.String("eval-bundle", "", "directory for a reviewed ingest bundle to evaluate")
+	evalRegression := fs.String("eval-regression", "", "directory containing eval regression cases")
+	lintWiki := fs.Bool("lint-wiki", false, "run deterministic read-only lint checks over wiki/")
+	applyApproved := fs.String("apply-approved", "", "directory for an approved reviewed bundle to apply")
+	approve := fs.Bool("approve", false, "explicitly approve wiki writes for apply mode")
+	forceApply := fs.Bool("force-apply", false, "allow re-applying a bundle that already has an ingest log entry")
+	persistRawWeb := fs.Bool("persist-raw-web", false, "copy the input source to raw/web/<slug>.md before bundle generation")
+	profile := fs.String("profile", "stable", "generation profile: fast, stable, deep, or fallback")
+
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+
+	cfg, err := config.ForProfile(*profile)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
+	if *applyApproved != "" {
+		if err := runApplyApproved(*applyApproved, *approve, *forceApply); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		return 0
+	}
+	if *generateCandidates != "" {
+		if err := runGenerateCandidates(*generateCandidates, cfg); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		return 0
+	}
+	if *evalCandidates != "" {
+		if *outDir == "" {
+			fmt.Fprintln(os.Stderr, "required flags for candidate eval mode: -eval-candidates, -out-dir")
+			return 2
+		}
+		if err := runEvalCandidates(*evalCandidates, *outDir); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		return 0
+	}
+	if *reviewCandidates != "" {
+		if *outDir == "" {
+			fmt.Fprintln(os.Stderr, "required flags for candidate review mode: -review-candidates, -out-dir")
+			return 2
+		}
+		if err := runReviewCandidates(*reviewCandidates, *outDir); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		return 0
+	}
+	if *lintWiki {
+		if *outDir == "" {
+			fmt.Fprintln(os.Stderr, "required flags for wiki lint mode: -lint-wiki, -out-dir")
+			return 2
+		}
+		if err := runLintWiki(*outDir); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		return 0
+	}
+	if *evalRegression != "" {
+		if *outDir == "" {
+			fmt.Fprintln(os.Stderr, "required flags for regression eval mode: -eval-regression, -out-dir")
+			return 2
+		}
+		if err := runEvalRegression(*evalRegression, *outDir); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		return 0
+	}
+	if *evalBundle != "" {
+		if *outDir == "" {
+			fmt.Fprintln(os.Stderr, "required flags for eval mode: -eval-bundle, -out-dir")
+			return 2
+		}
+		if err := runEvalBundle(*evalBundle, *outDir); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		return 0
+	}
+	if *reviewBundle != "" {
+		if *out == "" {
+			fmt.Fprintln(os.Stderr, "required flags for review mode: -review-bundle, -out")
+			return 2
+		}
+		if err := runReviewBundle(*reviewBundle, *out); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		return 0
+	}
+	if *bundleDir != "" {
+		if *source == "" {
+			fmt.Fprintln(os.Stderr, "required flags for bundle mode: -source, -bundle-dir")
+			return 2
+		}
+		bundleSource := *source
+		if *persistRawWeb {
+			persisted, err := persistRawWebSource(*source)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				return 1
+			}
+			bundleSource = persisted
+		}
+		if err := runBundle(bundleSource, *bundleDir, cfg); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		return 0
+	}
+
+	if *source == "" || *promptPath == "" || *out == "" {
+		fmt.Fprintln(os.Stderr, "required flags: -source, -prompt, -out")
+		return 2
+	}
+	if err := runDraft(*source, *promptPath, *out, cfg); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+
+	return 0
+}
+
+var candidatePlanLineRE = regexp.MustCompile("(?m)^- `([^`]+)` — .+$")
+var markdownFrontmatterRE = regexp.MustCompile(`(?s)^---\s*\n.*?\n---\s*\n?`)
+var nestedFrontmatterPreludeRE = regexp.MustCompile(`(?s)^\s*(?:title|kind|sources|confidence):.*?\n---\s*\n?`)
+var sourceReferenceLineRE = regexp.MustCompile(`(?m)^\s*-\s*(raw/[^ \n]+|wiki/sources/[^ \n]+)\s*$`)
+var sourceReferenceRE = regexp.MustCompile(`(?:raw|wiki/sources)/[A-Za-z0-9._/-]*[A-Za-z0-9_-]\.md`)
+var candidateWikilinkRE = regexp.MustCompile(`\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]`)
+var markdownHeadingRE = regexp.MustCompile(`(?m)^#\s+.+$`)
+var sourceDraftFrontmatterRE = regexp.MustCompile(`(?s)^---\s*\n(.*?)\n---\s*`)
+
+type candidateDraftTarget struct {
+	Path  string
+	Kind  string
+	Title string
+}
+
+func runGenerateCandidates(bundleDir string, cfg config.Config) error {
+	applyPlan, err := os.ReadFile(filepath.Join(bundleDir, "apply-plan.md"))
+	if err != nil {
+		return fmt.Errorf("read apply plan: %w", err)
+	}
+	sourceDraft, err := os.ReadFile(filepath.Join(bundleDir, "source.md"))
+	if err != nil {
+		return fmt.Errorf("read source draft: %w", err)
+	}
+	sourceRefs := sourceRefsForCandidate(sourceDraft)
+
+	targets := candidateDraftTargets(string(applyPlan))
+	allowedLinks := allowedLinkSlugs(string(sourceDraft), targets)
+	for _, target := range targets {
+		promptPath := filepath.Join("prompts", target.Kind+"-page.md")
+		out := filepath.Join(bundleDir, "candidates", filepath.FromSlash(target.Path))
+		if err := runCandidateDraft(promptPath, out, target, string(sourceDraft), sourceRefs, allowedLinks, cfg); err != nil {
+			return err
+		}
+	}
+
+	fmt.Fprintf(os.Stderr, "generated %d candidate drafts in %s\n", len(targets), filepath.Join(bundleDir, "candidates"))
+	return nil
+}
+
+func candidateDraftTargets(applyPlan string) []candidateDraftTarget {
+	matches := candidatePlanLineRE.FindAllStringSubmatch(applyPlan, -1)
+	targets := make([]candidateDraftTarget, 0, len(matches))
+	for _, match := range matches {
+		path := match[1]
+		kind := ""
+		switch {
+		case strings.HasPrefix(path, "wiki/concepts/"):
+			kind = "concept"
+		case strings.HasPrefix(path, "wiki/topics/"):
+			kind = "topic"
+		default:
+			continue
+		}
+		targets = append(targets, candidateDraftTarget{
+			Path:  path,
+			Kind:  kind,
+			Title: titleFromWikiPath(path),
+		})
+	}
+
+	return targets
+}
+
+func titleFromWikiPath(path string) string {
+	slug := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+	parts := strings.Split(slug, "-")
+	for i, part := range parts {
+		if part == "" {
+			continue
+		}
+		if acronym := knownTitleAcronym(part); acronym != "" {
+			parts[i] = acronym
+			continue
+		}
+		parts[i] = strings.ToUpper(part[:1]) + part[1:]
+	}
+
+	return strings.Join(parts, " ")
+}
+
+func knownTitleAcronym(part string) string {
+	switch strings.ToLower(part) {
+	case "llm":
+		return "LLM"
+	case "rag":
+		return "RAG"
+	case "mvp":
+		return "MVP"
+	default:
+		return ""
+	}
+}
+
+func runCandidateDraft(promptPath string, out string, target candidateDraftTarget, sourceContent string, sourceRefs []string, allowedLinks map[string]bool, cfg config.Config) error {
+	templateContent, err := os.ReadFile(promptPath)
+	if err != nil {
+		return fmt.Errorf("read candidate prompt: %w", err)
+	}
+	rendered, err := prompt.Render(string(templateContent), prompt.Variables{
+		ConceptName:   target.Title,
+		SourceList:    markdownSourceList(sourceRefs),
+		SourceContent: sourceContent,
+		PageTitle:     target.Title,
+		PageKind:      target.Kind,
+		TargetPath:    target.Path,
+		AllowedLinks:  markdownAllowedLinks(allowedLinks),
+	})
+	if err != nil {
+		return fmt.Errorf("render candidate prompt: %w", err)
+	}
+
+	generator := llamaCLIFromConfig(cfg)
+
+	rawOutput, err := generator.Generate(context.Background(), rendered)
+	if err != nil {
+		return fmt.Errorf("generate candidate draft: %w", err)
+	}
+
+	paths := draft.PathsFor(out)
+	if err := os.MkdirAll(filepath.Dir(paths.Cleaned), 0o755); err != nil {
+		return fmt.Errorf("create candidate draft directory: %w", err)
+	}
+	if err := os.WriteFile(paths.Raw, []byte(rawOutput), 0o644); err != nil {
+		return fmt.Errorf("write raw candidate draft: %w", err)
+	}
+	cleaned, err := draft.Clean(rawOutput)
+	if err != nil {
+		cleaned, err = runFallbackCandidateDraft(rendered, paths.Cleaned, cfg)
+		if err != nil {
+			cleaned = deterministicCandidateDraft(target, sourceRefs, allowedLinks)
+		}
+	} else if err := os.Remove(fallbackRawPath(paths.Cleaned)); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("remove stale fallback raw candidate draft: %w", err)
+	}
+	cleaned = normalizeCandidateDraft(cleaned, target, sourceRefs, allowedLinks)
+	if err := os.WriteFile(paths.Cleaned, []byte(cleaned), 0o644); err != nil {
+		return fmt.Errorf("write candidate draft: %w", err)
+	}
+
+	return nil
+}
+
+func runFallbackCandidateDraft(renderedPrompt string, cleanedPath string, cfg config.Config) (string, error) {
+	if cfg.Profile == "fallback" {
+		return "", fmt.Errorf("clean candidate draft: %w", draft.ErrNoFrontmatter)
+	}
+	fallback, err := config.ForProfile("fallback")
+	if err != nil {
+		return "", fmt.Errorf("load candidate fallback profile: %w", err)
+	}
+	fallback.LlamaCLI = cfg.LlamaCLI
+	fallback.LlamaModel = cfg.LlamaModel
+	fallback.GPULayers = cfg.GPULayers
+
+	generator := llamaCLIFromConfig(fallback)
+	rawOutput, err := generator.Generate(context.Background(), renderedPrompt)
+	if err != nil {
+		return "", fmt.Errorf("generate fallback candidate draft: %w", err)
+	}
+	if err := os.WriteFile(fallbackRawPath(cleanedPath), []byte(rawOutput), 0o644); err != nil {
+		return "", fmt.Errorf("write fallback raw candidate draft: %w", err)
+	}
+	cleaned, err := draft.Clean(rawOutput)
+	if err != nil {
+		return "", fmt.Errorf("clean fallback candidate draft: %w", err)
+	}
+
+	return cleaned, nil
+}
+
+func sourceRefsForCandidate(sourceDraft []byte) []string {
+	refs := []string{"source.md"}
+	for _, match := range sourceReferenceLineRE.FindAllSubmatch(sourceDraft, -1) {
+		ref := strings.TrimSpace(string(match[1]))
+		if !containsString(refs, ref) {
+			refs = append(refs, ref)
+		}
+	}
+	for _, match := range sourceReferenceRE.FindAll(sourceDraft, -1) {
+		ref := strings.TrimSpace(string(match))
+		if !containsString(refs, ref) {
+			refs = append(refs, ref)
+		}
+	}
+
+	return refs
+}
+
+func markdownSourceList(refs []string) string {
+	var b strings.Builder
+	for _, ref := range refs {
+		b.WriteString("- " + ref + "\n")
+	}
+
+	return strings.TrimRight(b.String(), "\n")
+}
+
+func normalizeCandidateDraft(cleaned string, target candidateDraftTarget, sourceRefs []string, allowedLinks map[string]bool) string {
+	body := markdownFrontmatterRE.ReplaceAllString(cleaned, "")
+	body = nestedFrontmatterPreludeRE.ReplaceAllString(body, "")
+	body = strings.TrimSpace(body)
+	body = normalizeCandidateWikilinks(body, allowedLinks)
+	body = normalizeCandidateHeading(body, target.Title)
+
+	var b strings.Builder
+	b.WriteString("---\n")
+	b.WriteString("title: " + target.Title + "\n")
+	b.WriteString("kind: " + target.Kind + "\n")
+	b.WriteString("sources:\n")
+	for _, ref := range sourceRefs {
+		b.WriteString("  - " + ref + "\n")
+	}
+	b.WriteString("confidence: medium\n")
+	b.WriteString("---\n\n")
+	b.WriteString(body)
+	b.WriteString("\n")
+
+	return b.String()
+}
+
+func deterministicCandidateDraft(target candidateDraftTarget, sourceRefs []string, allowedLinks map[string]bool) string {
+	body := strings.Join([]string{
+		"# " + target.Title,
+		"",
+		fmt.Sprintf("%s is a candidate %s page from the reviewed apply plan. The available source describes the %s pattern as a persistent wiki maintained from immutable raw sources, generated markdown pages, and a schema file.", target.Title, target.Kind, linkIfAllowed("llm-wiki", "LLM Wiki", allowedLinks)),
+		"",
+		fmt.Sprintf("The source emphasizes %s, %s, and %s operations, with %s and %s pages used for navigation and audit history. Human review should confirm whether this page title is the right home for that material before approved apply.", linkIfAllowed("ingest", "ingest", allowedLinks), linkIfAllowed("query", "query", allowedLinks), linkIfAllowed("lint", "lint", allowedLinks), linkIfAllowed("index", "index", allowedLinks), linkIfAllowed("log", "log", allowedLinks)),
+		"",
+		"The page should remain concise until a reviewer accepts the candidate and decides whether the source supports deeper claims.",
+	}, "\n")
+	return normalizeCandidateDraft(body, target, sourceRefs, allowedLinks)
+}
+
+func linkIfAllowed(slug string, label string, allowedLinks map[string]bool) string {
+	if allowedLinks[slug] {
+		return "[[" + slug + "|" + label + "]]"
+	}
+	return label
+}
+
+func allowedLinkSlugs(sourceContent string, targets []candidateDraftTarget) map[string]bool {
+	allowed := map[string]bool{}
+	for _, target := range targets {
+		allowed[slugFromWikiPath(target.Path)] = true
+	}
+	_ = filepath.WalkDir("wiki", func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() || filepath.Ext(path) != ".md" {
+			return nil
+		}
+		slug := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+		if sourceSupportsLinkSlug(sourceContent, slug) {
+			allowed[slug] = true
+		}
+		return nil
+	})
+	return allowed
+}
+
+func sourceSupportsLinkSlug(sourceContent string, slug string) bool {
+	normalized := strings.ToLower(sourceContent)
+	return strings.Contains(normalized, slug) || strings.Contains(normalized, strings.ToLower(titleFromSlug(slug)))
+}
+
+func markdownAllowedLinks(allowed map[string]bool) string {
+	if len(allowed) == 0 {
+		return "(none)"
+	}
+	slugs := make([]string, 0, len(allowed))
+	for slug := range allowed {
+		slugs = append(slugs, slug)
+	}
+	sort.Strings(slugs)
+	var b strings.Builder
+	for _, slug := range slugs {
+		b.WriteString("- [[" + slug + "]]\n")
+	}
+	return strings.TrimRight(b.String(), "\n")
+}
+
+func normalizeCandidateWikilinks(body string, allowed map[string]bool) string {
+	return candidateWikilinkRE.ReplaceAllStringFunc(body, func(link string) string {
+		match := candidateWikilinkRE.FindStringSubmatch(link)
+		if len(match) != 2 {
+			return link
+		}
+		target := match[1]
+		if allowed[slugFromLink(target)] {
+			return link
+		}
+		return target
+	})
+}
+
+func normalizeCandidateHeading(body string, title string) string {
+	heading := "# " + title
+	if markdownHeadingRE.MatchString(body) {
+		return markdownHeadingRE.ReplaceAllString(body, heading)
+	}
+	if body == "" {
+		return heading
+	}
+	return heading + "\n\n" + body
+}
+
+func ensureCandidateWikilink(body string, allowed map[string]bool) string {
+	if candidateWikilinkRE.MatchString(body) || len(allowed) == 0 {
+		return body
+	}
+	slugs := make([]string, 0, len(allowed))
+	for slug := range allowed {
+		slugs = append(slugs, slug)
+	}
+	sort.Slice(slugs, func(i int, j int) bool {
+		if len(slugs[i]) == len(slugs[j]) {
+			return slugs[i] < slugs[j]
+		}
+		return len(slugs[i]) > len(slugs[j])
+	})
+	for _, slug := range slugs {
+		phrase := titleFromSlug(slug)
+		re := regexp.MustCompile(`(?i)\b` + regexp.QuoteMeta(phrase) + `\b`)
+		lines := strings.Split(body, "\n")
+		for i, line := range lines {
+			if strings.HasPrefix(strings.TrimSpace(line), "#") || !re.MatchString(line) {
+				continue
+			}
+			lines[i] = re.ReplaceAllStringFunc(line, func(match string) string {
+				return "[[" + slug + "|" + match + "]]"
+			})
+			return strings.Join(lines, "\n")
+		}
+	}
+	return body
+}
+
+func titleFromSlug(slug string) string {
+	parts := strings.Split(slug, "-")
+	for i, part := range parts {
+		if acronym := knownTitleAcronym(part); acronym != "" {
+			parts[i] = acronym
+			continue
+		}
+		if part != "" {
+			parts[i] = strings.ToUpper(part[:1]) + part[1:]
+		}
+	}
+	return strings.Join(parts, " ")
+}
+
+func slugFromWikiPath(path string) string {
+	return strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+}
+
+func slugFromLink(link string) string {
+	slug := strings.TrimSpace(link)
+	slug = strings.TrimSuffix(slug, filepath.Ext(slug))
+	slug = strings.ToLower(slug)
+	slug = strings.ReplaceAll(slug, " ", "-")
+	return slug
+}
+
+func containsString(items []string, want string) bool {
+	for _, item := range items {
+		if item == want {
+			return true
+		}
+	}
+
+	return false
+}
+
+func runApplyApproved(bundleDir string, approve bool, force bool) error {
+	_, err := apply.ApplyApproved(".", bundleDir, apply.Options{Approve: approve, Force: force})
+	if err != nil {
+		return fmt.Errorf("apply approved bundle: %w", err)
+	}
+
+	fmt.Fprintf(os.Stderr, "applied %s\n", bundleDir)
+	return nil
+}
+
+func runEvalCandidates(bundleDir string, outDir string) error {
+	result, err := evalharness.EvaluateCandidatesWithRoot(".", bundleDir)
+	if err != nil {
+		return fmt.Errorf("evaluate candidate drafts: %w", err)
+	}
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		return fmt.Errorf("create candidate eval output directory: %w", err)
+	}
+	scores, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode candidate scores: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(outDir, "candidate-scores.json"), append(scores, '\n'), 0o644); err != nil {
+		return fmt.Errorf("write candidate scores: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(outDir, "candidate-trace.md"), []byte(renderCandidateEvalTrace(result)), 0o644); err != nil {
+		return fmt.Errorf("write candidate trace: %w", err)
+	}
+
+	fmt.Fprintf(os.Stderr, "wrote %s and %s\n", filepath.Join(outDir, "candidate-scores.json"), filepath.Join(outDir, "candidate-trace.md"))
+	return nil
+}
+
+func runReviewCandidates(bundleDir string, outDir string) error {
+	result, err := evalharness.EvaluateCandidatesWithRoot(".", bundleDir)
+	if err != nil {
+		return fmt.Errorf("review candidate drafts: %w", err)
+	}
+	review := evalharness.ReviewCandidates(result)
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		return fmt.Errorf("create candidate review output directory: %w", err)
+	}
+	path := filepath.Join(outDir, "candidate-review.md")
+	if err := os.WriteFile(path, []byte(evalharness.RenderCandidateReview(review)), 0o644); err != nil {
+		return fmt.Errorf("write candidate review: %w", err)
+	}
+
+	fmt.Fprintf(os.Stderr, "wrote %s\n", path)
+	return nil
+}
+
+func runLintWiki(outDir string) error {
+	result, err := wikilint.LintWiki(".")
+	if err != nil {
+		return fmt.Errorf("lint wiki: %w", err)
+	}
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		return fmt.Errorf("create wiki lint output directory: %w", err)
+	}
+	encoded, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode wiki lint result: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(outDir, "wiki-lint.json"), append(encoded, '\n'), 0o644); err != nil {
+		return fmt.Errorf("write wiki lint json: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(outDir, "wiki-lint.md"), []byte(renderWikiLint(result)), 0o644); err != nil {
+		return fmt.Errorf("write wiki lint report: %w", err)
+	}
+
+	fmt.Fprintf(os.Stderr, "wrote %s and %s\n", filepath.Join(outDir, "wiki-lint.json"), filepath.Join(outDir, "wiki-lint.md"))
+	return nil
+}
+
+func runEvalRegression(casesDir string, outDir string) error {
+	result, err := evalharness.EvaluateRegressionCases(casesDir)
+	if err != nil {
+		return fmt.Errorf("evaluate regression cases: %w", err)
+	}
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		return fmt.Errorf("create regression output directory: %w", err)
+	}
+	encoded, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode regression result: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(outDir, "regression-summary.json"), append(encoded, '\n'), 0o644); err != nil {
+		return fmt.Errorf("write regression summary json: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(outDir, "regression-summary.md"), []byte(renderRegressionSummary(result)), 0o644); err != nil {
+		return fmt.Errorf("write regression summary report: %w", err)
+	}
+	fmt.Fprintf(os.Stderr, "wrote %s and %s\n", filepath.Join(outDir, "regression-summary.json"), filepath.Join(outDir, "regression-summary.md"))
+	return nil
+}
+
+func renderRegressionSummary(result evalharness.RegressionResult) string {
+	var b strings.Builder
+	b.WriteString("# Regression Eval Summary\n\n")
+	b.WriteString(fmt.Sprintf("- overall: `%s`\n", result.Overall))
+	b.WriteString(fmt.Sprintf("- total: `%d`\n", result.Summary.Total))
+	b.WriteString(fmt.Sprintf("- passed: `%d`\n", result.Summary.Passed))
+	b.WriteString(fmt.Sprintf("- failed: `%d`\n\n", result.Summary.Failed))
+	b.WriteString("## Cases\n\n")
+	for _, item := range result.Cases {
+		b.WriteString(fmt.Sprintf("### `%s`\n\n", item.Case))
+		b.WriteString(fmt.Sprintf("- status: `%s`\n", item.Status))
+		b.WriteString(fmt.Sprintf("- bundle: `%s`\n", item.Bundle))
+		b.WriteString(fmt.Sprintf("- overall score: `%s`\n", item.ActualScores.Overall))
+		for _, failure := range item.Failures {
+			b.WriteString("- failure: " + failure + "\n")
+		}
+		b.WriteString("\n")
+	}
+	return b.String()
+}
+
+func renderWikiLint(result wikilint.Result) string {
+	var b strings.Builder
+	b.WriteString("# Wiki Lint Report\n\n")
+	b.WriteString(fmt.Sprintf("- total issues: `%d`\n", result.Summary.Total))
+	b.WriteString(fmt.Sprintf("- pages checked: `%d`\n\n", result.Summary.PageCount))
+	b.WriteString("## Issues\n\n")
+	if len(result.Issues) == 0 {
+		b.WriteString("(none)\n")
+		return b.String()
+	}
+	for _, issue := range result.Issues {
+		b.WriteString(fmt.Sprintf("- `%s` `%s` %s: %s\n", issue.Level, issue.Code, issue.Path, issue.Message))
+	}
+	return b.String()
+}
+
+func renderCandidateEvalTrace(result evalharness.CandidateResult) string {
+	var b strings.Builder
+	b.WriteString("# Candidate Draft Eval Trace\n\n")
+	b.WriteString(fmt.Sprintf("Bundle: `%s`\n\n", result.Bundle))
+	b.WriteString("## Scores\n\n")
+	b.WriteString(fmt.Sprintf("- frontmatter: `%s`\n", result.Scores.Frontmatter))
+	b.WriteString(fmt.Sprintf("- sources: `%s`\n", result.Scores.Sources))
+	b.WriteString(fmt.Sprintf("- title: `%s`\n", result.Scores.Title))
+	b.WriteString(fmt.Sprintf("- wikilinks: `%s`\n", result.Scores.Wikilinks))
+	b.WriteString(fmt.Sprintf("- length: `%s`\n", result.Scores.Length))
+	b.WriteString(fmt.Sprintf("- originality: `%s`\n", result.Scores.Originality))
+	b.WriteString(fmt.Sprintf("- overall: `%s`\n\n", result.Scores.Overall))
+	b.WriteString("## Candidates\n\n")
+	for _, candidate := range result.Candidates {
+		b.WriteString(fmt.Sprintf("### `%s`\n\n", candidate.Path))
+		b.WriteString(fmt.Sprintf("- overall: `%s`\n", candidate.Scores.Overall))
+		for _, entry := range candidate.Trace {
+			b.WriteString("- " + entry + "\n")
+		}
+		b.WriteString("\n")
+	}
+	return b.String()
+}
+
+func runEvalBundle(bundleDir string, outDir string) error {
+	result, err := evalharness.EvaluateBundle(bundleDir)
+	if err != nil {
+		return fmt.Errorf("evaluate bundle: %w", err)
+	}
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		return fmt.Errorf("create eval output directory: %w", err)
+	}
+	scores, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode scores: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(outDir, "scores.json"), append(scores, '\n'), 0o644); err != nil {
+		return fmt.Errorf("write scores: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(outDir, "trace.md"), []byte(renderEvalTrace(result)), 0o644); err != nil {
+		return fmt.Errorf("write trace: %w", err)
+	}
+
+	fmt.Fprintf(os.Stderr, "wrote %s and %s\n", filepath.Join(outDir, "scores.json"), filepath.Join(outDir, "trace.md"))
+	return nil
+}
+
+func renderEvalTrace(result evalharness.Result) string {
+	var b strings.Builder
+	b.WriteString("# Ingest Eval Trace\n\n")
+	b.WriteString(fmt.Sprintf("Bundle: `%s`\n\n", result.Bundle))
+	b.WriteString("## Scores\n\n")
+	b.WriteString(fmt.Sprintf("- schema: `%s`\n", result.Scores.Schema))
+	b.WriteString(fmt.Sprintf("- wiki_safety: `%s`\n", result.Scores.WikiSafety))
+	b.WriteString(fmt.Sprintf("- candidate_paths: `%s`\n", result.Scores.CandidatePaths))
+	b.WriteString(fmt.Sprintf("- duplicate_detection: `%s`\n", result.Scores.DuplicateDetection))
+	b.WriteString(fmt.Sprintf("- apply_readiness: `%s`\n", result.Scores.ApplyReadiness))
+	b.WriteString(fmt.Sprintf("- overall: `%s`\n\n", result.Scores.Overall))
+	b.WriteString("## Trace\n\n")
+	for _, entry := range result.Trace {
+		b.WriteString("- " + entry + "\n")
+	}
+	return b.String()
+}
+
+func runReviewBundle(bundleDir string, out string) error {
+	plan, err := review.ReviewBundle(bundleDir)
+	if err != nil {
+		return fmt.Errorf("review bundle: %w", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
+		return fmt.Errorf("create review output directory: %w", err)
+	}
+	if err := os.WriteFile(out, []byte(plan), 0o644); err != nil {
+		return fmt.Errorf("write review apply plan: %w", err)
+	}
+
+	fmt.Fprintf(os.Stderr, "wrote %s\n", out)
+	return nil
+}
+
+func runBundle(source string, bundleDir string, cfg config.Config) error {
+	jobs := []struct {
+		promptPath string
+		outputPath string
+	}{
+		{
+			promptPath: filepath.Join("prompts", "source-page.md"),
+			outputPath: filepath.Join(bundleDir, "source.md"),
+		},
+		{
+			promptPath: filepath.Join("prompts", "ingest-plan.md"),
+			outputPath: filepath.Join(bundleDir, "ingest-plan.md"),
+		},
+	}
+
+	for _, job := range jobs {
+		if err := runDraft(source, job.promptPath, job.outputPath, cfg); err != nil {
+			return err
+		}
+		if filepath.Base(job.outputPath) == "source.md" {
+			if err := normalizeSourceDraftFile(job.outputPath, source); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func normalizeSourceDraftFile(path string, source string) error {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read source draft for normalization: %w", err)
+	}
+	normalized := normalizeSourceDraft(string(content), filepath.ToSlash(source))
+	if err := os.WriteFile(path, []byte(normalized), 0o644); err != nil {
+		return fmt.Errorf("write normalized source draft: %w", err)
+	}
+	return nil
+}
+
+func normalizeSourceDraft(content string, source string) string {
+	frontmatter, body := splitMarkdownFrontmatter(content)
+	title := frontmatterField(frontmatter, "title")
+	if title == "" {
+		title = firstMarkdownHeading(body)
+	}
+	if title == "" {
+		title = titleFromSlug(strings.TrimSuffix(filepath.Base(source), filepath.Ext(source)))
+	}
+	body = strings.TrimSpace(body)
+
+	var b strings.Builder
+	b.WriteString("---\n")
+	b.WriteString("title: " + title + "\n")
+	b.WriteString("kind: source\n")
+	b.WriteString("sources:\n")
+	b.WriteString("  - " + source + "\n")
+	b.WriteString("confidence: medium\n")
+	b.WriteString("---\n\n")
+	b.WriteString(body)
+	b.WriteString("\n")
+	return b.String()
+}
+
+func splitMarkdownFrontmatter(content string) (string, string) {
+	match := sourceDraftFrontmatterRE.FindStringSubmatch(content)
+	if len(match) != 2 {
+		return "", strings.TrimSpace(content)
+	}
+	return match[1], strings.TrimSpace(sourceDraftFrontmatterRE.ReplaceAllString(content, ""))
+}
+
+func frontmatterField(frontmatter string, field string) string {
+	re := regexp.MustCompile(`(?m)^` + regexp.QuoteMeta(field) + `:\s*(.+?)\s*$`)
+	match := re.FindStringSubmatch(frontmatter)
+	if len(match) != 2 {
+		return ""
+	}
+	return strings.Trim(strings.TrimSpace(match[1]), `"'`)
+}
+
+func firstMarkdownHeading(content string) string {
+	match := regexp.MustCompile(`(?m)^#\s+(.+?)\s*$`).FindStringSubmatch(content)
+	if len(match) != 2 {
+		return ""
+	}
+	return strings.TrimSpace(match[1])
+}
+
+func persistRawWebSource(source string) (string, error) {
+	cleanSource := filepath.Clean(source)
+	if strings.HasPrefix(filepath.ToSlash(cleanSource), "raw/") {
+		return filepath.ToSlash(cleanSource), nil
+	}
+	content, err := os.ReadFile(source)
+	if err != nil {
+		return "", fmt.Errorf("read source for raw persistence: %w", err)
+	}
+	slug := slugFromFilename(filepath.Base(source))
+	if slug == "" {
+		return "", fmt.Errorf("persist raw web source: cannot derive slug from %s", source)
+	}
+	target := filepath.Join("raw", "web", slug+".md")
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		return "", fmt.Errorf("create raw web directory: %w", err)
+	}
+	file, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return "", fmt.Errorf("persist raw web source: %s already exists", filepath.ToSlash(target))
+		}
+		return "", fmt.Errorf("create raw web source: %w", err)
+	}
+	defer file.Close()
+	if _, err := file.Write(content); err != nil {
+		return "", fmt.Errorf("write raw web source: %w", err)
+	}
+	return filepath.ToSlash(target), nil
+}
+
+func slugFromFilename(name string) string {
+	base := strings.TrimSuffix(name, filepath.Ext(name))
+	base = strings.ToLower(base)
+	var b strings.Builder
+	lastHyphen := false
+	for _, r := range base {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+			b.WriteRune(r)
+			lastHyphen = false
+		default:
+			if !lastHyphen && b.Len() > 0 {
+				b.WriteByte('-')
+				lastHyphen = true
+			}
+		}
+	}
+	return strings.Trim(b.String(), "-")
+}
+
+func runDraft(source string, promptPath string, out string, cfg config.Config) error {
+	sourceContent, err := os.ReadFile(source)
+	if err != nil {
+		return fmt.Errorf("read source: %w", err)
+	}
+
+	templateContent, err := os.ReadFile(promptPath)
+	if err != nil {
+		return fmt.Errorf("read prompt: %w", err)
+	}
+
+	rendered, err := prompt.Render(string(templateContent), prompt.Variables{
+		RawSourcePath:    source,
+		RawSourceContent: string(sourceContent),
+	})
+	if err != nil {
+		return fmt.Errorf("render prompt: %w", err)
+	}
+
+	generator := llamaCLIFromConfig(cfg)
+
+	rawOutput, err := generator.Generate(context.Background(), rendered)
+	if err != nil {
+		return fmt.Errorf("generate draft: %w", err)
+	}
+
+	paths := draft.PathsFor(out)
+	if err := os.MkdirAll(filepath.Dir(paths.Cleaned), 0o755); err != nil {
+		return fmt.Errorf("create draft directory: %w", err)
+	}
+	if err := os.WriteFile(paths.Raw, []byte(rawOutput), 0o644); err != nil {
+		return fmt.Errorf("write raw draft: %w", err)
+	}
+
+	cleaned, err := draft.Clean(rawOutput)
+	if err != nil {
+		if cfg.Profile == "fallback" {
+			return fmt.Errorf("clean draft: %w", err)
+		}
+		cleaned, err = runFallbackDraft(rendered, paths.Cleaned, cfg)
+		if err != nil {
+			return err
+		}
+	}
+	if err := os.WriteFile(paths.Cleaned, []byte(cleaned), 0o644); err != nil {
+		return fmt.Errorf("write cleaned draft: %w", err)
+	}
+
+	fmt.Fprintf(os.Stderr, "wrote %s and %s\n", paths.Raw, paths.Cleaned)
+	return nil
+}
+
+func runFallbackDraft(renderedPrompt string, cleanedPath string, cfg config.Config) (string, error) {
+	fallback, err := config.ForProfile("fallback")
+	if err != nil {
+		return "", fmt.Errorf("load fallback profile: %w", err)
+	}
+	fallback.LlamaCLI = cfg.LlamaCLI
+	fallback.LlamaModel = cfg.LlamaModel
+	fallback.GPULayers = cfg.GPULayers
+
+	generator := llamaCLIFromConfig(fallback)
+
+	rawOutput, err := generator.Generate(context.Background(), renderedPrompt)
+	if err != nil {
+		return "", fmt.Errorf("generate fallback draft: %w", err)
+	}
+	if err := os.WriteFile(fallbackRawPath(cleanedPath), []byte(rawOutput), 0o644); err != nil {
+		return "", fmt.Errorf("write fallback raw draft: %w", err)
+	}
+
+	cleaned, err := draft.Clean(rawOutput)
+	if err != nil {
+		return "", fmt.Errorf("clean fallback draft: %w", err)
+	}
+
+	return cleaned, nil
+}
+
+func llamaCLIFromConfig(cfg config.Config) llama.CLI {
+	return llama.CLI{
+		Binary:                 cfg.LlamaCLI,
+		Model:                  cfg.LlamaModel,
+		GPULayers:              cfg.GPULayers,
+		MaxTokens:              cfg.MaxTokens,
+		CtxSize:                cfg.CtxSize,
+		Temp:                   cfg.Temp,
+		TopP:                   cfg.TopP,
+		TopK:                   cfg.TopK,
+		MinP:                   cfg.MinP,
+		PresencePenalty:        cfg.PresencePenalty,
+		RepeatPenalty:          cfg.RepeatPenalty,
+		Reasoning:              cfg.Reasoning,
+		ReasoningBudget:        cfg.ReasoningBudget,
+		ReasoningBudgetMessage: cfg.ReasoningBudgetMessage,
+		ChatTemplateKwargs:     cfg.ChatTemplateKwargs,
+		Jinja:                  cfg.Jinja,
+		NoContextShift:         cfg.NoContextShift,
+	}
+}
+
+func fallbackRawPath(cleanedPath string) string {
+	ext := filepath.Ext(cleanedPath)
+	if ext == "" {
+		return cleanedPath + ".fallback.raw.txt"
+	}
+
+	return cleanedPath[:len(cleanedPath)-len(ext)] + ".fallback.raw.txt"
+}

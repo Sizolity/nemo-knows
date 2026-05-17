@@ -23,3 +23,13 @@ node_modules/
 # Local-only working files (ignored by convention)
 scratch/
 tmp/
+experiments/
+.cursor
+
+# Local tar snapshots and regenerated eval outputs
+backups/
+evals/runs/
+
+# Full llama.cpp traces next to cleaned bundle/candidate drafts (regenerate locally)
+drafts/**/*.raw.txt
+drafts/**/*.fallback.raw.txt

@@ -1,0 +1,16 @@
+{
+  "case": "sqlite-wal-web",
+  "source": "web:https://www.sqlite.org/wal.html",
+  "bundle": "evals/cases/sqlite-wal-web/bundle",
+  "minimum_scores": {
+    "schema": "pass",
+    "wiki_safety": "pass",
+    "candidate_paths": "pass",
+    "duplicate_detection": "pass",
+    "apply_readiness": "pass",
+    "overall": "pass"
+  },
+  "notes": [
+    "SQLite WAL documentation should exercise mechanism-heavy source summaries."
+  ]
+}

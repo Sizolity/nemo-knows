@@ -1,0 +1,22 @@
+{
+  "case": "llm-wiki",
+  "source": "raw/llm-wiki.md",
+  "bundle": "evals/cases/llm-wiki/bundle",
+  "expected_existing_pages": [
+    "wiki/sources/llm-wiki.md",
+    "wiki/concepts/persistent-wiki.md",
+    "wiki/topics/llm-wiki-core-concept.md"
+  ],
+  "minimum_scores": {
+    "schema": "pass",
+    "wiki_safety": "pass",
+    "candidate_paths": "pass",
+    "duplicate_detection": "pass",
+    "apply_readiness": "pass",
+    "overall": "pass"
+  },
+  "notes": [
+    "This case requires the reviewed apply plan to label obvious duplicate candidates before it is considered ready.",
+    "Semantic duplicates that do not share slug tokens still require human review."
+  ]
+}
