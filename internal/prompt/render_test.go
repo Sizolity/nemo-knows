@@ -7,7 +7,7 @@ import (
 
 func TestRenderReplacesKnownVariables(t *testing.T) {
 	rendered, err := Render(
-		"Path: {{RAW_SOURCE_PATH}}\nBody:\n{{RAW_SOURCE_CONTENT}}\nConcept: {{CONCEPT_NAME}}\nSources: {{SOURCE_LIST}}\nSource: {{SOURCE_CONTENT}}\nTitle: {{PAGE_TITLE}}\nKind: {{PAGE_KIND}}\nTarget: {{TARGET_PATH}}\nAllowed: {{ALLOWED_LINKS}}",
+		"Path: {{RAW_SOURCE_PATH}}\nBody:\n{{RAW_SOURCE_CONTENT}}\nConcept: {{CONCEPT_NAME}}\nSources: {{SOURCE_LIST}}\nSource: {{SOURCE_CONTENT}}\nTitle: {{PAGE_TITLE}}\nKind: {{PAGE_KIND}}\nTarget: {{TARGET_PATH}}\nAllowed: {{ALLOWED_LINKS}}\nChunk: {{CHUNK_CONTENT}}\nNotes: {{CHUNK_NOTES}}\nGroup notes: {{CHUNK_GROUP_NOTES}}\nOutline: {{CHUNK_OUTLINE}}\nIndex: {{CHUNK_INDEX}}",
 		Variables{
 			RawSourcePath:    "raw/llm-wiki.md",
 			RawSourceContent: "# LLM Wiki",
@@ -18,6 +18,11 @@ func TestRenderReplacesKnownVariables(t *testing.T) {
 			PageKind:         "concept",
 			TargetPath:       "wiki/concepts/persistent-wiki.md",
 			AllowedLinks:     "- [[query]]",
+			ChunkContent:     "chunk text",
+			ChunkNotes:       "chunk notes",
+			ChunkGroupNotes:  "chunk group notes",
+			ChunkOutline:     "chunk outline",
+			ChunkIndex:       "chunk index",
 		},
 	)
 	if err != nil {
@@ -33,6 +38,11 @@ func TestRenderReplacesKnownVariables(t *testing.T) {
 		"concept",
 		"wiki/concepts/persistent-wiki.md",
 		"- [[query]]",
+		"chunk text",
+		"chunk notes",
+		"chunk group notes",
+		"chunk outline",
+		"chunk index",
 	} {
 		if !strings.Contains(rendered, want) {
 			t.Fatalf("rendered prompt missing %q:\n%s", want, rendered)

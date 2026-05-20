@@ -11,6 +11,9 @@ func TestProfileAppliesQwenStableDefaults(t *testing.T) {
 	if cfg.MaxTokens != 32768 {
 		t.Fatalf("MaxTokens = %d, want 32768", cfg.MaxTokens)
 	}
+	if cfg.CtxSize != 24576 {
+		t.Fatalf("CtxSize = %d, want 24576", cfg.CtxSize)
+	}
 	if cfg.Temp != 0.7 {
 		t.Fatalf("Temp = %v, want 0.7", cfg.Temp)
 	}
@@ -77,6 +80,9 @@ func TestProfileAppliesQwenFallbackNonThinkingDefaults(t *testing.T) {
 	}
 	if cfg.MaxTokens != 16384 {
 		t.Fatalf("MaxTokens = %d, want 16384", cfg.MaxTokens)
+	}
+	if cfg.CtxSize != 24576 {
+		t.Fatalf("CtxSize = %d, want 24576", cfg.CtxSize)
 	}
 	if cfg.ReasoningBudget == nil || *cfg.ReasoningBudget != 0 {
 		t.Fatalf("ReasoningBudget = %v, want 0", cfg.ReasoningBudget)

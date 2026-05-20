@@ -36,10 +36,10 @@ The local build supports the parameters needed for Qwen reasoning control:
 | `-m`, `--model` | Local GGUF model path. | Always set from `Config.LlamaModel`. |
 | `-hf`, `--hf-repo` | Load a model from Hugging Face, optionally with a quant suffix. | Not used by `nemo`; local paths are more reproducible. |
 | `-mu`, `--model-url` | Load a model from a direct URL. | Not used by `nemo`. |
-| `-p`, `--prompt` | Prompt text. | Rendered prompt template. |
-| `-f`, `--file` | Read prompt from a file. | Not currently used. |
+| `-p`, `--prompt` | Prompt text. | Not used by `nemo`; large rendered prompts can exceed OS argument length limits. |
+| `-f`, `--file` | Read prompt from a file. | Used for every rendered prompt so long raw sources do not become command-line arguments. |
 | `-n`, `--predict` | Maximum generated tokens. | Profile-specific token budget. |
-| `-c`, `--ctx-size` | Prompt context size. `0` means model default. | Optional; useful for long sources. |
+| `-c`, `--ctx-size` | Prompt context size. `0` means model default. | `stable` and `fallback` use 24576 after Batch 1 corpus testing showed the model default was too small for medium-length SQLite docs. |
 | `-ngl`, `--gpu-layers` | Number of layers offloaded to GPU, or `all`. | Defaults to `all`. |
 | `-t`, `--threads` | CPU threads for generation. | Not currently set; GPU offload is the main path. |
 | `-tb`, `--threads-batch` | CPU threads for prompt processing. | Not currently set. |
@@ -86,12 +86,12 @@ builds and templates, so layered controls are safer than relying on one flag.
 
 ## nemo Profile Mapping
 
-| Profile | Max tokens | Temp | Top-p | Top-k | Min-p | Presence | Repeat | Reasoning |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| `fast` | 2048 | 0.2 | 0.9 | 20 | 0 | 0 | 1.0 | off, budget 0 |
-| `stable` | 32768 | 0.7 | 0.8 | 20 | 0 | 1.5 | 1.0 | off, budget 0 |
-| `deep` | 65536 | 0.6 | 0.95 | 20 | 0 | 0 | 1.0 | on, budget 2000 |
-| `fallback` | 16384 | 0.2 | 0.8 | 20 | 0 | 1.5 | 1.0 | off, budget 0 |
+| Profile | Max tokens | Context | Temp | Top-p | Top-k | Min-p | Presence | Repeat | Reasoning |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| `fast` | 2048 | model default | 0.2 | 0.9 | 20 | 0 | 0 | 1.0 | off, budget 0 |
+| `stable` | 32768 | 24576 | 0.7 | 0.8 | 20 | 0 | 1.5 | 1.0 | off, budget 0 |
+| `deep` | 65536 | model default | 0.6 | 0.95 | 20 | 0 | 0 | 1.0 | on, budget 2000 |
+| `fallback` | 16384 | 24576 | 0.2 | 0.8 | 20 | 0 | 1.5 | 1.0 | off, budget 0 |
 
 ## Official Qwen llama.cpp Example
 

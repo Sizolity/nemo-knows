@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strconv"
 )
@@ -77,9 +78,23 @@ func (c CLI) Generate(ctx context.Context, prompt string) (string, error) {
 	}
 	minP := c.MinP
 
+	promptFile, err := os.CreateTemp("", "nemo-llama-prompt-*.txt")
+	if err != nil {
+		return "", fmt.Errorf("create prompt file: %w", err)
+	}
+	promptPath := promptFile.Name()
+	defer os.Remove(promptPath)
+	if _, err := promptFile.WriteString(prompt); err != nil {
+		promptFile.Close()
+		return "", fmt.Errorf("write prompt file: %w", err)
+	}
+	if err := promptFile.Close(); err != nil {
+		return "", fmt.Errorf("close prompt file: %w", err)
+	}
+
 	args := []string{
 		"-m", c.Model,
-		"-p", prompt,
+		"-f", promptPath,
 		"-n", strconv.Itoa(maxTokens),
 		"-ngl", gpuLayers,
 		"--single-turn",
@@ -90,27 +105,29 @@ func (c CLI) Generate(ctx context.Context, prompt string) (string, error) {
 		"--top-k", strconv.Itoa(topK),
 		"--min-p", strconv.FormatFloat(minP, 'f', -1, 64),
 	}
+
+	appendArg := func(flag, value string) {
+		if value != "" {
+			args = append(args, flag, value)
+		}
+	}
+	appendFloat := func(flag string, value float64) {
+		if value != 0 {
+			args = append(args, flag, strconv.FormatFloat(value, 'f', -1, 64))
+		}
+	}
+
 	if c.CtxSize > 0 {
-		args = append(args, "-c", strconv.Itoa(c.CtxSize))
+		appendArg("-c", strconv.Itoa(c.CtxSize))
 	}
-	if c.PresencePenalty != 0 {
-		args = append(args, "--presence-penalty", strconv.FormatFloat(c.PresencePenalty, 'f', -1, 64))
-	}
-	if c.RepeatPenalty != 0 {
-		args = append(args, "--repeat-penalty", strconv.FormatFloat(c.RepeatPenalty, 'f', -1, 64))
-	}
-	if c.Reasoning != "" {
-		args = append(args, "--reasoning", c.Reasoning)
-	}
+	appendFloat("--presence-penalty", c.PresencePenalty)
+	appendFloat("--repeat-penalty", c.RepeatPenalty)
+	appendArg("--reasoning", c.Reasoning)
 	if c.ReasoningBudget != nil {
-		args = append(args, "--reasoning-budget", strconv.Itoa(*c.ReasoningBudget))
+		appendArg("--reasoning-budget", strconv.Itoa(*c.ReasoningBudget))
 	}
-	if c.ReasoningBudgetMessage != "" {
-		args = append(args, "--reasoning-budget-message", c.ReasoningBudgetMessage)
-	}
-	if c.ChatTemplateKwargs != "" {
-		args = append(args, "--chat-template-kwargs", c.ChatTemplateKwargs)
-	}
+	appendArg("--reasoning-budget-message", c.ReasoningBudgetMessage)
+	appendArg("--chat-template-kwargs", c.ChatTemplateKwargs)
 	if c.Jinja {
 		args = append(args, "--jinja")
 	}

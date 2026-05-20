@@ -18,7 +18,14 @@ func TestCLIGenerateInvokesConfiguredBinary(t *testing.T) {
 	fake := filepath.Join(dir, "llama-cli")
 	if err := os.WriteFile(fake, []byte(`#!/usr/bin/env sh
 printf 'args:%s\n' "$*"
-printf 'prompt:%s\n' "$6"
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-f" ]; then
+    shift
+    printf 'prompt:%s\n' "$(cat "$1")"
+    exit 0
+  fi
+  shift
+done
 `), 0o755); err != nil {
 		t.Fatalf("write fake llama: %v", err)
 	}
@@ -39,7 +46,8 @@ printf 'prompt:%s\n' "$6"
 
 	for _, want := range []string{
 		"-m model.gguf",
-		"-p hello",
+		"-f ",
+		"prompt:hello",
 		"-n 64",
 		"-ngl all",
 		"--single-turn",

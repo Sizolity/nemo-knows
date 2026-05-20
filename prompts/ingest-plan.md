@@ -12,6 +12,9 @@ Rules:
 - Use `sources: [{{RAW_SOURCE_PATH}}]`.
 - Do not propose wiki/index.md, wiki/log.md, AGENTS.md, or schema files as candidate pages.
 - Candidate pages must be under wiki/sources/, wiki/concepts/, or wiki/topics/.
+- Candidate pages must be immediate children of those directories: use
+  `wiki/sources/<slug>.md`, `wiki/concepts/<slug>.md`, or
+  `wiki/topics/<slug>.md`. Do not create nested directories.
 - Include only these sections: Source Summary, Candidate Wiki Pages, Suggested Links, Review Checklist.
 
 Raw source path:

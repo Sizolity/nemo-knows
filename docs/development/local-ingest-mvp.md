@@ -63,6 +63,113 @@ The `.raw.txt` files preserve complete llama.cpp output for debugging. They are
 useful when the cleaned output is incomplete, over-truncated, or contains
 unexpected claims.
 
+## Long-Source Ingest
+
+When the raw source is longer than the local model can reliably process in one
+prompt, bundle generation uses a structure-aware chunked path instead of
+truncating the document. As of 2026-05-19, the trigger is a source size above
+90,000 characters.
+
+The long-source path writes the normal bundle files plus chunk artifacts:
+
+```text
+drafts/<run>/source.md
+drafts/<run>/source.raw.txt
+drafts/<run>/ingest-plan.md
+drafts/<run>/ingest-plan.raw.txt
+drafts/<run>/chunks/outline.md
+drafts/<run>/chunks/chunk-index.json
+drafts/<run>/chunks/chunk-01.md
+drafts/<run>/chunks/chunk-01.raw.txt
+drafts/<run>/chunks/combined-notes.md
+drafts/<run>/chunks/group-01.md
+drafts/<run>/chunks/group-01.raw.txt
+drafts/<run>/chunks/combined-group-notes.md
+```
+
+The group files are present only when the source produces more than one group
+of chunk notes.
+
+### Chunking Strategy
+
+The chunker preserves source structure before it considers size:
+
+1. Split on Markdown headings and recognized numbered/named section headings.
+2. Pack adjacent short sections into one chunk until the chunk approaches the
+   configured maximum size. This avoids wasting context when a long document is
+   made of many short sections.
+3. If a section is too large, split it by paragraphs.
+4. If a paragraph is still too large, split by soft boundaries: line, sentence,
+   then word.
+5. Fall back to character cuts only for boundaryless text such as generated
+   blobs or very long tokens.
+
+The fallback cut does not discard content. It creates multiple segment chunks
+with the same heading context so the model can summarize each segment and later
+synthesis can recombine the notes.
+
+### Heading Coverage
+
+Packed chunks keep both a primary `heading_path` and complete `heading_paths`
+coverage in `chunk-index.json`, `outline.md`, and the rendered chunk prompt.
+This matters when one chunk contains many short sections: the model gets the
+full local outline instead of only the first section title.
+
+### Group Notes
+
+For very long sources, the final source and ingest-plan synthesis should not
+infer whole-document themes from a flat list of many chunk notes. The chunked
+path therefore adds a middle layer:
+
+```text
+chunk notes -> group notes -> final source.md and ingest-plan.md
+```
+
+Group notes summarize adjacent chunks into regional themes while the original
+chunk notes remain available for source-backed detail. This is a quality
+tradeoff: it adds model calls and runtime, but gives final synthesis a stronger
+view of early, middle, and late document structure.
+
+The final chunk synthesis prompts receive:
+
+```text
+{{CHUNK_OUTLINE}}
+{{CHUNK_INDEX}}
+{{CHUNK_GROUP_NOTES}}
+{{CHUNK_NOTES}}
+```
+
+When group notes are present they are treated as the authoritative
+whole-document summary and `{{CHUNK_NOTES}}` is intentionally left empty for
+the final source/ingest synthesis. Sending both layers into a single prompt
+exceeded the local model's 24,576-token context window on long specifications
+(observed 36k-43k tokens for 16-24 chunk sources during round-3 stress
+testing) and caused `clean fallback draft: draft output does not contain
+complete frontmatter` failures. The combined chunk notes are still written to
+disk for human inspection and are still used when the source is short enough
+that group notes are skipped.
+
+Use `combined-group-notes.md` to inspect the regional summaries and
+`combined-notes.md` to inspect the raw per-chunk notes.
+
+### Real Long-Source Validation
+
+The group-notes path was validated against real public-web corpus sources on
+2026-05-19:
+
+| Source | Size | Chunk notes | Group notes | Result |
+| --- | ---: | ---: | ---: | --- |
+| `raw/web/corpus-2026-05-18/031-effective-go.md` | 99 KB | 7 | 2 | pass |
+| `raw/web/corpus-2026-05-18/032-go-modules-reference.md` | 191 KB | 13 | 3 | pass |
+
+Both runs completed bundle generation, bundle review, bundle eval, candidate
+generation, candidate eval, and candidate review. Candidate review reported
+`overall: pass` and `items: 0` for both.
+
+Detailed local artifacts are recorded in
+`evals/runs/real-corpus-2026-05-19-group-notes-summary.md`. These files are test
+artifacts, not maintained wiki pages.
+
 ## Review Boundary
 
 The bundle command must not write to `wiki/`.
@@ -91,6 +198,11 @@ Prompt templates should use braced placeholders:
 {{CONCEPT_NAME}}
 {{SOURCE_LIST}}
 {{SOURCE_CONTENT}}
+{{CHUNK_CONTENT}}
+{{CHUNK_NOTES}}
+{{CHUNK_GROUP_NOTES}}
+{{CHUNK_OUTLINE}}
+{{CHUNK_INDEX}}
 ```
 
 The renderer keeps legacy unbraced placeholders for compatibility, but new

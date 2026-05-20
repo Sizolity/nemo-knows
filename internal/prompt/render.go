@@ -12,6 +12,11 @@ type Variables struct {
 	PageKind         string
 	TargetPath       string
 	AllowedLinks     string
+	ChunkContent     string
+	ChunkNotes       string
+	ChunkGroupNotes  string
+	ChunkOutline     string
+	ChunkIndex       string
 }
 
 // Render renders a prompt template with the given variables.
@@ -33,6 +38,11 @@ func Render(template string, vars Variables) (string, error) {
 		"{{PAGE_KIND}}", vars.PageKind,
 		"{{TARGET_PATH}}", vars.TargetPath,
 		"{{ALLOWED_LINKS}}", vars.AllowedLinks,
+		"{{CHUNK_CONTENT}}", vars.ChunkContent,
+		"{{CHUNK_NOTES}}", vars.ChunkNotes,
+		"{{CHUNK_GROUP_NOTES}}", vars.ChunkGroupNotes,
+		"{{CHUNK_OUTLINE}}", vars.ChunkOutline,
+		"{{CHUNK_INDEX}}", vars.ChunkIndex,
 		"RAW_SOURCE_CONTENT", vars.RawSourceContent,
 		"RAW_SOURCE_PATH", vars.RawSourcePath,
 		"CONCEPT_NAME", vars.ConceptName,
@@ -42,6 +52,11 @@ func Render(template string, vars Variables) (string, error) {
 		"PAGE_KIND", vars.PageKind,
 		"TARGET_PATH", vars.TargetPath,
 		"ALLOWED_LINKS", vars.AllowedLinks,
+		"CHUNK_CONTENT", vars.ChunkContent,
+		"CHUNK_NOTES", vars.ChunkNotes,
+		"CHUNK_GROUP_NOTES", vars.ChunkGroupNotes,
+		"CHUNK_OUTLINE", vars.ChunkOutline,
+		"CHUNK_INDEX", vars.ChunkIndex,
 	)
 
 	return replacer.Replace(template), nil

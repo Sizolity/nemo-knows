@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/huic/nemo-knows/internal/apply"
+	"github.com/huic/nemo-knows/internal/chunking"
 	"github.com/huic/nemo-knows/internal/config"
 	"github.com/huic/nemo-knows/internal/draft"
 	"github.com/huic/nemo-knows/internal/evalharness"
@@ -178,6 +179,9 @@ var sourceReferenceRE = regexp.MustCompile(`(?:raw|wiki/sources)/[A-Za-z0-9._/-]
 var candidateWikilinkRE = regexp.MustCompile(`\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]`)
 var markdownHeadingRE = regexp.MustCompile(`(?m)^#\s+.+$`)
 var sourceDraftFrontmatterRE = regexp.MustCompile(`(?s)^---\s*\n(.*?)\n---\s*`)
+
+const chunkedBundleCharThreshold = 90000
+const chunkNotesPerGroup = 6
 
 type candidateDraftTarget struct {
 	Path  string
@@ -757,6 +761,14 @@ func runReviewBundle(bundleDir string, out string) error {
 }
 
 func runBundle(source string, bundleDir string, cfg config.Config) error {
+	sourceContent, err := os.ReadFile(source)
+	if err != nil {
+		return fmt.Errorf("read source: %w", err)
+	}
+	if len(sourceContent) > chunkedBundleCharThreshold {
+		return runChunkedBundle(source, string(sourceContent), bundleDir, cfg)
+	}
+
 	jobs := []struct {
 		promptPath string
 		outputPath string
@@ -785,6 +797,161 @@ func runBundle(source string, bundleDir string, cfg config.Config) error {
 	return nil
 }
 
+func runChunkedBundle(source string, sourceContent string, bundleDir string, cfg config.Config) error {
+	plan := chunking.PlanSource(filepath.ToSlash(source), sourceContent, chunking.DefaultMaxChunkChars)
+	chunksDir := filepath.Join(bundleDir, "chunks")
+	if err := os.RemoveAll(chunksDir); err != nil {
+		return fmt.Errorf("reset chunks directory: %w", err)
+	}
+	if err := os.MkdirAll(chunksDir, 0o755); err != nil {
+		return fmt.Errorf("create chunks directory: %w", err)
+	}
+	outline := plan.OutlineMarkdown()
+	if err := os.WriteFile(filepath.Join(chunksDir, "outline.md"), []byte(outline), 0o644); err != nil {
+		return fmt.Errorf("write chunk outline: %w", err)
+	}
+	indexJSON, err := plan.IndexJSON()
+	if err != nil {
+		return fmt.Errorf("encode chunk index: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(chunksDir, "chunk-index.json"), append(indexJSON, '\n'), 0o644); err != nil {
+		return fmt.Errorf("write chunk index: %w", err)
+	}
+
+	chunkTemplate, err := os.ReadFile(filepath.Join("prompts", "chunk-notes.md"))
+	if err != nil {
+		return fmt.Errorf("read chunk notes prompt: %w", err)
+	}
+	notePaths := make([]string, 0, len(plan.Chunks))
+	for _, chunk := range plan.Chunks {
+		rendered, err := prompt.Render(string(chunkTemplate), prompt.Variables{
+			RawSourcePath: filepath.ToSlash(source),
+			ChunkContent:  chunking.FormatChunkForPrompt(filepath.ToSlash(source), chunk, len(plan.Chunks)),
+		})
+		if err != nil {
+			return fmt.Errorf("render chunk notes prompt: %w", err)
+		}
+		out := filepath.Join(chunksDir, fmt.Sprintf("chunk-%02d.md", chunk.Index))
+		if err := runRenderedDraft(rendered, out, cfg); err != nil {
+			return fmt.Errorf("generate chunk %02d notes: %w", chunk.Index, err)
+		}
+		notePaths = append(notePaths, out)
+	}
+
+	notes, err := readChunkNotes(notePaths)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(chunksDir, "combined-notes.md"), []byte(notes), 0o644); err != nil {
+		return fmt.Errorf("write combined chunk notes: %w", err)
+	}
+
+	groupNotes, err := runChunkGroupNotes(chunksDir, notePaths, source, outline, string(indexJSON), cfg)
+	if err != nil {
+		return err
+	}
+	if groupNotes != "" {
+		if err := os.WriteFile(filepath.Join(chunksDir, "combined-group-notes.md"), []byte(groupNotes), 0o644); err != nil {
+			return fmt.Errorf("write combined group notes: %w", err)
+		}
+	}
+
+	// When group notes are present they are the whole-document summary; the
+	// final source/ingest synthesis should rely on them plus the outline and
+	// index, and skip the raw combined chunk notes. Passing both layers into a
+	// single prompt easily exceeds the local model's context window for very
+	// long sources (observed 36k-43k tokens for 16-24 chunk standards).
+	finalChunkNotes := notes
+	if groupNotes != "" {
+		finalChunkNotes = ""
+	}
+	if err := runChunkSynthesis(filepath.Join("prompts", "chunk-source-page.md"), filepath.Join(bundleDir, "source.md"), source, outline, string(indexJSON), finalChunkNotes, groupNotes, cfg); err != nil {
+		return err
+	}
+	if err := normalizeSourceDraftFile(filepath.Join(bundleDir, "source.md"), source); err != nil {
+		return err
+	}
+	if err := runChunkSynthesis(filepath.Join("prompts", "chunk-ingest-plan.md"), filepath.Join(bundleDir, "ingest-plan.md"), source, outline, string(indexJSON), finalChunkNotes, groupNotes, cfg); err != nil {
+		return err
+	}
+	return nil
+}
+
+func runChunkGroupNotes(chunksDir string, notePaths []string, source string, outline string, index string, cfg config.Config) (string, error) {
+	if len(notePaths) <= chunkNotesPerGroup {
+		return "", nil
+	}
+	// The group layer is for whole-document understanding, not truncation.
+	// When a long source produces many short-but-coherent chunk notes, final
+	// synthesis should not have to infer cross-document themes from a flat
+	// list. Group notes compress adjacent chunks into regional summaries while
+	// keeping the original chunk notes available for source-backed detail.
+	templateContent, err := os.ReadFile(filepath.Join("prompts", "chunk-group-notes.md"))
+	if err != nil {
+		return "", fmt.Errorf("read chunk group notes prompt: %w", err)
+	}
+	groupPaths := make([]string, 0, (len(notePaths)+chunkNotesPerGroup-1)/chunkNotesPerGroup)
+	for start := 0; start < len(notePaths); start += chunkNotesPerGroup {
+		end := start + chunkNotesPerGroup
+		if end > len(notePaths) {
+			end = len(notePaths)
+		}
+		notes, err := readChunkNotes(notePaths[start:end])
+		if err != nil {
+			return "", err
+		}
+		rendered, err := prompt.Render(string(templateContent), prompt.Variables{
+			RawSourcePath: filepath.ToSlash(source),
+			ChunkOutline:  outline,
+			ChunkIndex:    index,
+			ChunkNotes:    notes,
+		})
+		if err != nil {
+			return "", fmt.Errorf("render chunk group notes prompt: %w", err)
+		}
+		out := filepath.Join(chunksDir, fmt.Sprintf("group-%02d.md", len(groupPaths)+1))
+		if err := runRenderedDraft(rendered, out, cfg); err != nil {
+			return "", fmt.Errorf("generate chunk group %02d notes: %w", len(groupPaths)+1, err)
+		}
+		groupPaths = append(groupPaths, out)
+	}
+	return readChunkNotes(groupPaths)
+}
+
+func readChunkNotes(paths []string) (string, error) {
+	var b strings.Builder
+	for _, path := range paths {
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return "", fmt.Errorf("read chunk note: %w", err)
+		}
+		b.WriteString("## ")
+		b.WriteString(strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)))
+		b.WriteString("\n\n")
+		b.Write(content)
+		b.WriteString("\n")
+	}
+	return b.String(), nil
+}
+
+func runChunkSynthesis(promptPath string, out string, source string, outline string, index string, notes string, groupNotes string, cfg config.Config) error {
+	templateContent, err := os.ReadFile(promptPath)
+	if err != nil {
+		return fmt.Errorf("read chunk synthesis prompt: %w", err)
+	}
+	rendered, err := prompt.Render(string(templateContent), prompt.Variables{
+		RawSourcePath:   filepath.ToSlash(source),
+		ChunkOutline:    outline,
+		ChunkIndex:      index,
+		ChunkNotes:      notes,
+		ChunkGroupNotes: groupNotes,
+	})
+	if err != nil {
+		return fmt.Errorf("render chunk synthesis prompt: %w", err)
+	}
+	return runRenderedDraft(rendered, out, cfg)
+}
+
 func normalizeSourceDraftFile(path string, source string) error {
 	content, err := os.ReadFile(path)
 	if err != nil {
@@ -807,6 +974,7 @@ func normalizeSourceDraft(content string, source string) string {
 		title = titleFromSlug(strings.TrimSuffix(filepath.Base(source), filepath.Ext(source)))
 	}
 	body = strings.TrimSpace(body)
+	body = normalizeSourceSectionHeadings(body)
 
 	var b strings.Builder
 	b.WriteString("---\n")
@@ -819,6 +987,14 @@ func normalizeSourceDraft(content string, source string) string {
 	b.WriteString(body)
 	b.WriteString("\n")
 	return b.String()
+}
+
+func normalizeSourceSectionHeadings(body string) string {
+	for _, section := range []string{"What It Is", "Summary", "Key Claims", "Suggested Links"} {
+		re := regexp.MustCompile(`(?m)^#{1,6}[ \t]+` + regexp.QuoteMeta(section) + `[ \t#]*$`)
+		body = re.ReplaceAllString(body, "## "+section)
+	}
+	return body
 }
 
 func splitMarkdownFrontmatter(content string) (string, string) {
@@ -916,6 +1092,10 @@ func runDraft(source string, promptPath string, out string, cfg config.Config) e
 		return fmt.Errorf("render prompt: %w", err)
 	}
 
+	return runRenderedDraft(rendered, out, cfg)
+}
+
+func runRenderedDraft(rendered string, out string, cfg config.Config) error {
 	generator := llamaCLIFromConfig(cfg)
 
 	rawOutput, err := generator.Generate(context.Background(), rendered)

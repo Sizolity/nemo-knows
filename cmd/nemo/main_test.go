@@ -151,6 +151,249 @@ EOF
 	}
 }
 
+func TestRunGeneratesChunkedBundleForLongSource(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell script fake is Unix-specific")
+	}
+
+	dir := t.TempDir()
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("get wd: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(oldWd); err != nil {
+			t.Fatalf("restore wd: %v", err)
+		}
+	}()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("chdir temp repo: %v", err)
+	}
+
+	for _, path := range []string{"raw", "prompts"} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", path, err)
+		}
+	}
+	longSource := "# Long Source\n\n1. First Section\n\n" +
+		strings.Repeat("alpha beta gamma delta.\n\n", 3000) +
+		"2. Second Section\n\n" +
+		strings.Repeat("epsilon zeta eta theta.\n\n", 3000)
+	if err := os.WriteFile("raw/long.md", []byte(longSource), 0o644); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+	if err := os.WriteFile("prompts/source-page.md", []byte("source {{RAW_SOURCE_CONTENT}}"), 0o644); err != nil {
+		t.Fatalf("write source prompt: %v", err)
+	}
+	if err := os.WriteFile("prompts/ingest-plan.md", []byte("plan {{RAW_SOURCE_CONTENT}}"), 0o644); err != nil {
+		t.Fatalf("write plan prompt: %v", err)
+	}
+	if err := os.WriteFile("prompts/chunk-notes.md", []byte("Create concise source-backed notes\n{{CHUNK_CONTENT}}"), 0o644); err != nil {
+		t.Fatalf("write chunk notes prompt: %v", err)
+	}
+	if err := os.WriteFile("prompts/chunk-group-notes.md", []byte("Create group-level notes\n{{CHUNK_NOTES}}"), 0o644); err != nil {
+		t.Fatalf("write chunk group notes prompt: %v", err)
+	}
+	if err := os.WriteFile("prompts/chunk-source-page.md", []byte("Create a source summary page from chunk notes\n{{CHUNK_NOTES}}"), 0o644); err != nil {
+		t.Fatalf("write chunk source prompt: %v", err)
+	}
+	if err := os.WriteFile("prompts/chunk-ingest-plan.md", []byte("Create a reviewed ingest plan draft from chunk notes\n{{CHUNK_NOTES}}"), 0o644); err != nil {
+		t.Fatalf("write chunk ingest prompt: %v", err)
+	}
+
+	fake := filepath.Join(dir, "llama-cli")
+	if err := os.WriteFile(fake, []byte(`#!/usr/bin/env sh
+prompt_file=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-f" ]; then
+    shift
+    prompt_file="$1"
+    break
+  fi
+  shift
+done
+prompt="$(cat "$prompt_file")"
+case "$prompt" in
+  *"Create concise source-backed notes"*)
+    cat <<'EOF'
+---
+kind: topic
+sources: [raw/long.md]
+---
+
+# Chunk Notes
+
+## Chunk Context
+Long source section.
+
+## Local Summary
+- Local summary.
+
+## Key Claims
+- Claim.
+
+## Entities And Concepts
+- Concept.
+
+## Procedures And API Details
+- Detail.
+
+## Nuance Or Contradictions
+- none
+
+## Candidate Wiki Hints
+- wiki/concepts/long-source.md
+EOF
+    ;;
+  *"Create group-level notes"*)
+    cat <<'EOF'
+---
+kind: topic
+sources: [raw/long.md]
+---
+
+# Chunk Group Notes
+
+## Group Context
+Grouped long source section.
+
+## Cross-Chunk Summary
+- Group summary.
+
+## Repeated Or Central Claims
+- Claim.
+
+## Important Local Details
+- Detail.
+
+## Candidate Wiki Hints
+- wiki/concepts/long-source.md
+
+## Gaps Or Cautions
+- none
+EOF
+    ;;
+  *"Create a source summary page from chunk notes"*)
+    cat <<'EOF'
+---
+kind: source
+sources:
+  - raw/long.md
+---
+
+# Long Source
+
+## What It Is
+Long source summary.
+
+## Summary
+Summary.
+
+## Key Claims
+- Claim.
+
+## Suggested Links
+- none
+EOF
+    ;;
+  *"Create a reviewed ingest plan draft from chunk notes"*)
+    cat <<'EOF'
+---
+kind: topic
+sources: [raw/long.md]
+status: draft
+---
+
+# Ingest Plan
+
+## Source Summary
+- Summary.
+
+## Candidate Wiki Pages
+- wiki/sources/long-source.md — source page
+- wiki/concepts/long-source.md — concept page
+
+## Suggested Links
+- none
+
+## Review Checklist
+- [ ] Review.
+EOF
+    ;;
+  *) echo "unexpected prompt" >&2; exit 1 ;;
+esac
+`), 0o755); err != nil {
+		t.Fatalf("write fake llama: %v", err)
+	}
+	t.Setenv("NEMO_LLAMA_CLI", fake)
+	t.Setenv("NEMO_LLAMA_MODEL", "model.gguf")
+
+	if code := run([]string{"-source", "raw/long.md", "-bundle-dir", "drafts/long", "-profile", "stable"}); code != 0 {
+		t.Fatalf("run returned exit code %d", code)
+	}
+
+	for _, path := range []string{
+		"drafts/long/source.md",
+		"drafts/long/ingest-plan.md",
+		"drafts/long/chunks/outline.md",
+		"drafts/long/chunks/chunk-index.json",
+		"drafts/long/chunks/combined-notes.md",
+		"drafts/long/chunks/combined-group-notes.md",
+	} {
+		if _, err := os.Stat(path); err != nil {
+			t.Fatalf("expected chunked bundle file %s: %v", path, err)
+		}
+	}
+	chunks, err := filepath.Glob("drafts/long/chunks/chunk-*.md")
+	if err != nil {
+		t.Fatalf("glob chunks: %v", err)
+	}
+	if len(chunks) < 2 {
+		t.Fatalf("expected multiple chunk notes, got %d", len(chunks))
+	}
+	groups, err := filepath.Glob("drafts/long/chunks/group-*.md")
+	if err != nil {
+		t.Fatalf("glob chunk groups: %v", err)
+	}
+	if len(groups) == 0 {
+		t.Fatalf("expected grouped chunk notes")
+	}
+}
+
+func TestNormalizeSourceDraftDemotesRequiredSectionHeadings(t *testing.T) {
+	got := normalizeSourceDraft(`---
+title: Branches
+kind: source
+---
+
+# What It Is
+Git branches are pointers.
+
+# Summary
+Summary text.
+
+# Key Claims
+- Claim.
+
+# Suggested Links
+- none
+`, "raw/web/branches.md")
+
+	for _, want := range []string{
+		"## What It Is",
+		"## Summary",
+		"## Key Claims",
+		"## Suggested Links",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("normalized source missing %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "\n# What It Is") {
+		t.Fatalf("source section remained top-level:\n%s", got)
+	}
+}
+
 func TestRunAcceptsProfileFlag(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shell script fake is Unix-specific")
@@ -225,9 +468,18 @@ func TestRunBundlePersistsWebSourceBeforeGeneration(t *testing.T) {
 	}
 	fake := filepath.Join(dir, "llama-cli")
 	if err := os.WriteFile(fake, []byte(`#!/usr/bin/env sh
-case "$*" in
+prompt_file=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-f" ]; then
+    shift
+    prompt_file="$1"
+    break
+  fi
+  shift
+done
+case "$(cat "$prompt_file")" in
   *"raw/web/qwen-llama-cpp.md"*) ;;
-  *) echo "missing durable raw path: $*" >&2; exit 1 ;;
+  *) echo "missing durable raw path in prompt" >&2; exit 1 ;;
 esac
 cat <<'EOF'
 ---

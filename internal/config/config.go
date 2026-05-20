@@ -96,6 +96,7 @@ func ForProfile(profile string) (Config, error) {
 	case "stable":
 		cfg.Profile = "stable"
 		cfg.MaxTokens = 32768
+		cfg.CtxSize = 24576
 		cfg.Temp = 0.7
 		cfg.TopP = 0.8
 		cfg.TopK = 20
@@ -116,6 +117,7 @@ func ForProfile(profile string) (Config, error) {
 	case "fallback":
 		cfg.Profile = "fallback"
 		cfg.MaxTokens = 16384
+		cfg.CtxSize = 24576
 		cfg.Temp = 0.2
 		cfg.TopP = 0.8
 		cfg.TopK = 20
