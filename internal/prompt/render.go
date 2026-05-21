@@ -8,6 +8,7 @@ type Variables struct {
 	ConceptName      string
 	SourceList       string
 	SourceContent    string
+	TargetEvidence   string
 	PageTitle        string
 	PageKind         string
 	TargetPath       string
@@ -34,6 +35,7 @@ func Render(template string, vars Variables) (string, error) {
 		"{{CONCEPT_NAME}}", vars.ConceptName,
 		"{{SOURCE_LIST}}", vars.SourceList,
 		"{{SOURCE_CONTENT}}", vars.SourceContent,
+		"{{TARGET_EVIDENCE}}", vars.TargetEvidence,
 		"{{PAGE_TITLE}}", vars.PageTitle,
 		"{{PAGE_KIND}}", vars.PageKind,
 		"{{TARGET_PATH}}", vars.TargetPath,
@@ -48,6 +50,7 @@ func Render(template string, vars Variables) (string, error) {
 		"CONCEPT_NAME", vars.ConceptName,
 		"SOURCE_LIST", vars.SourceList,
 		"SOURCE_CONTENT", vars.SourceContent,
+		"TARGET_EVIDENCE", vars.TargetEvidence,
 		"PAGE_TITLE", vars.PageTitle,
 		"PAGE_KIND", vars.PageKind,
 		"TARGET_PATH", vars.TargetPath,

@@ -20,6 +20,12 @@ Rules:
   source-backed claim in original reference prose.
 - A paragraph that merely restates the source summary belongs in the source
   page, not in a topic page.
+- Use the Target Evidence section when present. If the source summary is broad
+  but target evidence contains specific passages, ground the page in that
+  evidence.
+- If neither the source summary nor the target evidence supports the target
+  title, do not pretend it does; write a short review note that the candidate
+  needs more evidence.
 
 Topic:
 {{PAGE_TITLE}}
@@ -35,3 +41,6 @@ Allowed Links:
 
 Source material:
 {{SOURCE_CONTENT}}
+
+Target Evidence:
+{{TARGET_EVIDENCE}}

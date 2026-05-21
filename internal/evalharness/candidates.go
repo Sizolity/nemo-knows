@@ -31,6 +31,7 @@ type CandidateAggregateScore struct {
 	Title          string `json:"title"`
 	TitleAlignment string `json:"title_alignment"`
 	Wikilinks      string `json:"wikilinks"`
+	Markdown       string `json:"markdown"`
 	Length         string `json:"length"`
 	Originality    string `json:"originality"`
 	Overall        string `json:"overall"`
@@ -118,6 +119,7 @@ func scoreCandidateFile(target string, content string, sourceDraft string, allow
 	result.Scores.Title = scoreCandidateTitle(frontmatter, body, &result.Trace)
 	result.Scores.TitleAlignment = scoreCandidateTitleAlignment(frontmatterValue(frontmatter, candidateTitleRE), body, &result.Trace)
 	result.Scores.Wikilinks = scoreCandidateWikilinks(body, allowedLinks, supportedLinks, validateLinks, &result.Trace)
+	result.Scores.Markdown = scoreCandidateMarkdown(body, &result.Trace)
 	result.Scores.Length = scoreCandidateLength(body, &result.Trace)
 	result.Scores.Originality = scoreCandidateOriginality(body, sourceDraft, &result.Trace)
 	result.Scores.Overall = aggregateOneCandidate(result.Scores)
@@ -247,6 +249,15 @@ func scoreCandidateWikilinks(body string, allowedLinks map[string]bool, supporte
 		}
 	}
 	*trace = append(*trace, "wikilinks: at least one wikilink present")
+	return "pass"
+}
+
+func scoreCandidateMarkdown(body string, trace *[]string) string {
+	if strings.Count(body, "```")%2 != 0 {
+		*trace = append(*trace, "markdown: unclosed fenced code block")
+		return "fail"
+	}
+	*trace = append(*trace, "markdown: no unclosed fenced code block")
 	return "pass"
 }
 
@@ -401,6 +412,7 @@ func aggregateCandidateScores(candidates []CandidateFileResult) CandidateAggrega
 		Title:          "pass",
 		TitleAlignment: "pass",
 		Wikilinks:      "pass",
+		Markdown:       "pass",
 		Length:         "pass",
 		Originality:    "pass",
 		Overall:        "pass",
@@ -411,6 +423,7 @@ func aggregateCandidateScores(candidates []CandidateFileResult) CandidateAggrega
 		score.Title = worstScore(score.Title, candidate.Scores.Title)
 		score.TitleAlignment = worstScore(score.TitleAlignment, candidate.Scores.TitleAlignment)
 		score.Wikilinks = worstScore(score.Wikilinks, candidate.Scores.Wikilinks)
+		score.Markdown = worstScore(score.Markdown, candidate.Scores.Markdown)
 		score.Length = worstScore(score.Length, candidate.Scores.Length)
 		score.Originality = worstScore(score.Originality, candidate.Scores.Originality)
 		score.Overall = worstScore(score.Overall, candidate.Scores.Overall)
@@ -420,7 +433,7 @@ func aggregateCandidateScores(candidates []CandidateFileResult) CandidateAggrega
 
 func aggregateOneCandidate(scores CandidateAggregateScore) string {
 	overall := "pass"
-	for _, score := range []string{scores.Frontmatter, scores.Sources, scores.Title, scores.TitleAlignment, scores.Wikilinks, scores.Length, scores.Originality} {
+	for _, score := range []string{scores.Frontmatter, scores.Sources, scores.Title, scores.TitleAlignment, scores.Wikilinks, scores.Markdown, scores.Length, scores.Originality} {
 		overall = worstScore(overall, score)
 	}
 	return overall

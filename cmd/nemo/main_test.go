@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -1334,6 +1335,71 @@ EOF
 	}
 	if _, err := os.Stat("drafts/bundle/candidates/wiki/concepts/tooling-stack.fallback.raw.txt"); err != nil {
 		t.Fatalf("expected fallback raw output: %v", err)
+	}
+}
+
+func TestRunGenerateCandidatesFailsWhenPrimaryAndFallbackCannotBeCleaned(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell script fake is Unix-specific")
+	}
+
+	dir := t.TempDir()
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("get wd: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(oldWd); err != nil {
+			t.Fatalf("restore wd: %v", err)
+		}
+	}()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("chdir temp repo: %v", err)
+	}
+	for _, path := range []string{"drafts/bundle", "prompts"} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", path, err)
+		}
+	}
+	if err := os.WriteFile("drafts/bundle/source.md", []byte("---\nkind: source\nsources:\n  - raw/llm-wiki.md\n---\n\n# Source Summary\n"), 0o644); err != nil {
+		t.Fatalf("write source draft: %v", err)
+	}
+	if err := os.WriteFile("drafts/bundle/apply-plan.md", []byte("## Candidate Changes\n\n- `wiki/concepts/tooling-stack.md` — create new page.\n"), 0o644); err != nil {
+		t.Fatalf("write apply plan: %v", err)
+	}
+	if err := os.WriteFile("prompts/concept-page.md", []byte("concept {{PAGE_TITLE}}"), 0o644); err != nil {
+		t.Fatalf("write concept prompt: %v", err)
+	}
+	fake := filepath.Join(dir, "llama-cli")
+	if err := os.WriteFile(fake, []byte(`#!/usr/bin/env sh
+echo "thinking forever without markdown"
+`), 0o755); err != nil {
+		t.Fatalf("write fake llama: %v", err)
+	}
+	t.Setenv("NEMO_LLAMA_CLI", fake)
+	t.Setenv("NEMO_LLAMA_MODEL", "model.gguf")
+
+	if code := run([]string{"-generate-candidates", "drafts/bundle", "-profile", "stable"}); code == 0 {
+		t.Fatal("expected candidate generation to fail when primary and fallback are uncleanable")
+	}
+	candidatePath := "drafts/bundle/candidates/wiki/concepts/tooling-stack.md"
+	if _, err := os.Stat(candidatePath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected no deterministic boilerplate candidate at %s, stat err=%v", candidatePath, err)
+	}
+}
+
+func TestTargetEvidenceExcerptsFindTitleTermsInRawSource(t *testing.T) {
+	content := strings.Repeat("opening sea material\n", 20) +
+		"Queequeg shares a room with Ishmael and becomes central to the novel's cross-cultural friendship.\n" +
+		strings.Repeat("middle sea material\n", 20) +
+		"The whiteness of the whale gives Ishmael a language for terror and ambiguity.\n"
+
+	excerpts := targetEvidenceExcerpts(content, "Queequeg And Cosmopolitanism", 2, 300)
+	if len(excerpts) == 0 {
+		t.Fatal("expected target evidence for Queequeg")
+	}
+	if !strings.Contains(excerpts[0], "Queequeg") {
+		t.Fatalf("excerpt does not contain target term:\n%s", excerpts[0])
 	}
 }
 

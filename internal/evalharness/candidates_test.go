@@ -183,6 +183,37 @@ This draft explains event propagation, shadow-boundary retargeting, mutation cal
 	}
 }
 
+func TestEvaluateCandidatesFlagsUnclosedCodeFence(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "source.md"), "---\nkind: source\nsources:\n  - raw/moby-dick.md\n---\n\n# Source\n\nMoby-Dick includes long descriptions of whaling practices aboard the Pequod.\n")
+	writeFile(t, filepath.Join(dir, "apply-plan.md"), "## Candidate Changes\n\n- `wiki/topics/whaling-practices.md` — create new page.\n")
+	writeFile(t, filepath.Join(dir, "candidates", "wiki", "topics", "whaling-practices.md"), `---
+title: Whaling Practices
+kind: topic
+sources:
+  - source.md
+  - raw/moby-dick.md
+confidence: medium
+---
+
+# Whaling Practices
+
+Moby-Dick describes the whaling voyage as a sequence of practical work aboard the Pequod, including boat lowering, pursuit, harpooning, towing, cutting in, and trying out. The details present whaling as coordinated industrial labor rather than only symbolic adventure.
+`+"```"+`
+`)
+
+	result, err := EvaluateCandidates(dir)
+	if err != nil {
+		t.Fatalf("EvaluateCandidates returned error: %v", err)
+	}
+	if got := result.Candidates[0].Scores.Markdown; got != "fail" {
+		t.Fatalf("markdown score = %q, want fail; trace=%v", got, result.Candidates[0].Trace)
+	}
+	if result.Scores.Overall != "fail" {
+		t.Fatalf("overall score = %q, want fail", result.Scores.Overall)
+	}
+}
+
 func TestEvaluateCandidatesMarksMissingWikilinkTargetsBorderline(t *testing.T) {
 	root := t.TempDir()
 	bundle := filepath.Join(root, "drafts", "bundle")

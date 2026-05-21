@@ -10,13 +10,14 @@ import (
 var (
 	ErrNoFrontmatter = errors.New("draft output does not contain complete frontmatter")
 
-	thinkingBlockRE = regexp.MustCompile(`(?s)\[Start thinking\].*?(?:\[End thinking\]|\z)`)
-	markdownFenceRE = regexp.MustCompile("(?s)```(?:markdown|md)\\s*\\n(.*?)\\n```")
-	frontmatterLine = regexp.MustCompile(`(?m)^---\s*$`)
-	backspaceRune   = "\b"
-	performanceLine = "[ Prompt:"
-	exitingLine     = "Exiting..."
-	memoryLogPrefix = "common_memory_breakdown_print:"
+	thinkingBlockRE          = regexp.MustCompile(`(?s)\[Start thinking\].*?(?:\[End thinking\]|\z)`)
+	markdownFenceRE          = regexp.MustCompile("(?s)```(?:markdown|md|yaml|yml)?\\s*\\n(.*?)\\n```")
+	frontmatterLine          = regexp.MustCompile(`(?m)^---\s*$`)
+	pseudoFrontmatterPrelude = regexp.MustCompile(`(?s)^\s*(title|kind|sources|confidence|path):.*?\n---\s*\n?`)
+	backspaceRune            = "\b"
+	performanceLine          = "[ Prompt:"
+	exitingLine              = "Exiting..."
+	memoryLogPrefix          = "common_memory_breakdown_print:"
 )
 
 // Clean converts raw llama.cpp output into a Markdown draft.
@@ -47,12 +48,29 @@ func Clean(raw string) (string, error) {
 
 func cleanCandidate(raw string) (string, bool) {
 	text := stripNoise(raw)
+	text = unwrapWholeDocumentFence(text)
+	text = normalizePseudoFrontmatter(text)
 	text = extractFromFrontmatter(text)
 	if !hasCompleteFrontmatter(text) {
 		return "", false
 	}
 
 	return strings.TrimSpace(text) + "\n", true
+}
+
+func unwrapWholeDocumentFence(text string) string {
+	matches := markdownFenceRE.FindAllStringSubmatch(text, -1)
+	if len(matches) != 1 || strings.TrimSpace(matches[0][0]) != strings.TrimSpace(text) {
+		return text
+	}
+	return strings.TrimSpace(matches[0][1])
+}
+
+func normalizePseudoFrontmatter(text string) string {
+	if strings.HasPrefix(strings.TrimLeftFunc(text, unicode.IsSpace), "---") || !pseudoFrontmatterPrelude.MatchString(text) {
+		return text
+	}
+	return "---\n" + text
 }
 
 func stripNoise(raw string) string {

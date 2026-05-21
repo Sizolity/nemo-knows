@@ -90,6 +90,14 @@ There is also a small Go CLI under [`cmd/nemo`](cmd/nemo) for local ingest
 drafts, deterministic evaluation, and explicitly approved writes to `wiki/`.
 Start with [`docs/development/local-ingest-mvp.md`](docs/development/local-ingest-mvp.md).
 
+To use the same workflow through a local browser UI, start the web console:
+
+```sh
+go run ./cmd/nemo -serve
+```
+
+Then open `http://127.0.0.1:8787` (or custom address with `-addr`). The console allows you to navigate the double-linked knowledge graph, import new raw documents, and start the AI compilation pipeline with background status tracking. It does not apply reviewed output to `wiki/`; approved wiki writes still go through the explicit CLI apply workflow.
+
 ## Status
 
 Early, vision-driven. The schema in `AGENTS.md` is the first draft and

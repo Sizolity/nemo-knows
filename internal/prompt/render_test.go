@@ -7,13 +7,14 @@ import (
 
 func TestRenderReplacesKnownVariables(t *testing.T) {
 	rendered, err := Render(
-		"Path: {{RAW_SOURCE_PATH}}\nBody:\n{{RAW_SOURCE_CONTENT}}\nConcept: {{CONCEPT_NAME}}\nSources: {{SOURCE_LIST}}\nSource: {{SOURCE_CONTENT}}\nTitle: {{PAGE_TITLE}}\nKind: {{PAGE_KIND}}\nTarget: {{TARGET_PATH}}\nAllowed: {{ALLOWED_LINKS}}\nChunk: {{CHUNK_CONTENT}}\nNotes: {{CHUNK_NOTES}}\nGroup notes: {{CHUNK_GROUP_NOTES}}\nOutline: {{CHUNK_OUTLINE}}\nIndex: {{CHUNK_INDEX}}",
+		"Path: {{RAW_SOURCE_PATH}}\nBody:\n{{RAW_SOURCE_CONTENT}}\nConcept: {{CONCEPT_NAME}}\nSources: {{SOURCE_LIST}}\nSource: {{SOURCE_CONTENT}}\nEvidence: {{TARGET_EVIDENCE}}\nTitle: {{PAGE_TITLE}}\nKind: {{PAGE_KIND}}\nTarget: {{TARGET_PATH}}\nAllowed: {{ALLOWED_LINKS}}\nChunk: {{CHUNK_CONTENT}}\nNotes: {{CHUNK_NOTES}}\nGroup notes: {{CHUNK_GROUP_NOTES}}\nOutline: {{CHUNK_OUTLINE}}\nIndex: {{CHUNK_INDEX}}",
 		Variables{
 			RawSourcePath:    "raw/llm-wiki.md",
 			RawSourceContent: "# LLM Wiki",
 			ConceptName:      "Persistent Wiki",
 			SourceList:       "wiki/sources/llm-wiki.md",
 			SourceContent:    "Source summary",
+			TargetEvidence:   "Target evidence",
 			PageTitle:        "Persistent Wiki",
 			PageKind:         "concept",
 			TargetPath:       "wiki/concepts/persistent-wiki.md",
@@ -35,6 +36,7 @@ func TestRenderReplacesKnownVariables(t *testing.T) {
 		"Persistent Wiki",
 		"wiki/sources/llm-wiki.md",
 		"Source summary",
+		"Target evidence",
 		"concept",
 		"wiki/concepts/persistent-wiki.md",
 		"- [[query]]",
@@ -55,6 +57,7 @@ func TestRenderReplacesKnownVariables(t *testing.T) {
 		"{{CONCEPT_NAME}}",
 		"{{SOURCE_LIST}}",
 		"{{SOURCE_CONTENT}}",
+		"{{TARGET_EVIDENCE}}",
 	} {
 		if strings.Contains(rendered, placeholder) {
 			t.Fatalf("rendered prompt still contains placeholder %q:\n%s", placeholder, rendered)

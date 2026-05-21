@@ -24,6 +24,7 @@ node_modules/
 scratch/
 tmp/
 experiments/
+.bin/
 .cursor
 
 # Local tar snapshots and regenerated eval outputs

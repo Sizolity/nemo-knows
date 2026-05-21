@@ -133,3 +133,33 @@ func TestCleanExtractsFrontmatterOnlyFromDelimiterLine(t *testing.T) {
 		t.Fatalf("expected frontmatter delimiter line, got:\n%s", cleaned)
 	}
 }
+
+func TestCleanRecoversYamlFencedMarkdown(t *testing.T) {
+	raw := "```yaml\n---\ntitle: Whaling Practices\nkind: topic\n---\n# Whaling Practices\n\nBody.\n```"
+
+	cleaned, err := Clean(raw)
+	if err != nil {
+		t.Fatalf("Clean returned error: %v", err)
+	}
+	if strings.Contains(cleaned, "```") {
+		t.Fatalf("cleaned draft still contains fence:\n%s", cleaned)
+	}
+	if !strings.Contains(cleaned, "# Whaling Practices") {
+		t.Fatalf("cleaned draft lost body:\n%s", cleaned)
+	}
+}
+
+func TestCleanRecoversFencedPseudoFrontmatter(t *testing.T) {
+	raw := "```yaml\ntitle: Whiteness Of The Whale\nkind: topic\npath: wiki/topics/whiteness-of-the-whale.md\n---\n\n# Whiteness Of The Whale\n\nBody.\n```"
+
+	cleaned, err := Clean(raw)
+	if err != nil {
+		t.Fatalf("Clean returned error: %v", err)
+	}
+	if !strings.HasPrefix(cleaned, "---\ntitle: Whiteness Of The Whale") {
+		t.Fatalf("expected pseudo-frontmatter to be wrapped, got:\n%s", cleaned)
+	}
+	if strings.Contains(cleaned, "```") {
+		t.Fatalf("cleaned draft still contains fence:\n%s", cleaned)
+	}
+}

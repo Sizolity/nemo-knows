@@ -75,9 +75,10 @@ truncating the document. The trigger is provider-aware:
   empirically dropped frontmatter or mid-document detail.
 - DeepSeek (`NEMO_MODEL_PROVIDER=deepseek`): source size is derived from model
   capability when available. The default assumes a 1,000,000-token context,
-  reserves 100,000 tokens, estimates 3.5 chars/token, and applies a 0.60 safety
-  margin, yielding a **1,890,000-character** chunk trigger. Each chunk is capped
-  at **60,000 characters** once the chunked path is active. See
+  reserves 100,000 tokens for prompt scaffolding/reasoning plus the active
+  384,000-token output budget, estimates 3.5 chars/token, and applies a 0.60
+  safety margin, yielding a **1,083,600-character** chunk trigger. Each chunk is
+  capped at **60,000 characters** once the chunked path is active. See
   [`deepseek-model-config.md`](deepseek-model-config.md#model-aware-chunk-thresholds)
   for the rationale and override knobs.
 
@@ -93,7 +94,8 @@ Model context can also be configured explicitly:
 
 ```sh
 NEMO_MODEL_CONTEXT_TOKENS=1000000 NEMO_CONTEXT_RESERVE_TOKENS=100000 \
-NEMO_CHARS_PER_TOKEN=3.5 NEMO_CONTEXT_SAFETY_MARGIN=0.60 \
+NEMO_CONTEXT_OUTPUT_RESERVE_TOKENS=384000 NEMO_CHARS_PER_TOKEN=3.5 \
+NEMO_CONTEXT_SAFETY_MARGIN=0.60 \
     nemo -provider deepseek -source raw/large.md -bundle-dir drafts/large -profile stable
 ```
 
@@ -201,6 +203,13 @@ candidate generation, candidate eval, and candidate review. Candidate review
 reported `overall: pass` and `items: 0` for 031, 032, and 102; DOM surfaced one
 reviewable title/originality issue in a candidate page while the bundle itself
 passed.
+
+Follow-up single-shot testing on 2026-05-21 showed that context capacity alone
+is not enough for evidence-heavy sources. DeepSeek could ingest the 892 KB
+*Moby-Dick* source in one request, but candidate generation from the compressed
+source page produced thin or unsupported topic pages. Candidate prompts now
+include target-title raw excerpts when a durable `raw/` source is available, so
+large-source candidates are grounded in more than the source summary.
 
 Round-4 validation on 2026-05-21 raised the real-source ceiling to 892 KB and
 the mechanical synthetic ceiling to 1.8 MB (102 chunks, 17 group notes) using a
@@ -388,7 +397,8 @@ about accepting results. The desired behavior is:
 6. If cleaning or validation fails, retry once with a shorter fallback prompt
    and the `fallback` profile.
 7. If the retry still fails, keep the raw output and report the validation
-   failure instead of writing to `wiki/`.
+   failure instead of writing a deterministic placeholder page. A missing draft
+   is safer than a polished page about the wrong subject.
 8. When a primary generation succeeds, remove any stale `.fallback.raw.txt`
    file from an earlier failed run so debugging artifacts reflect the latest
    execution.

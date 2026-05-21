@@ -324,14 +324,16 @@ func runCandidateDraft(promptPath string, out string, target candidateDraftTarge
 	if err != nil {
 		return fmt.Errorf("read candidate prompt: %w", err)
 	}
+	targetEvidence := targetEvidenceForCandidate(target, sourceRefs)
 	rendered, err := prompt.Render(string(templateContent), prompt.Variables{
-		ConceptName:   target.Title,
-		SourceList:    markdownSourceList(sourceRefs),
-		SourceContent: sourceContent,
-		PageTitle:     target.Title,
-		PageKind:      target.Kind,
-		TargetPath:    target.Path,
-		AllowedLinks:  markdownAllowedLinks(allowedLinks),
+		ConceptName:    target.Title,
+		SourceList:     markdownSourceList(sourceRefs),
+		SourceContent:  sourceContent,
+		TargetEvidence: targetEvidence,
+		PageTitle:      target.Title,
+		PageKind:       target.Kind,
+		TargetPath:     target.Path,
+		AllowedLinks:   markdownAllowedLinks(allowedLinks),
 	})
 	if err != nil {
 		return fmt.Errorf("render candidate prompt: %w", err)
@@ -355,7 +357,7 @@ func runCandidateDraft(promptPath string, out string, target candidateDraftTarge
 	if err != nil {
 		cleaned, err = runFallbackCandidateDraft(rendered, paths.Cleaned, cfg)
 		if err != nil {
-			cleaned = deterministicCandidateDraft(target, sourceRefs, allowedLinks)
+			return fmt.Errorf("clean candidate draft and fallback for %s: %w", target.Path, err)
 		}
 	} else if err := os.Remove(fallbackRawPath(paths.Cleaned)); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("remove stale fallback raw candidate draft: %w", err)
@@ -421,6 +423,120 @@ func markdownSourceList(refs []string) string {
 	return strings.TrimRight(b.String(), "\n")
 }
 
+func targetEvidenceForCandidate(target candidateDraftTarget, sourceRefs []string) string {
+	rawPath := ""
+	for _, ref := range sourceRefs {
+		if strings.HasPrefix(ref, "raw/") {
+			rawPath = ref
+			break
+		}
+	}
+	if rawPath == "" {
+		return "(none)"
+	}
+	content, err := os.ReadFile(filepath.Clean(rawPath))
+	if err != nil {
+		return "(raw source unavailable for targeted evidence)"
+	}
+	excerpts := targetEvidenceExcerpts(string(content), target.Title, 4, 1200)
+	if len(excerpts) == 0 {
+		return "(no direct target-title matches found in raw source)"
+	}
+	var b strings.Builder
+	for i, excerpt := range excerpts {
+		b.WriteString(fmt.Sprintf("### Excerpt %d from `%s`\n\n", i+1, filepath.ToSlash(rawPath)))
+		b.WriteString(excerpt)
+		b.WriteString("\n\n")
+	}
+	return strings.TrimSpace(b.String())
+}
+
+func targetEvidenceExcerpts(content string, title string, maxExcerpts int, windowChars int) []string {
+	terms := evidenceTerms(title)
+	if len(terms) == 0 || maxExcerpts <= 0 || windowChars <= 0 {
+		return nil
+	}
+	lower := strings.ToLower(content)
+	excerpts := []string{}
+	seenRanges := [][2]int{}
+	for _, term := range terms {
+		searchFrom := 0
+		for len(excerpts) < maxExcerpts {
+			idx := strings.Index(lower[searchFrom:], term)
+			if idx == -1 {
+				break
+			}
+			center := searchFrom + idx
+			start := center - windowChars/2
+			if start < 0 {
+				start = 0
+			}
+			end := center + windowChars/2
+			if end > len(content) {
+				end = len(content)
+			}
+			start = adjustExcerptStart(content, start)
+			end = adjustExcerptEnd(content, end)
+			if !rangeOverlaps(seenRanges, start, end) {
+				seenRanges = append(seenRanges, [2]int{start, end})
+				excerpts = append(excerpts, strings.TrimSpace(content[start:end]))
+			}
+			searchFrom = center + len(term)
+			if searchFrom >= len(lower) {
+				break
+			}
+		}
+		if len(excerpts) >= maxExcerpts {
+			break
+		}
+	}
+	return excerpts
+}
+
+func evidenceTerms(title string) []string {
+	stop := map[string]bool{
+		"a": true, "an": true, "and": true, "as": true, "for": true,
+		"in": true, "of": true, "on": true, "or": true, "the": true,
+		"to": true, "with": true,
+	}
+	parts := strings.FieldsFunc(strings.ToLower(title), func(r rune) bool {
+		return !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9')
+	})
+	terms := []string{}
+	seen := map[string]bool{}
+	for _, part := range parts {
+		if stop[part] || len(part) < 4 || seen[part] {
+			continue
+		}
+		seen[part] = true
+		terms = append(terms, part)
+	}
+	return terms
+}
+
+func rangeOverlaps(ranges [][2]int, start int, end int) bool {
+	for _, existing := range ranges {
+		if start < existing[1] && end > existing[0] {
+			return true
+		}
+	}
+	return false
+}
+
+func adjustExcerptStart(content string, start int) int {
+	for start > 0 && content[start-1] != '\n' {
+		start--
+	}
+	return start
+}
+
+func adjustExcerptEnd(content string, end int) int {
+	for end < len(content) && content[end-1] != '\n' {
+		end++
+	}
+	return end
+}
+
 func normalizeCandidateDraft(cleaned string, target candidateDraftTarget, sourceRefs []string, allowedLinks map[string]bool) string {
 	body := markdownFrontmatterRE.ReplaceAllString(cleaned, "")
 	body = nestedFrontmatterPreludeRE.ReplaceAllString(body, "")
@@ -442,26 +558,6 @@ func normalizeCandidateDraft(cleaned string, target candidateDraftTarget, source
 	b.WriteString("\n")
 
 	return b.String()
-}
-
-func deterministicCandidateDraft(target candidateDraftTarget, sourceRefs []string, allowedLinks map[string]bool) string {
-	body := strings.Join([]string{
-		"# " + target.Title,
-		"",
-		fmt.Sprintf("%s is a candidate %s page from the reviewed apply plan. The available source describes the %s pattern as a persistent wiki maintained from immutable raw sources, generated markdown pages, and a schema file.", target.Title, target.Kind, linkIfAllowed("llm-wiki", "LLM Wiki", allowedLinks)),
-		"",
-		fmt.Sprintf("The source emphasizes %s, %s, and %s operations, with %s and %s pages used for navigation and audit history. Human review should confirm whether this page title is the right home for that material before approved apply.", linkIfAllowed("ingest", "ingest", allowedLinks), linkIfAllowed("query", "query", allowedLinks), linkIfAllowed("lint", "lint", allowedLinks), linkIfAllowed("index", "index", allowedLinks), linkIfAllowed("log", "log", allowedLinks)),
-		"",
-		"The page should remain concise until a reviewer accepts the candidate and decides whether the source supports deeper claims.",
-	}, "\n")
-	return normalizeCandidateDraft(body, target, sourceRefs, allowedLinks)
-}
-
-func linkIfAllowed(slug string, label string, allowedLinks map[string]bool) string {
-	if allowedLinks[slug] {
-		return "[[" + slug + "|" + label + "]]"
-	}
-	return label
 }
 
 func allowedLinkSlugs(sourceContent string, targets []candidateDraftTarget) map[string]bool {

@@ -54,6 +54,8 @@ func candidateReviewRecommendation(problem string) string {
 		return "Remove missing wikilinks or add explicit reviewed candidate pages before approved apply."
 	case strings.Contains(problem, "wikilinks: no wikilinks found"):
 		return "Add one source-supported wikilink to an existing page or reviewed candidate; otherwise keep the term as plain text and accept the borderline score."
+	case strings.Contains(problem, "markdown: unclosed fenced code block"):
+		return "Fix malformed Markdown before approved apply; unclosed fences usually mean the model wrapped the page in a code block."
 	case strings.Contains(problem, "sources: missing"):
 		return "Regenerate after adding a durable raw or wiki/sources reference; candidate pages must not rely only on local source.md."
 	case strings.Contains(problem, "title_alignment: title terms weakly supported"):
