@@ -260,6 +260,11 @@ behavior: it is faster, easier to clean, and less likely to spend the entire
 budget on reasoning. Thinking mode should be an explicit opt-in for complex
 analysis, not the default ingest path.
 
+The same ingest pipeline can also use DeepSeek through its OpenAI-compatible
+API by setting `NEMO_MODEL_PROVIDER=deepseek` and `NEMO_DEEPSEEK_API_KEY`.
+The generated model/profile mapping lives in
+[`docs/development/deepseek-model-config.md`](deepseek-model-config.md).
+
 The 2026-05-16 end-to-end candidate-generation test confirmed this boundary in
 practice. The `tooling-stack` candidate used the `stable` profile but the local
 Qwen3.5 GGUF emitted visible `[Start thinking]` content and spent its output

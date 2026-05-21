@@ -15,6 +15,7 @@ import (
 	"github.com/huic/nemo-knows/internal/apply"
 	"github.com/huic/nemo-knows/internal/chunking"
 	"github.com/huic/nemo-knows/internal/config"
+	"github.com/huic/nemo-knows/internal/deepseek"
 	"github.com/huic/nemo-knows/internal/draft"
 	"github.com/huic/nemo-knows/internal/evalharness"
 	"github.com/huic/nemo-knows/internal/llama"
@@ -286,7 +287,7 @@ func runCandidateDraft(promptPath string, out string, target candidateDraftTarge
 		return fmt.Errorf("render candidate prompt: %w", err)
 	}
 
-	generator := llamaCLIFromConfig(cfg)
+	generator := generatorFromConfig(cfg)
 
 	rawOutput, err := generator.Generate(context.Background(), rendered)
 	if err != nil {
@@ -325,11 +326,9 @@ func runFallbackCandidateDraft(renderedPrompt string, cleanedPath string, cfg co
 	if err != nil {
 		return "", fmt.Errorf("load candidate fallback profile: %w", err)
 	}
-	fallback.LlamaCLI = cfg.LlamaCLI
-	fallback.LlamaModel = cfg.LlamaModel
-	fallback.GPULayers = cfg.GPULayers
+	copyBackendConfig(&fallback, cfg)
 
-	generator := llamaCLIFromConfig(fallback)
+	generator := generatorFromConfig(fallback)
 	rawOutput, err := generator.Generate(context.Background(), renderedPrompt)
 	if err != nil {
 		return "", fmt.Errorf("generate fallback candidate draft: %w", err)
@@ -1096,7 +1095,7 @@ func runDraft(source string, promptPath string, out string, cfg config.Config) e
 }
 
 func runRenderedDraft(rendered string, out string, cfg config.Config) error {
-	generator := llamaCLIFromConfig(cfg)
+	generator := generatorFromConfig(cfg)
 
 	rawOutput, err := generator.Generate(context.Background(), rendered)
 	if err != nil {
@@ -1134,11 +1133,9 @@ func runFallbackDraft(renderedPrompt string, cleanedPath string, cfg config.Conf
 	if err != nil {
 		return "", fmt.Errorf("load fallback profile: %w", err)
 	}
-	fallback.LlamaCLI = cfg.LlamaCLI
-	fallback.LlamaModel = cfg.LlamaModel
-	fallback.GPULayers = cfg.GPULayers
+	copyBackendConfig(&fallback, cfg)
 
-	generator := llamaCLIFromConfig(fallback)
+	generator := generatorFromConfig(fallback)
 
 	rawOutput, err := generator.Generate(context.Background(), renderedPrompt)
 	if err != nil {
@@ -1154,6 +1151,37 @@ func runFallbackDraft(renderedPrompt string, cleanedPath string, cfg config.Conf
 	}
 
 	return cleaned, nil
+}
+
+func generatorFromConfig(cfg config.Config) llama.Generator {
+	if cfg.Provider == "deepseek" {
+		return deepseek.Client{
+			BaseURL:         cfg.DeepSeek.BaseURL,
+			APIKey:          cfg.DeepSeek.APIKey,
+			Model:           cfg.DeepSeek.Model,
+			MaxTokens:       cfg.DeepSeek.MaxTokens,
+			Temperature:     cfg.DeepSeek.Temperature,
+			TopP:            cfg.DeepSeek.TopP,
+			Thinking:        cfg.DeepSeek.Thinking,
+			ReasoningEffort: cfg.DeepSeek.ReasoningEffort,
+			ResponseFormat:  cfg.DeepSeek.ResponseFormat,
+			UserID:          cfg.DeepSeek.UserID,
+			SystemPrompt:    cfg.DeepSeek.SystemPrompt,
+		}
+	}
+	return llamaCLIFromConfig(cfg)
+}
+
+func copyBackendConfig(dst *config.Config, src config.Config) {
+	dst.Provider = src.Provider
+	dst.LlamaCLI = src.LlamaCLI
+	dst.LlamaModel = src.LlamaModel
+	dst.GPULayers = src.GPULayers
+	dst.DeepSeek.BaseURL = src.DeepSeek.BaseURL
+	dst.DeepSeek.APIKey = src.DeepSeek.APIKey
+	dst.DeepSeek.ResponseFormat = src.DeepSeek.ResponseFormat
+	dst.DeepSeek.UserID = src.DeepSeek.UserID
+	dst.DeepSeek.SystemPrompt = src.DeepSeek.SystemPrompt
 }
 
 func llamaCLIFromConfig(cfg config.Config) llama.CLI {

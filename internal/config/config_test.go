@@ -1,6 +1,11 @@
 package config
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
 
 func TestProfileAppliesQwenStableDefaults(t *testing.T) {
 	cfg, err := ForProfile("stable")
@@ -89,8 +94,139 @@ func TestProfileAppliesQwenFallbackNonThinkingDefaults(t *testing.T) {
 	}
 }
 
+func TestDeepSeekProviderConfigFromEnvironment(t *testing.T) {
+	t.Setenv("NEMO_MODEL_PROVIDER", "deepseek")
+	t.Setenv("NEMO_DEEPSEEK_API_KEY", "test-key")
+	t.Setenv("NEMO_DEEPSEEK_BASE_URL", "https://example.test")
+	t.Setenv("NEMO_DEEPSEEK_MODEL", "deepseek-v4-pro")
+	t.Setenv("NEMO_DEEPSEEK_MAX_TOKENS", "384000")
+	t.Setenv("NEMO_DEEPSEEK_THINKING", "enabled")
+	t.Setenv("NEMO_DEEPSEEK_REASONING_EFFORT", "high")
+	t.Setenv("NEMO_DEEPSEEK_RESPONSE_FORMAT", "json_object")
+	t.Setenv("NEMO_DEEPSEEK_USER_ID", "nemo-test")
+	t.Setenv("NEMO_DEEPSEEK_SYSTEM_PROMPT", "Return JSON.")
+
+	cfg, err := ForProfile("stable")
+	if err != nil {
+		t.Fatalf("ForProfile returned error: %v", err)
+	}
+
+	if cfg.Provider != "deepseek" {
+		t.Fatalf("Provider = %q, want deepseek", cfg.Provider)
+	}
+	if cfg.DeepSeek.APIKey != "test-key" {
+		t.Fatalf("DeepSeek.APIKey = %q, want test-key", cfg.DeepSeek.APIKey)
+	}
+	if cfg.DeepSeek.BaseURL != "https://example.test" {
+		t.Fatalf("DeepSeek.BaseURL = %q, want https://example.test", cfg.DeepSeek.BaseURL)
+	}
+	if cfg.DeepSeek.Model != "deepseek-v4-pro" {
+		t.Fatalf("DeepSeek.Model = %q, want deepseek-v4-pro", cfg.DeepSeek.Model)
+	}
+	if cfg.DeepSeek.MaxTokens != 384000 {
+		t.Fatalf("DeepSeek.MaxTokens = %d, want 384000", cfg.DeepSeek.MaxTokens)
+	}
+	if cfg.DeepSeek.Thinking != "enabled" {
+		t.Fatalf("DeepSeek.Thinking = %q, want enabled", cfg.DeepSeek.Thinking)
+	}
+	if cfg.DeepSeek.ReasoningEffort != "high" {
+		t.Fatalf("DeepSeek.ReasoningEffort = %q, want high", cfg.DeepSeek.ReasoningEffort)
+	}
+	if cfg.DeepSeek.ResponseFormat != "json_object" {
+		t.Fatalf("DeepSeek.ResponseFormat = %q, want json_object", cfg.DeepSeek.ResponseFormat)
+	}
+	if cfg.DeepSeek.UserID != "nemo-test" {
+		t.Fatalf("DeepSeek.UserID = %q, want nemo-test", cfg.DeepSeek.UserID)
+	}
+	if cfg.DeepSeek.SystemPrompt != "Return JSON." {
+		t.Fatalf("DeepSeek.SystemPrompt = %q, want Return JSON.", cfg.DeepSeek.SystemPrompt)
+	}
+}
+
+func TestDeepSeekFastProfileUsesFlashModel(t *testing.T) {
+	t.Setenv("NEMO_MODEL_PROVIDER", "deepseek")
+
+	cfg, err := ForProfile("fast")
+	if err != nil {
+		t.Fatalf("ForProfile returned error: %v", err)
+	}
+
+	if cfg.DeepSeek.Model != "deepseek-v4-flash" {
+		t.Fatalf("DeepSeek.Model = %q, want deepseek-v4-flash", cfg.DeepSeek.Model)
+	}
+	if cfg.DeepSeek.MaxTokens != 384000 {
+		t.Fatalf("DeepSeek.MaxTokens = %d, want 384000", cfg.DeepSeek.MaxTokens)
+	}
+	if cfg.DeepSeek.Thinking != "disabled" {
+		t.Fatalf("DeepSeek.Thinking = %q, want disabled", cfg.DeepSeek.Thinking)
+	}
+	if cfg.DeepSeek.ReasoningEffort != "" {
+		t.Fatalf("DeepSeek.ReasoningEffort = %q, want empty", cfg.DeepSeek.ReasoningEffort)
+	}
+	if cfg.DeepSeek.Temperature == nil || *cfg.DeepSeek.Temperature != 0.2 {
+		t.Fatalf("DeepSeek.Temperature = %v, want 0.2", cfg.DeepSeek.Temperature)
+	}
+	if cfg.DeepSeek.TopP == nil || *cfg.DeepSeek.TopP != 0.9 {
+		t.Fatalf("DeepSeek.TopP = %v, want 0.9", cfg.DeepSeek.TopP)
+	}
+}
+
+func TestDeepSeekThinkingProfileOmitsSamplingConfig(t *testing.T) {
+	t.Setenv("NEMO_MODEL_PROVIDER", "deepseek")
+
+	cfg, err := ForProfile("stable")
+	if err != nil {
+		t.Fatalf("ForProfile returned error: %v", err)
+	}
+
+	if cfg.DeepSeek.Temperature != nil {
+		t.Fatalf("DeepSeek.Temperature = %v, want nil", *cfg.DeepSeek.Temperature)
+	}
+	if cfg.DeepSeek.TopP != nil {
+		t.Fatalf("DeepSeek.TopP = %v, want nil", *cfg.DeepSeek.TopP)
+	}
+}
+
 func TestUnknownProfileReturnsError(t *testing.T) {
 	if _, err := ForProfile("unknown"); err == nil {
 		t.Fatal("expected error for unknown profile")
+	}
+}
+
+func TestUnknownProviderReturnsError(t *testing.T) {
+	t.Setenv("NEMO_MODEL_PROVIDER", "unknown")
+
+	if _, err := ForProfile("stable"); err == nil {
+		t.Fatal("expected error for unknown provider")
+	}
+}
+
+func TestLoadDotEnvSetsUnsetValues(t *testing.T) {
+	path := filepath.Join(t.TempDir(), ".env")
+	if err := os.WriteFile(path, []byte(strings.Join([]string{
+		"# local DeepSeek config",
+		"NEMO_TEST_DOTENV_VALUE=from-file",
+		"export NEMO_TEST_DOTENV_QUOTED=\"quoted value\"",
+		"NEMO_TEST_DOTENV_EXISTING=from-file",
+		"",
+	}, "\n")), 0o600); err != nil {
+		t.Fatalf("write .env: %v", err)
+	}
+	t.Setenv("NEMO_TEST_DOTENV_EXISTING", "from-env")
+	t.Cleanup(func() {
+		_ = os.Unsetenv("NEMO_TEST_DOTENV_VALUE")
+		_ = os.Unsetenv("NEMO_TEST_DOTENV_QUOTED")
+	})
+
+	loadDotEnv(path)
+
+	if got := os.Getenv("NEMO_TEST_DOTENV_VALUE"); got != "from-file" {
+		t.Fatalf("NEMO_TEST_DOTENV_VALUE = %q, want from-file", got)
+	}
+	if got := os.Getenv("NEMO_TEST_DOTENV_QUOTED"); got != "quoted value" {
+		t.Fatalf("NEMO_TEST_DOTENV_QUOTED = %q, want quoted value", got)
+	}
+	if got := os.Getenv("NEMO_TEST_DOTENV_EXISTING"); got != "from-env" {
+		t.Fatalf("NEMO_TEST_DOTENV_EXISTING = %q, want from-env", got)
 	}
 }
