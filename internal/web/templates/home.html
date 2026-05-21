@@ -1,0 +1,25 @@
+{{define "home"}}
+{{template "layout-start" .}}
+<section class="hero">
+  <p class="eyebrow">领域知识库</p>
+  <h1>浏览并探索您构建和凝练的领域知识体系。</h1>
+  <p>这是一个完全基于双链（wikilink）架构的知识网络。请使用左侧侧边栏导航到各个词条，或者直接全屏探索下方的知识图谱。</p>
+  <div class="actions">
+    <a class="button-link" href="/graph">全屏探索图谱</a>
+    <a class="secondary-link" href="/view?path=wiki/index.md">分类索引 (index)</a>
+    <a class="secondary-link" href="/view?path=wiki/log.md">变更日志 (log)</a>
+  </div>
+</section>
+
+<section class="card graph-card">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Wiki 关联</p>
+      <h2>知识图谱</h2>
+      <p class="muted">{{.GraphNote}}。可点击下方图中任意圆形节点以查阅该条目的详细正文内容。</p>
+    </div>
+  </div>
+  {{.Graph}}
+</section>
+{{template "layout-end" .}}
+{{end}}

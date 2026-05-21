@@ -22,6 +22,7 @@ import (
 	"github.com/huic/nemo-knows/internal/llama"
 	"github.com/huic/nemo-knows/internal/prompt"
 	"github.com/huic/nemo-knows/internal/review"
+	"github.com/huic/nemo-knows/internal/web"
 	"github.com/huic/nemo-knows/internal/wikilint"
 )
 
@@ -67,7 +68,7 @@ func run(args []string) int {
 		return 2
 	}
 	if *serve {
-		if err := runWeb(*addr, cfg); err != nil {
+		if err := web.Run(*addr, cfg, inProcessPipeline{}); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
@@ -1101,6 +1102,19 @@ func runReviewBundle(bundleDir string, out string) error {
 
 	fmt.Fprintf(os.Stderr, "wrote %s\n", out)
 	return nil
+}
+
+// inProcessPipeline adapts cmd/nemo's local pipeline functions to the
+// web.Pipeline interface. It exists so the -serve flag can hand the same
+// in-memory functions to internal/web without re-exporting them.
+type inProcessPipeline struct{}
+
+func (inProcessPipeline) RunBundle(source string, bundleDir string, cfg config.Config) error {
+	return runBundle(source, bundleDir, cfg)
+}
+
+func (inProcessPipeline) RunReviewBundle(bundleDir string, out string) error {
+	return runReviewBundle(bundleDir, out)
 }
 
 func runBundle(source string, bundleDir string, cfg config.Config) error {

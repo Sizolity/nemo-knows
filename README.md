@@ -90,13 +90,26 @@ There is also a small Go CLI under [`cmd/nemo`](cmd/nemo) for local ingest
 drafts, deterministic evaluation, and explicitly approved writes to `wiki/`.
 Start with [`docs/development/local-ingest-mvp.md`](docs/development/local-ingest-mvp.md).
 
-To use the same workflow through a local browser UI, start the web console:
+To use the same workflow through a local browser UI, start the web console.
+There are two equivalent entry points:
 
 ```sh
+# Shortcut from the main CLI (in-process pipeline)
 go run ./cmd/nemo -serve
+
+# Dedicated launcher binary (uses .bin/nemo or $NEMO_BINARY for ingest jobs)
+go run ./cmd/nemo-web -addr 127.0.0.1:8787
 ```
 
-Then open `http://127.0.0.1:8787` (or custom address with `-addr`). The console allows you to navigate the double-linked knowledge graph, import new raw documents, and start the AI compilation pipeline with background status tracking. It does not apply reviewed output to `wiki/`; approved wiki writes still go through the explicit CLI apply workflow.
+Then open `http://127.0.0.1:8787` (or custom address with `-addr`). The console
+allows you to navigate the double-linked knowledge graph, import new raw
+documents, and start the AI compilation pipeline with background status
+tracking. It does not apply reviewed output to `wiki/`; approved wiki writes
+still go through the explicit CLI apply workflow.
+
+The web layer lives in [`internal/web`](internal/web), with HTML templates
+under `internal/web/templates/` and CSS under `internal/web/static/` — all
+embedded into the binary via `embed.FS`.
 
 ## Status
 

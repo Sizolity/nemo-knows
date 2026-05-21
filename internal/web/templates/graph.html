@@ -1,0 +1,15 @@
+{{define "graph"}}
+{{template "layout-start" .}}
+<section class="card graph-card">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Wiki 关联</p>
+      <h1>知识图谱</h1>
+      <p class="muted">{{.GraphNote}}。点击任意圆圈节点可以直接跳转查阅对应页面的全部正文。</p>
+    </div>
+    <a class="secondary-link" href="/">返回主页</a>
+  </div>
+  {{.Graph}}
+</section>
+{{template "layout-end" .}}
+{{end}}

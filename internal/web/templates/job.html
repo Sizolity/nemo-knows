@@ -1,0 +1,29 @@
+{{define "job"}}
+{{template "layout-start" .}}
+<section class="card">
+  <h1>任务监控</h1>
+  {{if .Job}}
+    <dl class="details">
+      <dt>任务状态</dt><dd>{{.Job.Status}}</dd>
+      <dt>当前步骤</dt><dd>{{.Job.Step}}</dd>
+      <dt>输入文献</dt><dd><a href="/view?path={{.Job.Source}}">{{.Job.Source}}</a></dd>
+      <dt>草稿输出</dt><dd>{{.Job.BundleDir}}</dd>
+      <dt>模型后端</dt><dd>{{.Job.Provider}}</dd>
+      <dt>运行强度</dt><dd>{{.Job.Profile}}</dd>
+      <dt>启动时间</dt><dd>{{.Job.StartedAt}}</dd>
+      {{if .Job.FinishedAt.IsZero}}{{else}}<dt>结束时间</dt><dd>{{.Job.FinishedAt}}</dd>{{end}}
+      {{if .Job.Error}}<dt>错误详情</dt><dd class="error">{{.Job.Error}}</dd>{{end}}
+    </dl>
+    {{if .Job.Files}}
+    <h2>生成的草稿文件</h2>
+    <ul class="file-list">
+      {{range .Job.Files}}<li><a href="/view?path={{.}}">{{.}}</a></li>{{end}}
+    </ul>
+    {{end}}
+    {{if eq .Job.Status "running"}}<p class="hint">异步任务运行中，刷新本页即可更新进度。</p>{{end}}
+  {{else}}
+    <p>当前无运行中的 Ingest 任务。</p>
+  {{end}}
+</section>
+{{template "layout-end" .}}
+{{end}}

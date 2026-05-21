@@ -34,3 +34,6 @@ evals/runs/
 # Full llama.cpp traces next to cleaned bundle/candidate drafts (regenerate locally)
 drafts/**/*.raw.txt
 drafts/**/*.fallback.raw.txt
+
+# Local web console runtime log
+web.log
