@@ -10,6 +10,17 @@ export NEMO_DEEPSEEK_API_KEY="$DEEPSEEK_API_KEY"
 export NEMO_DEEPSEEK_BASE_URL=https://api.deepseek.com
 ```
 
+For long multi-stage pipelines, lock the backend on the command line as well:
+
+```sh
+nemo -provider deepseek -source raw/large.md -bundle-dir drafts/large -profile stable
+```
+
+The `-provider` flag wins over `.env` for that process. Use it on every stage
+of a chained run so a later `.env` edit cannot switch from local llama to
+DeepSeek, or from DeepSeek back to llama, between bundle generation and
+candidate generation.
+
 The settings below are DeepSeek-specific. They should not be treated as shared
 defaults for the local `llama.cpp` backend, because DeepSeek uses hosted
 OpenAI-compatible chat parameters while `llama.cpp` uses CLI flags and a local

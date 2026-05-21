@@ -18,6 +18,11 @@ Rules:
 - Do not create nested directories.
 - If a candidate is a tool/API page, place it under `wiki/concepts/` or
   `wiki/topics/`; never invent another directory.
+- First infer the source kind before proposing non-source pages. Technical
+  specifications and APIs usually produce concept pages; tutorials and
+  comparisons usually produce topic pages; literary, historical, or narrative
+  sources should usually produce topic pages for themes, motifs, or practices
+  and only rarely concept pages.
 - Consolidate repeated candidate hints across chunks. Prefer a small set of broadly useful pages.
 - When group notes are present, treat them as the authoritative whole-document
   summary. The raw per-chunk notes section may then be empty, which is normal.

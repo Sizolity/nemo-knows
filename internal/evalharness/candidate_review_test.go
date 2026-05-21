@@ -46,6 +46,39 @@ func TestReviewCandidatesSuggestsRepairsForWeakSemanticLinks(t *testing.T) {
 	}
 }
 
+func TestReviewCandidatesSuggestsRepairsForTitleAlignment(t *testing.T) {
+	result := CandidateResult{
+		Bundle: "drafts/dom",
+		Scores: CandidateAggregateScore{
+			Overall:        "borderline",
+			TitleAlignment: "borderline",
+		},
+		Candidates: []CandidateFileResult{
+			{
+				Path: "wiki/topics/browser-compatibility-matrix.md",
+				Scores: CandidateAggregateScore{
+					Overall:        "borderline",
+					TitleAlignment: "borderline",
+				},
+				Trace: []string{
+					"title_alignment: title terms weakly supported in body: compatibility, matrix",
+				},
+			},
+		},
+	}
+
+	review := ReviewCandidates(result)
+	if review.Overall != "needs-review" {
+		t.Fatalf("overall = %q, want needs-review", review.Overall)
+	}
+	if len(review.Items) != 1 {
+		t.Fatalf("review item count = %d, want 1", len(review.Items))
+	}
+	if !strings.Contains(review.Items[0].Recommendation, "body directly supports the page title") {
+		t.Fatalf("recommendation should suggest title/body repair, got %q", review.Items[0].Recommendation)
+	}
+}
+
 func TestRenderCandidateReviewIncludesManualBoundary(t *testing.T) {
 	review := CandidateReview{
 		Bundle:  "drafts/web-e2e-sqlite",

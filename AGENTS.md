@@ -103,6 +103,12 @@ If the source is short and clearly low-value (e.g., a tweet quoting a
 well-covered fact), it is OK to skip step 4 and only write the source
 page plus the log entry. Tell the user when you do this.
 
+Pipeline evaluations and stress runs are not formal ingests. Creating draft
+bundles under `drafts/` or eval artifacts under `evals/` must not append to
+`wiki/log.md`. A log entry is required only when reviewed content is actually
+applied to `wiki/`, either manually through the ingest workflow above or via
+`nemo -apply-approved -approve`.
+
 ## 4. The query workflow
 
 When the user asks a question:

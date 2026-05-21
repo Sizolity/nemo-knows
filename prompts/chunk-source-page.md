@@ -12,6 +12,9 @@ Rules:
 - Do not invent facts beyond the chunk notes.
 - Consolidate repeated claims across chunks instead of listing every section.
 - Mention important coverage from early, middle, and late sections when present.
+- Synthesize the chunk and group notes in fresh prose. Do not concatenate or
+  copy whole sentences from the notes unless the exact phrase is a named API,
+  title, command, or quotation that must remain exact.
 - When group notes are present, treat them as the authoritative whole-document
   summary. The raw per-chunk notes section may then be empty, which is normal.
 - When group notes are absent, the raw chunk notes are the only summary input.

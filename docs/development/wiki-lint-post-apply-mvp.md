@@ -22,6 +22,17 @@ go run ./cmd/nemo \
   -out-dir evals/runs/wiki-lint-real
 ```
 
+Candidate bundles can be linted before apply with a separate read-only check:
+
+```sh
+go run ./cmd/nemo \
+  -lint-bundle drafts/<run-id> \
+  -out-dir evals/runs/<run-id>/crosslinks
+```
+
+This reports broken candidate wikilinks, candidate-to-candidate edges, and
+candidate pages with no inbound links from sibling candidates.
+
 ## Initial Checks
 
 MVP-9 checks:
@@ -34,6 +45,14 @@ MVP-9 checks:
 - wikilinks that point to missing pages,
 - orphan pages that are not linked from any other page or `wiki/index.md`,
 - invalid `wiki/log.md` entry actions.
+
+Bundle crosslink lint checks:
+
+- missing candidate draft files referenced by the apply plan,
+- wikilinks that point neither to reviewed sibling candidates nor existing
+  wiki pages,
+- candidate pages with zero inbound links from sibling candidates,
+- the candidate-to-candidate graph for review.
 
 ## Outputs
 
@@ -52,7 +71,7 @@ This MVP does not:
 - edit `wiki/`,
 - decide which orphan or stub should be kept,
 - detect semantic contradictions,
-- run an LLM judge.
+- run an LLM judge (optional candidate LLM review is a separate command).
 
 ## Acceptance Criteria
 

@@ -122,6 +122,67 @@ The LLM Wiki pattern uses an LLM agent to maintain a persistent, structured wiki
 	}
 }
 
+func TestEvaluateCandidatesFlagsNearCopiedSourceProse(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "source.md"), "---\nkind: source\nsources:\n  - raw/dom.md\n---\n\n# Source\n\nThe event dispatch algorithm collects an ordered path, invokes capturing listeners before target listeners, and then invokes bubbling listeners while retargeting nodes across shadow boundaries.\n")
+	writeFile(t, filepath.Join(dir, "apply-plan.md"), "## Candidate Changes\n\n- `wiki/concepts/event-dispatch.md` — create new page.\n")
+	writeFile(t, filepath.Join(dir, "candidates", "wiki", "concepts", "event-dispatch.md"), `---
+title: Event Dispatch
+kind: concept
+sources:
+  - source.md
+  - raw/dom.md
+confidence: medium
+---
+
+# Event Dispatch
+
+The event dispatch algorithm collects an ordered path, invokes capturing listeners before target listeners, and then invokes bubbling listeners while retargeting nodes across shadow roots.
+
+This event dispatch description preserves the same structure and vocabulary as the source while swapping only a few verbs, which should still be treated as too close.
+`)
+
+	result, err := EvaluateCandidates(dir)
+	if err != nil {
+		t.Fatalf("EvaluateCandidates returned error: %v", err)
+	}
+	if got := result.Candidates[0].Scores.Originality; got != "borderline" {
+		t.Fatalf("originality score = %q, want borderline; trace=%v", got, result.Candidates[0].Trace)
+	}
+}
+
+func TestEvaluateCandidatesFlagsWeakTitleBodyAlignment(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "source.md"), "---\nkind: source\nsources:\n  - raw/dom.md\n---\n\n# Source\n\nThe DOM standard defines trees, events, mutation observers, and legacy browser interfaces.\n")
+	writeFile(t, filepath.Join(dir, "apply-plan.md"), "## Candidate Changes\n\n- `wiki/topics/browser-compatibility-matrix.md` — create new page.\n")
+	writeFile(t, filepath.Join(dir, "candidates", "wiki", "topics", "browser-compatibility-matrix.md"), `---
+title: Browser Compatibility Matrix
+kind: topic
+sources:
+  - source.md
+  - raw/dom.md
+confidence: medium
+---
+
+# Browser Compatibility Matrix
+
+The DOM standard defines a tree-shaped model for documents, node relationships, event dispatch, mutation observers, and legacy interfaces preserved for old content.
+
+This draft explains event propagation, shadow-boundary retargeting, mutation callbacks, range traversal, and namespace limitations without giving any implementation support table.
+`)
+
+	result, err := EvaluateCandidates(dir)
+	if err != nil {
+		t.Fatalf("EvaluateCandidates returned error: %v", err)
+	}
+	if got := result.Candidates[0].Scores.TitleAlignment; got != "borderline" {
+		t.Fatalf("title alignment score = %q, want borderline; trace=%v", got, result.Candidates[0].Trace)
+	}
+	if result.Scores.Overall != "borderline" {
+		t.Fatalf("overall score = %q, want borderline", result.Scores.Overall)
+	}
+}
+
 func TestEvaluateCandidatesMarksMissingWikilinkTargetsBorderline(t *testing.T) {
 	root := t.TempDir()
 	bundle := filepath.Join(root, "drafts", "bundle")
@@ -201,5 +262,43 @@ SQLite WAL checkpointing copies committed frames back into the main database whi
 	}
 	if result.Scores.Overall != "borderline" {
 		t.Fatalf("overall score = %q, want borderline", result.Scores.Overall)
+	}
+}
+
+func TestEvaluateBundleCrosslinksReportsMissingAndZeroInbound(t *testing.T) {
+	root := t.TempDir()
+	bundle := filepath.Join(root, "drafts", "bundle")
+	writeFile(t, filepath.Join(root, "wiki", "concepts", "known.md"), "# Known\n")
+	writeFile(t, filepath.Join(bundle, "apply-plan.md"), "## Candidate Changes\n\n"+
+		"- `wiki/concepts/first.md` — create new page.\n"+
+		"- `wiki/topics/second.md` — create new page.\n")
+	writeFile(t, filepath.Join(bundle, "candidates", "wiki", "concepts", "first.md"), `# First
+
+This page links to [[second]] and [[Missing Target]].
+`)
+	writeFile(t, filepath.Join(bundle, "candidates", "wiki", "topics", "second.md"), `# Second
+
+This page links to [[known]].
+`)
+
+	result, err := EvaluateBundleCrosslinks(root, bundle)
+	if err != nil {
+		t.Fatalf("EvaluateBundleCrosslinks returned error: %v", err)
+	}
+	if len(result.Graph) != 2 {
+		t.Fatalf("graph edge count = %d, want 2: %#v", len(result.Graph), result.Graph)
+	}
+	hasMissing := false
+	hasZeroInbound := false
+	for _, issue := range result.Issues {
+		if issue.Code == "missing-target" {
+			hasMissing = true
+		}
+		if issue.Code == "zero-inbound" && issue.Path == "wiki/concepts/first.md" {
+			hasZeroInbound = true
+		}
+	}
+	if !hasMissing || !hasZeroInbound {
+		t.Fatalf("expected missing-target and zero-inbound issues, got %#v", result.Issues)
 	}
 }

@@ -15,6 +15,11 @@ Rules:
 - Candidate pages must be immediate children of those directories: use
   `wiki/sources/<slug>.md`, `wiki/concepts/<slug>.md`, or
   `wiki/topics/<slug>.md`. Do not create nested directories.
+- First infer the source kind before proposing non-source pages. Technical
+  specifications and APIs usually produce concept pages; tutorials and
+  comparisons usually produce topic pages; literary, historical, or narrative
+  sources should usually produce topic pages for themes, motifs, or practices
+  and only rarely concept pages.
 - Include only these sections: Source Summary, Candidate Wiki Pages, Suggested Links, Review Checklist.
 
 Raw source path:

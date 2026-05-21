@@ -22,6 +22,8 @@ var (
 	titleRE         = regexp.MustCompile(`(?m)^title:\s*(.+?)\s*$`)
 	kindRE          = regexp.MustCompile(`(?m)^kind:\s*(.+?)\s*$`)
 	headingRE       = regexp.MustCompile(`(?m)^#\s+(.+?)\s*$`)
+	sourceRefRE     = regexp.MustCompile(`(?m)^\s*-\s*(raw/[^ \n]+|wiki/sources/[^ \n]+)\s*$`)
+	inlineSourceRE  = regexp.MustCompile(`(?:raw|wiki/sources)/[A-Za-z0-9._/-]*[A-Za-z0-9_-]\.md`)
 )
 
 type Options struct {
@@ -32,6 +34,12 @@ type Options struct {
 type Result struct {
 	Written []string
 	Skipped []string
+	Touched []Touched
+}
+
+type Touched struct {
+	Path   string
+	Action string
 }
 
 type scoresFile struct {
@@ -67,61 +75,28 @@ func ApplyApproved(root string, bundleDir string, opts Options) (Result, error) 
 		return Result{}, fmt.Errorf("read source draft: %w", err)
 	}
 
-	result := Result{}
-	for _, candidate := range parseCandidates(string(applyPlan)) {
-		target := candidate.path
-		if duplicate := candidate.duplicate; duplicate != "" {
-			target = duplicate
-		}
+	writes, skipped, err := planApprovedWrites(root, bundleDir, string(applyPlan), sourceDraft)
+	if err != nil {
+		return Result{}, err
+	}
 
-		if strings.HasPrefix(target, "wiki/sources/") {
-			created := !wikiFileExists(root, target)
-			if err := writeWikiFile(root, target, sourceDraft); err != nil {
-				return Result{}, err
-			}
-			result.Written = append(result.Written, target)
-			if created {
-				written, err := updateIndexForCandidate(root, target, sourceDraft)
-				if err != nil {
-					return Result{}, err
-				}
-				if written && !hasWritten(result.Written, "wiki/index.md") {
-					result.Written = append(result.Written, "wiki/index.md")
-				}
-			}
-			continue
+	result := Result{Skipped: skipped}
+	for _, item := range writes {
+		if err := writeWikiFile(root, item.target, item.draft); err != nil {
+			return Result{}, err
 		}
-
-		if strings.HasPrefix(target, "wiki/concepts/") || strings.HasPrefix(target, "wiki/topics/") {
-			draft, existed, err := readCandidateDraft(bundleDir, target)
+		result.Written = append(result.Written, item.target)
+		result.Touched = append(result.Touched, Touched{Path: item.target, Action: createOrUpdate(item.created)})
+		if item.created {
+			written, err := updateIndexForCandidate(root, item.target, item.draft)
 			if err != nil {
 				return Result{}, err
 			}
-			if !existed {
-				result.Skipped = append(result.Skipped, fmt.Sprintf("%s — missing reviewed candidate draft", candidate.path))
-				continue
+			if written && !hasWritten(result.Written, "wiki/index.md") {
+				result.Written = append(result.Written, "wiki/index.md")
+				result.Touched = append(result.Touched, Touched{Path: "wiki/index.md", Action: "updated"})
 			}
-			if err := validateCandidateDraft(target, draft); err != nil {
-				return Result{}, err
-			}
-			created := !wikiFileExists(root, target)
-			if err := writeWikiFile(root, target, draft); err != nil {
-				return Result{}, err
-			}
-			result.Written = append(result.Written, target)
-			if created {
-				written, err := updateIndexForCandidate(root, target, draft)
-				if err != nil {
-					return Result{}, err
-				}
-				if written && !hasWritten(result.Written, "wiki/index.md") {
-					result.Written = append(result.Written, "wiki/index.md")
-				}
-			}
-			continue
 		}
-
-		result.Skipped = append(result.Skipped, fmt.Sprintf("%s — unsupported candidate target", candidate.path))
 	}
 
 	if len(result.Written) > 0 {
@@ -137,6 +112,61 @@ func ApplyApproved(root string, bundleDir string, opts Options) (Result, error) 
 	return result, nil
 }
 
+type plannedWrite struct {
+	target  string
+	draft   []byte
+	created bool
+}
+
+func planApprovedWrites(root string, bundleDir string, applyPlan string, sourceDraft []byte) ([]plannedWrite, []string, error) {
+	writes := []plannedWrite{}
+	skipped := []string{}
+	needsIndex := false
+	for _, candidate := range parseCandidates(applyPlan) {
+		target := candidate.path
+		if duplicate := candidate.duplicate; duplicate != "" {
+			target = duplicate
+		}
+
+		switch {
+		case strings.HasPrefix(target, "wiki/sources/"):
+			created := !wikiFileExists(root, target)
+			needsIndex = needsIndex || created
+			writes = append(writes, plannedWrite{target: target, draft: sourceDraft, created: created})
+		case strings.HasPrefix(target, "wiki/concepts/") || strings.HasPrefix(target, "wiki/topics/"):
+			draft, existed, err := readCandidateDraft(bundleDir, target)
+			if err != nil {
+				return nil, nil, err
+			}
+			if !existed {
+				skipped = append(skipped, fmt.Sprintf("%s — missing reviewed candidate draft", candidate.path))
+				continue
+			}
+			if err := validateCandidateDraft(target, draft); err != nil {
+				return nil, nil, err
+			}
+			created := !wikiFileExists(root, target)
+			needsIndex = needsIndex || created
+			writes = append(writes, plannedWrite{target: target, draft: draft, created: created})
+		default:
+			skipped = append(skipped, fmt.Sprintf("%s — unsupported candidate target", candidate.path))
+		}
+	}
+	if needsIndex {
+		if _, err := os.ReadFile(filepath.Join(root, "wiki", "index.md")); err != nil {
+			return nil, nil, fmt.Errorf("preflight wiki index: %w", err)
+		}
+	}
+	return writes, skipped, nil
+}
+
+func createOrUpdate(created bool) string {
+	if created {
+		return "created"
+	}
+	return "updated"
+}
+
 func requireNotAlreadyApplied(root string, bundleDir string) error {
 	content, err := os.ReadFile(filepath.Join(root, "wiki", "log.md"))
 	if err != nil {
@@ -144,7 +174,8 @@ func requireNotAlreadyApplied(root string, bundleDir string) error {
 	}
 	subject := displayBundle(root, bundleDir)
 	needle := " ingest | " + subject
-	if strings.Contains(string(content), needle) {
+	appliedNeedle := "Applied bundle: " + subject
+	if strings.Contains(string(content), needle) || strings.Contains(string(content), appliedNeedle) {
 		return fmt.Errorf("%w: %s", ErrAlreadyApplied, subject)
 	}
 
@@ -375,11 +406,18 @@ func appendIndexEntry(index string, section string, entry string) string {
 func appendApplyLog(root string, bundleDir string, result Result) error {
 	path := filepath.Join(root, "wiki", "log.md")
 	date := time.Now().Format("2006-01-02")
+	subject := displayBundle(root, bundleDir)
+	sourceDraft, _ := os.ReadFile(filepath.Join(bundleDir, "source.md"))
+	if title := candidateTitle(sourceDraft); title != "" {
+		subject = title
+	}
 	entry := strings.Builder{}
-	entry.WriteString(fmt.Sprintf("\n## [%s] ingest | %s\n", date, displayBundle(root, bundleDir)))
+	entry.WriteString(fmt.Sprintf("\n## [%s] ingest | %s\n", date, subject))
+	entry.WriteString("Source: " + firstSourceReference(sourceDraft) + "\n")
+	entry.WriteString("Applied bundle: " + displayBundle(root, bundleDir) + "\n")
 	entry.WriteString("Touched:\n")
-	for _, written := range result.Written {
-		entry.WriteString("- " + written + "\n")
+	for _, touched := range result.Touched {
+		entry.WriteString(fmt.Sprintf("- %s (%s)\n", touched.Path, touched.Action))
 	}
 	for _, skipped := range result.Skipped {
 		entry.WriteString("- skipped: " + skipped + "\n")
@@ -396,6 +434,16 @@ func appendApplyLog(root string, bundleDir string, result Result) error {
 	}
 
 	return nil
+}
+
+func firstSourceReference(sourceDraft []byte) string {
+	if match := sourceRefRE.FindSubmatch(sourceDraft); len(match) == 2 {
+		return string(match[1])
+	}
+	if match := inlineSourceRE.Find(sourceDraft); len(match) > 0 {
+		return string(match)
+	}
+	return "unknown"
 }
 
 func displayBundle(root string, bundleDir string) string {

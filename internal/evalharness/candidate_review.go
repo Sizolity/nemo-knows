@@ -56,6 +56,8 @@ func candidateReviewRecommendation(problem string) string {
 		return "Add one source-supported wikilink to an existing page or reviewed candidate; otherwise keep the term as plain text and accept the borderline score."
 	case strings.Contains(problem, "sources: missing"):
 		return "Regenerate after adding a durable raw or wiki/sources reference; candidate pages must not rely only on local source.md."
+	case strings.Contains(problem, "title_alignment: title terms weakly supported"):
+		return "Rewrite the draft so the body directly supports the page title, or rename the candidate to match what the source-backed body actually covers."
 	case strings.Contains(problem, "title: missing") || strings.Contains(problem, "title: heading does not match"):
 		return "Normalize the frontmatter title and top-level heading to match the reviewed target path."
 	case strings.Contains(problem, "frontmatter: missing") || strings.Contains(problem, "frontmatter: kind"):

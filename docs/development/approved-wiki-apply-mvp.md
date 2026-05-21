@@ -64,6 +64,11 @@ The bundle must pass the deterministic eval harness:
 overall = pass
 ```
 
+In the normal pipeline this means copying or producing `scores.json` in the
+bundle directory before apply. Candidate eval and review are not wiki writes,
+but they should be run before apply and inspected for `overall: pass` and
+`items: 0` unless the reviewer explicitly accepts the remaining repairs.
+
 ## Apply Policy
 
 The command is intentionally conservative:
@@ -79,6 +84,8 @@ The command is intentionally conservative:
 - It skips duplicate candidate creation and records the reason in
   `apply-report.md`.
 - It refuses to apply the same bundle twice unless `-force-apply` is present.
+- It preflights candidate drafts and index availability before writing, so a
+  wrong-kind candidate does not partially update earlier wiki files.
 
 Candidate drafts must:
 
@@ -128,6 +135,7 @@ This MVP is successful when:
 - the command appends to `wiki/log.md`.
 - the command writes `apply-report.md`.
 - the command rejects repeated applies by default.
+- post-apply `nemo -lint-wiki -out-dir <dir>` can run and emit lint artifacts.
 
 ## Non-Goals
 

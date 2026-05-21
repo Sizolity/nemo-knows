@@ -84,8 +84,13 @@ Either threshold can be overridden by environment variable:
 
 ```sh
 NEMO_CHUNKED_THRESHOLD_CHARS=200000 NEMO_MAX_CHUNK_CHARS=40000 \
-    nemo -source raw/large.md -bundle-dir drafts/large -profile stable
+    nemo -provider llama -source raw/large.md -bundle-dir drafts/large -profile stable
 ```
+
+For multi-stage runs, prefer the CLI `-provider` flag over relying on `.env`
+alone. Each pipeline stage is a new `nemo` process, so an edited `.env` can
+otherwise change the backend between bundle generation and candidate
+generation.
 
 The long-source path writes the normal bundle files plus chunk artifacts:
 
@@ -178,10 +183,34 @@ The group-notes path was validated against real public-web corpus sources on
 | --- | ---: | ---: | ---: | --- |
 | `raw/web/corpus-2026-05-18/031-effective-go.md` | 99 KB | 7 | 2 | pass |
 | `raw/web/corpus-2026-05-18/032-go-modules-reference.md` | 191 KB | 13 | 3 | pass |
+| `raw/web/corpus-2026-05-18/060-dom-standard.md` | 468 KB | 32 | 6 | pass |
+| `raw/web/corpus-2026-05-18/102-moby-dick.md` | 892 KB | 53 | 9 | pass |
 
-Both runs completed bundle generation, bundle review, bundle eval, candidate
-generation, candidate eval, and candidate review. Candidate review reported
-`overall: pass` and `items: 0` for both.
+These real runs completed bundle generation, bundle review, bundle eval,
+candidate generation, candidate eval, and candidate review. Candidate review
+reported `overall: pass` and `items: 0` for 031, 032, and 102; DOM surfaced one
+reviewable title/originality issue in a candidate page while the bundle itself
+passed.
+
+Round-4 validation on 2026-05-21 raised the real-source ceiling to 892 KB and
+the mechanical synthetic ceiling to 1.8 MB (102 chunks, 17 group notes) using a
+fake local backend. The synthetic run validates chunk/group plumbing, not model
+context quality.
+
+## Resuming A Reviewed Bundle
+
+If a multi-stage run fails after `source.md` and `ingest-plan.md` exist, resume
+the post-bundle stages instead of regenerating chunks:
+
+```sh
+nemo -provider llama \
+  -resume drafts/<run-id> \
+  -out-dir evals/runs/<run-id>
+```
+
+Resume checks for `apply-plan.md`, bundle eval output, candidate drafts,
+candidate eval, and candidate review, then runs only the missing stages. Delete
+the bundle manually when a full regeneration is intended.
 
 Detailed local artifacts are recorded in
 `evals/runs/real-corpus-2026-05-19-group-notes-summary.md`. These files are test

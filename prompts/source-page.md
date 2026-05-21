@@ -11,6 +11,8 @@ Rules:
 - Use sources: [{{RAW_SOURCE_PATH}}].
 - Do not invent facts.
 - Do not add URLs that are not explicitly present in the raw document.
+- Condense and synthesize the source; do not quote or concatenate long
+  passages from it.
 - Keep the summary concise.
 - Include sections:
   - What It Is

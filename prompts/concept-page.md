@@ -16,6 +16,10 @@ Rules:
   links.
 - Do not invent facts.
 - Prefer short reference prose.
+- Do not copy whole sentences from the source material. Rephrase every
+  source-backed claim in original reference prose.
+- A paragraph that merely restates the source summary belongs in the source
+  page, not in a concept page.
 
 Concept:
 {{PAGE_TITLE}}

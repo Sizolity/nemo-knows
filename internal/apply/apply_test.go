@@ -64,8 +64,15 @@ func TestApplyApprovedUpdatesDuplicateSourceTargetAndWritesReport(t *testing.T) 
 	if err != nil {
 		t.Fatalf("read log: %v", err)
 	}
-	if !strings.Contains(string(log), "ingest | drafts/bundle") {
-		t.Fatalf("log missing apply entry:\n%s", log)
+	for _, want := range []string{
+		"ingest | LLM Wiki",
+		"Source: raw/llm-wiki.md",
+		"Applied bundle: drafts/bundle",
+		"wiki/sources/llm-wiki.md (updated)",
+	} {
+		if !strings.Contains(string(log), want) {
+			t.Fatalf("log missing %q:\n%s", want, log)
+		}
 	}
 }
 
@@ -225,6 +232,13 @@ sources:
 	_, err := ApplyApproved(root, bundle, Options{Approve: true})
 	if err == nil {
 		t.Fatal("expected wrong candidate draft kind error")
+	}
+	source, readErr := os.ReadFile(filepath.Join(root, "wiki", "sources", "llm-wiki.md"))
+	if readErr != nil {
+		t.Fatalf("read source after failed apply: %v", readErr)
+	}
+	if strings.Contains(string(source), "Updated source draft") {
+		t.Fatalf("preflight failure should not partially update source:\n%s", source)
 	}
 }
 

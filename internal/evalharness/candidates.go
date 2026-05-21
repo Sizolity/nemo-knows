@@ -14,6 +14,7 @@ var (
 	candidateKindRE        = regexp.MustCompile(`(?m)^kind:\s*(.+?)\s*$`)
 	candidateConfidenceRE  = regexp.MustCompile(`(?m)^confidence:\s*(.+?)\s*$`)
 	candidateHeadingRE     = regexp.MustCompile(`(?m)^#\s+(.+?)\s*$`)
+	candidateTokenRE       = regexp.MustCompile(`[a-z0-9]+`)
 	wikilinkRE             = regexp.MustCompile(`\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]`)
 )
 
@@ -25,13 +26,14 @@ type CandidateResult struct {
 }
 
 type CandidateAggregateScore struct {
-	Frontmatter string `json:"frontmatter"`
-	Sources     string `json:"sources"`
-	Title       string `json:"title"`
-	Wikilinks   string `json:"wikilinks"`
-	Length      string `json:"length"`
-	Originality string `json:"originality"`
-	Overall     string `json:"overall"`
+	Frontmatter    string `json:"frontmatter"`
+	Sources        string `json:"sources"`
+	Title          string `json:"title"`
+	TitleAlignment string `json:"title_alignment"`
+	Wikilinks      string `json:"wikilinks"`
+	Length         string `json:"length"`
+	Originality    string `json:"originality"`
+	Overall        string `json:"overall"`
 }
 
 type CandidateFileResult struct {
@@ -114,6 +116,7 @@ func scoreCandidateFile(target string, content string, sourceDraft string, allow
 	result.Scores.Frontmatter = scoreCandidateFrontmatter(target, frontmatter, &result.Trace)
 	result.Scores.Sources = scoreCandidateSources(frontmatter, &result.Trace)
 	result.Scores.Title = scoreCandidateTitle(frontmatter, body, &result.Trace)
+	result.Scores.TitleAlignment = scoreCandidateTitleAlignment(frontmatterValue(frontmatter, candidateTitleRE), body, &result.Trace)
 	result.Scores.Wikilinks = scoreCandidateWikilinks(body, allowedLinks, supportedLinks, validateLinks, &result.Trace)
 	result.Scores.Length = scoreCandidateLength(body, &result.Trace)
 	result.Scores.Originality = scoreCandidateOriginality(body, sourceDraft, &result.Trace)
@@ -185,6 +188,30 @@ func scoreCandidateTitle(frontmatter string, body string, trace *[]string) strin
 		return "borderline"
 	}
 	*trace = append(*trace, "title: frontmatter and heading match")
+	return "pass"
+}
+
+func scoreCandidateTitleAlignment(title string, body string, trace *[]string) string {
+	words := significantTitleWords(title)
+	if len(words) == 0 {
+		*trace = append(*trace, "title_alignment: no significant title words to check")
+		return "pass"
+	}
+	counts := tokenCounts(body)
+	hits := 0
+	missing := []string{}
+	for _, word := range words {
+		if counts[word] >= 2 {
+			hits++
+			continue
+		}
+		missing = append(missing, word)
+	}
+	if hits*2 < len(words) {
+		*trace = append(*trace, fmt.Sprintf("title_alignment: title terms weakly supported in body: %s", strings.Join(missing, ", ")))
+		return "borderline"
+	}
+	*trace = append(*trace, "title_alignment: title terms are supported by body content")
 	return "pass"
 }
 
@@ -282,14 +309,15 @@ func scoreCandidateOriginality(body string, sourceDraft string, trace *[]string)
 		*trace = append(*trace, "originality: no meaningful body lines")
 		return "fail"
 	}
-	copied := 0
+	sourceShingles := tokenShingles(tokenizeForSimilarity(sourceDraft), 5)
+	tooClose := 0
 	for _, line := range bodyLines {
-		if strings.Contains(sourceDraft, line) {
-			copied++
+		if strings.Contains(sourceDraft, line) || shingleOverlap(line, sourceShingles, 5) >= 0.75 {
+			tooClose++
 		}
 	}
-	if copied >= 2 || copied*2 >= len(bodyLines) {
-		*trace = append(*trace, fmt.Sprintf("originality: %d of %d meaningful lines are copied from source", copied, len(bodyLines)))
+	if tooClose >= 2 || tooClose*2 >= len(bodyLines) {
+		*trace = append(*trace, fmt.Sprintf("originality: %d of %d meaningful lines are too close to source", tooClose, len(bodyLines)))
 		return "borderline"
 	}
 	*trace = append(*trace, "originality: not mostly copied from source")
@@ -311,20 +339,77 @@ func meaningfulLines(content string) []string {
 	return lines
 }
 
+func significantTitleWords(title string) []string {
+	stop := map[string]bool{
+		"a": true, "an": true, "and": true, "as": true, "for": true,
+		"in": true, "of": true, "on": true, "or": true, "the": true,
+		"to": true, "with": true,
+	}
+	seen := map[string]bool{}
+	words := []string{}
+	for _, token := range tokenizeForSimilarity(title) {
+		if stop[token] || (len(token) < 3 && token != "go") || seen[token] {
+			continue
+		}
+		seen[token] = true
+		words = append(words, token)
+	}
+	return words
+}
+
+func tokenCounts(content string) map[string]int {
+	counts := map[string]int{}
+	for _, token := range tokenizeForSimilarity(content) {
+		counts[token]++
+	}
+	return counts
+}
+
+func tokenizeForSimilarity(content string) []string {
+	return candidateTokenRE.FindAllString(strings.ToLower(content), -1)
+}
+
+func tokenShingles(tokens []string, size int) map[string]bool {
+	shingles := map[string]bool{}
+	if size <= 0 || len(tokens) < size {
+		return shingles
+	}
+	for i := 0; i <= len(tokens)-size; i++ {
+		shingles[strings.Join(tokens[i:i+size], " ")] = true
+	}
+	return shingles
+}
+
+func shingleOverlap(line string, sourceShingles map[string]bool, size int) float64 {
+	lineShingles := tokenShingles(tokenizeForSimilarity(line), size)
+	if len(lineShingles) == 0 || len(sourceShingles) == 0 {
+		return 0
+	}
+	matches := 0
+	for shingle := range lineShingles {
+		if sourceShingles[shingle] {
+			matches++
+		}
+	}
+	return float64(matches) / float64(len(lineShingles))
+}
+
 func aggregateCandidateScores(candidates []CandidateFileResult) CandidateAggregateScore {
 	score := CandidateAggregateScore{
-		Frontmatter: "pass",
-		Sources:     "pass",
-		Title:       "pass",
-		Wikilinks:   "pass",
-		Length:      "pass",
-		Originality: "pass",
-		Overall:     "pass",
+		Frontmatter:    "pass",
+		Sources:        "pass",
+		Title:          "pass",
+		TitleAlignment: "pass",
+		Wikilinks:      "pass",
+		Length:         "pass",
+		Originality:    "pass",
+		Overall:        "pass",
 	}
 	for _, candidate := range candidates {
 		score.Frontmatter = worstScore(score.Frontmatter, candidate.Scores.Frontmatter)
 		score.Sources = worstScore(score.Sources, candidate.Scores.Sources)
 		score.Title = worstScore(score.Title, candidate.Scores.Title)
+		score.TitleAlignment = worstScore(score.TitleAlignment, candidate.Scores.TitleAlignment)
 		score.Wikilinks = worstScore(score.Wikilinks, candidate.Scores.Wikilinks)
 		score.Length = worstScore(score.Length, candidate.Scores.Length)
 		score.Originality = worstScore(score.Originality, candidate.Scores.Originality)
@@ -335,7 +420,7 @@ func aggregateCandidateScores(candidates []CandidateFileResult) CandidateAggrega
 
 func aggregateOneCandidate(scores CandidateAggregateScore) string {
 	overall := "pass"
-	for _, score := range []string{scores.Frontmatter, scores.Sources, scores.Title, scores.Wikilinks, scores.Length, scores.Originality} {
+	for _, score := range []string{scores.Frontmatter, scores.Sources, scores.Title, scores.TitleAlignment, scores.Wikilinks, scores.Length, scores.Originality} {
 		overall = worstScore(overall, score)
 	}
 	return overall
