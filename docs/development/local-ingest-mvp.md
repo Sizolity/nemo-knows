@@ -77,8 +77,10 @@ truncating the document. The trigger is provider-aware:
   capability when available. The default assumes a 1,000,000-token context,
   reserves 100,000 tokens for prompt scaffolding/reasoning plus the active
   384,000-token output budget, estimates 3.5 chars/token, and applies a 0.60
-  safety margin, yielding a **1,083,600-character** chunk trigger. Each chunk is
-  capped at **60,000 characters** once the chunked path is active. See
+  safety margin, yielding a **1,083,600-character** mechanical limit. A separate
+  quality cap lowers the default trigger to **600,000 characters** for
+  evidence-heavy long sources. Each chunk is capped at **60,000 characters** once
+  the chunked path is active. See
   [`deepseek-model-config.md`](deepseek-model-config.md#model-aware-chunk-thresholds)
   for the rationale and override knobs.
 
@@ -95,7 +97,7 @@ Model context can also be configured explicitly:
 ```sh
 NEMO_MODEL_CONTEXT_TOKENS=1000000 NEMO_CONTEXT_RESERVE_TOKENS=100000 \
 NEMO_CONTEXT_OUTPUT_RESERVE_TOKENS=384000 NEMO_CHARS_PER_TOKEN=3.5 \
-NEMO_CONTEXT_SAFETY_MARGIN=0.60 \
+NEMO_CONTEXT_SAFETY_MARGIN=0.60 NEMO_QUALITY_CHUNK_THRESHOLD_CHARS=600000 \
     nemo -provider deepseek -source raw/large.md -bundle-dir drafts/large -profile stable
 ```
 

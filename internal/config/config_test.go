@@ -35,6 +35,7 @@ func isolateConfigEnv(t *testing.T) {
 		"NEMO_CONTEXT_RESERVE_TOKENS",
 		"NEMO_CONTEXT_OUTPUT_RESERVE_TOKENS",
 		"NEMO_CONTEXT_SAFETY_MARGIN",
+		"NEMO_QUALITY_CHUNK_THRESHOLD_CHARS",
 		"NEMO_CHUNKED_THRESHOLD_CHARS",
 		"NEMO_MAX_CHUNK_CHARS",
 	} {
@@ -279,11 +280,41 @@ func TestDeepSeekProviderDerivesChunkThresholdFromModelContext(t *testing.T) {
 	if cfg.ModelContextTokens != 1000000 {
 		t.Fatalf("ModelContextTokens = %d, want 1000000 for deepseek", cfg.ModelContextTokens)
 	}
-	if cfg.ChunkedBundleCharThreshold != 1083600 {
-		t.Fatalf("ChunkedBundleCharThreshold = %d, want model-derived 1083600 for deepseek", cfg.ChunkedBundleCharThreshold)
+	if cfg.ChunkedBundleCharThreshold != 600000 {
+		t.Fatalf("ChunkedBundleCharThreshold = %d, want quality-capped 600000 for deepseek", cfg.ChunkedBundleCharThreshold)
 	}
 	if cfg.MaxChunkChars != 60000 {
 		t.Fatalf("MaxChunkChars = %d, want 60000 for deepseek", cfg.MaxChunkChars)
+	}
+}
+
+func TestDeepSeekQualityThresholdCanBeDisabled(t *testing.T) {
+	isolateConfigEnv(t)
+	t.Setenv("NEMO_MODEL_PROVIDER", "deepseek")
+	t.Setenv("NEMO_QUALITY_CHUNK_THRESHOLD_CHARS", "0")
+
+	cfg, err := ForProfile("stable")
+	if err != nil {
+		t.Fatalf("ForProfile returned error: %v", err)
+	}
+
+	if cfg.ChunkedBundleCharThreshold != 1083600 {
+		t.Fatalf("ChunkedBundleCharThreshold = %d, want model-derived 1083600 when quality cap is disabled", cfg.ChunkedBundleCharThreshold)
+	}
+}
+
+func TestQualityThresholdCapsModelDerivedThreshold(t *testing.T) {
+	isolateConfigEnv(t)
+	t.Setenv("NEMO_MODEL_PROVIDER", "deepseek")
+	t.Setenv("NEMO_QUALITY_CHUNK_THRESHOLD_CHARS", "450000")
+
+	cfg, err := ForProfile("stable")
+	if err != nil {
+		t.Fatalf("ForProfile returned error: %v", err)
+	}
+
+	if cfg.ChunkedBundleCharThreshold != 450000 {
+		t.Fatalf("ChunkedBundleCharThreshold = %d, want quality cap 450000", cfg.ChunkedBundleCharThreshold)
 	}
 }
 

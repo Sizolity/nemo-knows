@@ -249,12 +249,14 @@ The bundle command switches from single-shot generation to a multi-stage chunked
 path when the raw source exceeds a configurable character threshold. The
 defaults are model-aware when context capability is known. The calculation
 reserves room for prompt scaffolding, reasoning overhead, and the configured
-output budget before estimating how much raw source can safely fit.
+output budget before estimating how much raw source can safely fit. A separate
+quality cap can force chunking earlier for sources that fit mechanically but
+lose evidence when compressed in one pass.
 
 | Provider | Default threshold | `MaxChunkChars` | Rationale |
 | --- | ---: | ---: | --- |
 | `llama` | 90,000 | 18,000 | Empirically the largest single-shot prompt that the local 24576-token context can finish without dropping frontmatter or mid-document detail. |
-| `deepseek` | derived from model context | 60,000 | Defaults to 1,000,000 context tokens, 100,000 reserved tokens, the active 384,000-token output budget, 3.5 chars/token, and a 0.60 safety margin. This currently derives a 1,083,600-character chunk trigger. |
+| `deepseek` | 600,000 | 60,000 | The model budget derives a 1,083,600-character mechanical limit, then the default quality cap lowers the trigger to 600,000 characters for evidence-heavy sources. |
 
 Why chunking still matters even when the model can technically fit the input:
 
@@ -268,7 +270,7 @@ budget, and per-chunk latency adds up sequentially. Lifting the threshold for
 DeepSeek mostly trades chunk-level auditability for raw cost and wall-clock
 time.
 
-### Context budget strategy
+### Unified chunk threshold strategy
 
 The chunking decision is intentionally based on the whole request budget, not
 only on the provider's advertised maximum input length. A long-context model can
@@ -282,25 +284,41 @@ accept a very large prompt, but the request still needs room for:
   configuration.
 - Stability margin: unused context headroom to reduce truncation, frontmatter
   loss, and "lost in the middle" degradation.
+- Quality cap: a model/provider-specific source-size ceiling for cases where
+  single-shot summarization loses evidence before the hard context limit.
 
 The design rule is:
 
 ```text
-input_budget_tokens =
+mechanical_input_budget_tokens =
   model_context_tokens
   - scaffold_and_reasoning_reserve_tokens
   - output_reserve_tokens
 
-chunk_trigger_chars =
-  input_budget_tokens
+mechanical_threshold_chars =
+  mechanical_input_budget_tokens
   * chars_per_token
   * safety_margin
+
+chunk_trigger_chars =
+  min_positive(
+    mechanical_threshold_chars,
+    quality_threshold_chars,
+    provider_empirical_threshold_chars
+  )
 ```
 
-For the default DeepSeek configuration this means:
+For the default DeepSeek configuration the mechanical limit is:
 
 ```text
 (1,000,000 - 100,000 - 384,000) * 3.5 * 0.60 = 1,083,600 chars
+```
+
+The default quality cap is 600,000 characters, so the final DeepSeek chunk
+trigger is:
+
+```text
+min(1,083,600, 600,000) = 600,000 chars
 ```
 
 This trigger decides whether bundle generation may use a single global pass or
@@ -314,10 +332,18 @@ can set `NEMO_CONTEXT_OUTPUT_RESERVE_TOKENS` to make the reserve explicit. A
 zero value is allowed only as an intentional experiment, because it asks the
 input threshold calculation to ignore response length.
 
-This strategy is conservative by design. Stress testing showed that fitting a
-large source into one request can still produce thin candidate pages when the
-model compresses too aggressively. The chunk threshold therefore represents a
-quality boundary, not merely a transport limit.
+`NEMO_QUALITY_CHUNK_THRESHOLD_CHARS` controls the quality cap. Set it per model
+or run when stress tests show a different quality boundary. Set it to `0` to
+disable the quality cap and use only the mechanical model-context calculation.
+Use `NEMO_CHUNKED_THRESHOLD_CHARS` for one-off special cases; it is the final
+manual override and wins over both model and quality defaults.
+
+This strategy is conservative by design. Stress testing showed that the 892 KB
+Moby-Dick corpus item fit under the mechanical DeepSeek limit but produced a
+single-shot source summary that missed the raw file's truncation and weakened
+candidate evidence. Forced chunking at 600,000 characters preserved better
+coverage, so the default treats the chunk threshold as a quality boundary, not
+merely a transport limit.
 
 ### Configuring model capability
 
@@ -329,9 +355,10 @@ export NEMO_CHARS_PER_TOKEN=3.5
 export NEMO_CONTEXT_RESERVE_TOKENS=100000
 export NEMO_CONTEXT_OUTPUT_RESERVE_TOKENS=384000
 export NEMO_CONTEXT_SAFETY_MARGIN=0.60
+export NEMO_QUALITY_CHUNK_THRESHOLD_CHARS=600000
 ```
 
-`nemo` estimates the single-shot source budget as:
+`nemo` estimates the model-context source budget as:
 
 ```text
 (NEMO_MODEL_CONTEXT_TOKENS
@@ -341,16 +368,27 @@ export NEMO_CONTEXT_SAFETY_MARGIN=0.60
   * NEMO_CONTEXT_SAFETY_MARGIN
 ```
 
-This derived value becomes `ChunkedBundleCharThreshold`. If
-`NEMO_CONTEXT_OUTPUT_RESERVE_TOKENS` is not set, `nemo` uses the provider's
-active generation budget (`NEMO_DEEPSEEK_MAX_TOKENS` for DeepSeek, or
-`NEMO_MAX_TOKENS` for local llama when model context is explicitly configured).
-Set `NEMO_CONTEXT_OUTPUT_RESERVE_TOKENS=0` only for controlled A/B runs where
-the output budget should not reduce the input threshold.
+Then it folds in the quality cap:
+
+```text
+min_positive(
+  model_context_source_budget_chars,
+  NEMO_QUALITY_CHUNK_THRESHOLD_CHARS
+)
+```
+
+This derived value becomes `ChunkedBundleCharThreshold`, unless
+`NEMO_CHUNKED_THRESHOLD_CHARS` is set. If `NEMO_CONTEXT_OUTPUT_RESERVE_TOKENS`
+is not set, `nemo` uses the provider's active generation budget
+(`NEMO_DEEPSEEK_MAX_TOKENS` for DeepSeek, or `NEMO_MAX_TOKENS` for local llama
+when model context is explicitly configured). Set
+`NEMO_CONTEXT_OUTPUT_RESERVE_TOKENS=0` only for controlled A/B runs where the
+output budget should not reduce the input threshold.
 
 ### Overriding the thresholds
 
-Manual chunk knobs are still exposed and win over the model-derived threshold:
+Manual chunk knobs are still exposed and win over the model/quality-derived
+threshold:
 
 ```sh
 export NEMO_CHUNKED_THRESHOLD_CHARS=200000

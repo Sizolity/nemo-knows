@@ -36,9 +36,10 @@ const (
 	defaultDeepSeekContextTokens = 1000000
 	defaultDeepSeekCharsPerToken = 3.5
 	// Reserve output/reasoning/system prompt space before considering raw source.
-	defaultDeepSeekContextReserveTokens = 100000
-	defaultDeepSeekContextSafetyMargin  = 0.60
-	defaultDeepSeekMaxChunkChars        = 60000
+	defaultDeepSeekContextReserveTokens      = 100000
+	defaultDeepSeekContextSafetyMargin       = 0.60
+	defaultDeepSeekQualityChunkCharThreshold = 600000
+	defaultDeepSeekMaxChunkChars             = 60000
 
 	defaultDeepSeekRetryMax         = 2
 	defaultDeepSeekRetryBaseDelayMS = 1000
@@ -90,6 +91,10 @@ type Config struct {
 	// ContextSafetyMargin is applied after reserve subtraction to keep long
 	// single-shot prompts away from the hard model context limit.
 	ContextSafetyMargin float64
+	// QualityChunkCharThreshold is an optional source-size ceiling for quality,
+	// independent of the hard model context budget. Positive values are folded
+	// into the final chunk trigger with the model-derived threshold.
+	QualityChunkCharThreshold int
 }
 
 type DeepSeekConfig struct {
@@ -131,6 +136,8 @@ type DeepSeekConfig struct {
 // NEMO_CONTEXT_RESERVE_TOKENS, NEMO_CONTEXT_OUTPUT_RESERVE_TOKENS, and
 // NEMO_CONTEXT_SAFETY_MARGIN can derive the chunked-bundle threshold from a
 // specific model's configured context window.
+// NEMO_QUALITY_CHUNK_THRESHOLD_CHARS sets a quality-oriented ceiling that can
+// force chunking before the model context is mechanically full.
 // NEMO_CHUNKED_THRESHOLD_CHARS overrides the source-size threshold that triggers
 // the chunked bundle path. NEMO_MAX_CHUNK_CHARS overrides the per-chunk size cap
 // used by the chunker. Both default to provider-appropriate values.
@@ -398,7 +405,8 @@ func applyProviderChunkDefaults(cfg *Config) {
 		cfg.ContextReserveTokens = defaultDeepSeekContextReserveTokens
 		cfg.ContextOutputReserveTokens = -1
 		cfg.ContextSafetyMargin = defaultDeepSeekContextSafetyMargin
-		cfg.ChunkedBundleCharThreshold = derivedChunkThreshold(*cfg)
+		cfg.QualityChunkCharThreshold = defaultDeepSeekQualityChunkCharThreshold
+		cfg.ChunkedBundleCharThreshold = defaultDeepSeekQualityChunkCharThreshold
 		cfg.MaxChunkChars = defaultDeepSeekMaxChunkChars
 	default:
 		cfg.ModelContextTokens = 0
@@ -406,15 +414,20 @@ func applyProviderChunkDefaults(cfg *Config) {
 		cfg.ContextReserveTokens = 0
 		cfg.ContextOutputReserveTokens = -1
 		cfg.ContextSafetyMargin = 0
+		cfg.QualityChunkCharThreshold = 0
 		cfg.ChunkedBundleCharThreshold = defaultLlamaChunkedBundleCharThreshold
 		cfg.MaxChunkChars = defaultLlamaMaxChunkChars
 	}
 }
 
 func applyModelAwareChunkDefaults(cfg *Config) {
-	if threshold := derivedChunkThreshold(*cfg); threshold > 0 {
+	if threshold := finalChunkThreshold(*cfg); threshold > 0 {
 		cfg.ChunkedBundleCharThreshold = threshold
 	}
+}
+
+func finalChunkThreshold(cfg Config) int {
+	return minPositive(derivedChunkThreshold(cfg), cfg.QualityChunkCharThreshold)
 }
 
 func derivedChunkThreshold(cfg Config) int {
@@ -462,6 +475,11 @@ func applyModelCapabilityEnvOverrides(cfg *Config) {
 			cfg.ContextSafetyMargin = parsed
 		}
 	}
+	if value := os.Getenv("NEMO_QUALITY_CHUNK_THRESHOLD_CHARS"); value != "" {
+		if parsed, err := strconv.Atoi(value); err == nil && parsed >= 0 {
+			cfg.QualityChunkCharThreshold = parsed
+		}
+	}
 }
 
 func contextOutputReserveTokens(cfg Config) int {
@@ -485,6 +503,19 @@ func applyChunkEnvOverrides(cfg *Config) {
 			cfg.MaxChunkChars = parsed
 		}
 	}
+}
+
+func minPositive(values ...int) int {
+	min := 0
+	for _, value := range values {
+		if value <= 0 {
+			continue
+		}
+		if min == 0 || value < min {
+			min = value
+		}
+	}
+	return min
 }
 
 func applyDeepSeekRetryEnvOverrides(cfg *Config) {
