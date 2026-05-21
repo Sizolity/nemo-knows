@@ -142,6 +142,8 @@ export NEMO_DEEPSEEK_REASONING_EFFORT=high
 export NEMO_DEEPSEEK_RESPONSE_FORMAT=text
 export NEMO_DEEPSEEK_USER_ID=nemo-local
 export NEMO_DEEPSEEK_SYSTEM_PROMPT="Return concise Markdown suitable for a wiki draft."
+export NEMO_DEEPSEEK_RETRY_MAX=2
+export NEMO_DEEPSEEK_RETRY_BASE_MS=1000
 ```
 
 When `thinking.type` is `enabled`, DeepSeek ignores `temperature`, `top_p`,
@@ -241,17 +243,18 @@ The DeepSeek documentation notes that the older `deepseek-chat` and
 deprecation on 2026-07-24, so new configuration should use `deepseek-v4-flash`
 or `deepseek-v4-pro`.
 
-## Chunked Bundle Thresholds
+## Model-Aware Chunk Thresholds
 
 The bundle command switches from single-shot generation to a multi-stage chunked
 path when the raw source exceeds a configurable character threshold. The
-defaults are provider-aware because DeepSeek's input window dwarfs the local
-`llama.cpp` 24576-token context window.
+defaults are model-aware when context capability is known. DeepSeek's official
+1M-token context is large enough that medium specifications should usually get
+a single global pass before falling back to chunk/group synthesis.
 
-| Provider | `ChunkedBundleCharThreshold` | `MaxChunkChars` | Rationale |
+| Provider | Default threshold | `MaxChunkChars` | Rationale |
 | --- | ---: | ---: | --- |
 | `llama` | 90,000 | 18,000 | Empirically the largest single-shot prompt that the local 24576-token context can finish without dropping frontmatter or mid-document detail. |
-| `deepseek` | 300,000 | 60,000 | DeepSeek-V4 accepts 128K input tokens (~460K ASCII chars). A 300K-char ceiling keeps a >50% safety margin for prompt scaffolding and reasoning tokens while avoiding the N-times API-call cost of unnecessary chunking. |
+| `deepseek` | derived from model context | 60,000 | Defaults to 1,000,000 context tokens, 100,000 reserved tokens, 3.5 chars/token, and a 0.60 safety margin. This currently derives a 1,890,000-character chunk trigger. |
 
 Why chunking still matters even when the model can technically fit the input:
 
@@ -265,9 +268,30 @@ budget, and per-chunk latency adds up sequentially. Lifting the threshold for
 DeepSeek mostly trades chunk-level auditability for raw cost and wall-clock
 time.
 
+### Configuring model capability
+
+When a model's context window is known, configure the model budget directly:
+
+```sh
+export NEMO_MODEL_CONTEXT_TOKENS=1000000
+export NEMO_CHARS_PER_TOKEN=3.5
+export NEMO_CONTEXT_RESERVE_TOKENS=100000
+export NEMO_CONTEXT_SAFETY_MARGIN=0.60
+```
+
+`nemo` estimates the single-shot source budget as:
+
+```text
+(NEMO_MODEL_CONTEXT_TOKENS - NEMO_CONTEXT_RESERVE_TOKENS)
+  * NEMO_CHARS_PER_TOKEN
+  * NEMO_CONTEXT_SAFETY_MARGIN
+```
+
+This derived value becomes `ChunkedBundleCharThreshold`.
+
 ### Overriding the thresholds
 
-Both knobs are exposed as environment variables:
+Manual chunk knobs are still exposed and win over the model-derived threshold:
 
 ```sh
 export NEMO_CHUNKED_THRESHOLD_CHARS=200000
@@ -278,3 +302,16 @@ export NEMO_MAX_CHUNK_CHARS=40000
 the chunked path. `NEMO_MAX_CHUNK_CHARS` overrides the per-chunk size cap used
 by the chunker once the chunked path is active. Both accept positive integers;
 invalid or non-positive values fall back to the provider default.
+
+### Retry behavior
+
+DeepSeek calls use limited request-level retries for transient failures. By
+default `nemo` retries twice with exponential backoff starting at 1000 ms. The
+retry path is intended for temporary network errors such as `EOF`, connection
+reset, timeouts, HTTP `429`, and HTTP `5xx`; HTTP `4xx` request errors are not
+retried.
+
+```sh
+export NEMO_DEEPSEEK_RETRY_MAX=2
+export NEMO_DEEPSEEK_RETRY_BASE_MS=1000
+```

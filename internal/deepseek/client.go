@@ -7,12 +7,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"strings"
 	"time"
 )
 
 const defaultTimeout = 10 * time.Minute
+const defaultRetryMax = 2
+const defaultRetryBaseDelay = time.Second
 
 // Client calls DeepSeek's OpenAI-compatible chat completions API.
 type Client struct {
@@ -28,6 +31,8 @@ type Client struct {
 	UserID          string
 	SystemPrompt    string
 	HTTPClient      *http.Client
+	RetryMax        int
+	RetryBaseDelay  time.Duration
 }
 
 type chatRequest struct {
@@ -123,29 +128,14 @@ func (c Client) Generate(ctx context.Context, prompt string) (string, error) {
 		return "", fmt.Errorf("encode deepseek request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint(c.BaseURL), bytes.NewReader(encoded))
-	if err != nil {
-		return "", fmt.Errorf("create deepseek request: %w", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+c.APIKey)
-	req.Header.Set("Content-Type", "application/json")
-
 	httpClient := c.HTTPClient
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: defaultTimeout}
 	}
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("call deepseek API: %w", err)
-	}
-	defer resp.Body.Close()
 
-	responseBody, err := io.ReadAll(resp.Body)
+	responseBody, err := c.doWithRetries(ctx, httpClient, encoded)
 	if err != nil {
-		return "", fmt.Errorf("read deepseek response: %w", err)
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", fmt.Errorf("deepseek API returned %s: %s", resp.Status, truncate(responseBody, 1000))
+		return "", err
 	}
 
 	var decoded chatResponse
@@ -164,6 +154,86 @@ func (c Client) Generate(ctx context.Context, prompt string) (string, error) {
 	}
 
 	return content, nil
+}
+
+func (c Client) doWithRetries(ctx context.Context, httpClient *http.Client, encoded []byte) ([]byte, error) {
+	maxRetries := c.RetryMax
+	if maxRetries < 0 {
+		maxRetries = defaultRetryMax
+	}
+	baseDelay := c.RetryBaseDelay
+	if baseDelay <= 0 {
+		baseDelay = defaultRetryBaseDelay
+	}
+
+	var lastErr error
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		responseBody, retryable, err := c.doOnce(ctx, httpClient, encoded)
+		if err == nil {
+			return responseBody, nil
+		}
+		lastErr = err
+		if !retryable || attempt == maxRetries {
+			break
+		}
+		if err := sleepBeforeRetry(ctx, baseDelay, attempt); err != nil {
+			return nil, err
+		}
+	}
+	return nil, lastErr
+}
+
+func (c Client) doOnce(ctx context.Context, httpClient *http.Client, encoded []byte) ([]byte, bool, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint(c.BaseURL), bytes.NewReader(encoded))
+	if err != nil {
+		return nil, false, fmt.Errorf("create deepseek request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+c.APIKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, isRetryableRequestError(err), fmt.Errorf("call deepseek API: %w", err)
+	}
+	defer resp.Body.Close()
+
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, true, fmt.Errorf("read deepseek response: %w", err)
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		retryable := resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500
+		return nil, retryable, fmt.Errorf("deepseek API returned %s: %s", resp.Status, truncate(responseBody, 1000))
+	}
+	return responseBody, false, nil
+}
+
+func isRetryableRequestError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.Canceled) {
+		return false
+	}
+	text := strings.ToLower(err.Error())
+	return strings.Contains(text, "eof") ||
+		strings.Contains(text, "connection reset") ||
+		strings.Contains(text, "broken pipe") ||
+		strings.Contains(text, "timeout") ||
+		strings.Contains(text, "temporary")
+}
+
+func sleepBeforeRetry(ctx context.Context, baseDelay time.Duration, attempt int) error {
+	multiplier := math.Pow(2, float64(attempt))
+	delay := time.Duration(float64(baseDelay) * multiplier)
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 func endpoint(baseURL string) string {

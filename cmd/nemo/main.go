@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/huic/nemo-knows/internal/apply"
 	"github.com/huic/nemo-knows/internal/chunking"
@@ -53,6 +54,8 @@ func run(args []string) int {
 	persistRawWeb := fs.Bool("persist-raw-web", false, "copy the input source to raw/web/<slug>.md before bundle generation")
 	profile := fs.String("profile", "stable", "generation profile: fast, stable, deep, or fallback")
 	provider := fs.String("provider", "", "generation backend override: llama or deepseek (wins over .env)")
+	serve := fs.Bool("serve", false, "start the local nemo-knows web console")
+	addr := fs.String("addr", "127.0.0.1:8787", "address for -serve mode")
 
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -62,6 +65,13 @@ func run(args []string) int {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 2
+	}
+	if *serve {
+		if err := runWeb(*addr, cfg); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		return 0
 	}
 	if *applyApproved != "" {
 		if err := runApplyApproved(*applyApproved, *approve, *forceApply); err != nil {
@@ -1409,6 +1419,8 @@ func generatorFromConfig(cfg config.Config) llama.Generator {
 			ResponseFormat:  cfg.DeepSeek.ResponseFormat,
 			UserID:          cfg.DeepSeek.UserID,
 			SystemPrompt:    cfg.DeepSeek.SystemPrompt,
+			RetryMax:        cfg.DeepSeek.RetryMax,
+			RetryBaseDelay:  time.Duration(cfg.DeepSeek.RetryBaseDelayMS) * time.Millisecond,
 		}
 	}
 	return llamaCLIFromConfig(cfg)
@@ -1424,6 +1436,8 @@ func copyBackendConfig(dst *config.Config, src config.Config) {
 	dst.DeepSeek.ResponseFormat = src.DeepSeek.ResponseFormat
 	dst.DeepSeek.UserID = src.DeepSeek.UserID
 	dst.DeepSeek.SystemPrompt = src.DeepSeek.SystemPrompt
+	dst.DeepSeek.RetryMax = src.DeepSeek.RetryMax
+	dst.DeepSeek.RetryBaseDelayMS = src.DeepSeek.RetryBaseDelayMS
 }
 
 func llamaCLIFromConfig(cfg config.Config) llama.CLI {

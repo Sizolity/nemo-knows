@@ -3,6 +3,7 @@ package config
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -29,13 +30,18 @@ const (
 	defaultLlamaChunkedBundleCharThreshold = 90000
 	defaultLlamaMaxChunkChars              = 18000
 
-	// DeepSeek-V4 input window is 128K tokens (~460K ASCII chars). The pipeline
-	// keeps a >50% safety margin for prompt scaffolding and thinking-mode
-	// reasoning tokens, so single-shot is allowed up to ~300k source chars.
-	// When chunked path still triggers, each chunk can be larger because the
-	// model is far less sensitive to long prompts than local llama.cpp.
-	defaultDeepSeekChunkedBundleCharThreshold = 300000
-	defaultDeepSeekMaxChunkChars              = 60000
+	// DeepSeek hosted models expose much larger contexts than the local
+	// llama.cpp backend. The default chunk threshold is computed from these
+	// explicit model-capability defaults, then can be overridden by env.
+	defaultDeepSeekContextTokens = 1000000
+	defaultDeepSeekCharsPerToken = 3.5
+	// Reserve output/reasoning/system prompt space before considering raw source.
+	defaultDeepSeekContextReserveTokens = 100000
+	defaultDeepSeekContextSafetyMargin  = 0.60
+	defaultDeepSeekMaxChunkChars        = 60000
+
+	defaultDeepSeekRetryMax         = 2
+	defaultDeepSeekRetryBaseDelayMS = 1000
 )
 
 type Config struct {
@@ -62,27 +68,41 @@ type Config struct {
 
 	// ChunkedBundleCharThreshold is the raw source size (in characters) above
 	// which runBundle switches to the chunked, multi-stage synthesis path.
-	// The default depends on the provider because local llama.cpp degrades on
-	// long prompts far sooner than DeepSeek's 128K-token input window.
+	// The default may be provider-empirical or computed from model context
+	// capability, with NEMO_CHUNKED_THRESHOLD_CHARS as the final override.
 	ChunkedBundleCharThreshold int
 	// MaxChunkChars caps a single chunk's size in the chunker. Lower values
 	// produce more chunks (more API calls, finer audit granularity); higher
 	// values keep each chunk's context tighter for capable models.
 	MaxChunkChars int
+	// ModelContextTokens describes the configured model's input window. When
+	// positive, nemo can derive a chunk threshold from actual model capability.
+	ModelContextTokens int
+	// CharsPerToken estimates prompt characters per model token for threshold
+	// calculation. It is intentionally conservative and can be overridden.
+	CharsPerToken float64
+	// ContextReserveTokens is held back for prompt scaffolding, output, and
+	// reasoning before raw-source capacity is estimated.
+	ContextReserveTokens int
+	// ContextSafetyMargin is applied after reserve subtraction to keep long
+	// single-shot prompts away from the hard model context limit.
+	ContextSafetyMargin float64
 }
 
 type DeepSeekConfig struct {
-	BaseURL         string
-	APIKey          string
-	Model           string
-	MaxTokens       int
-	Thinking        string
-	ReasoningEffort string
-	Temperature     *float64
-	TopP            *float64
-	ResponseFormat  string
-	UserID          string
-	SystemPrompt    string
+	BaseURL          string
+	APIKey           string
+	Model            string
+	MaxTokens        int
+	Thinking         string
+	ReasoningEffort  string
+	Temperature      *float64
+	TopP             *float64
+	ResponseFormat   string
+	UserID           string
+	SystemPrompt     string
+	RetryMax         int
+	RetryBaseDelayMS int
 }
 
 // Defaults returns the local default configuration for the nemo command.
@@ -102,7 +122,11 @@ type DeepSeekConfig struct {
 // NEMO_DEEPSEEK_RESPONSE_FORMAT can be "text" or "json_object".
 // NEMO_DEEPSEEK_USER_ID sets DeepSeek's cache-isolation user_id.
 // NEMO_DEEPSEEK_SYSTEM_PROMPT sends a system message before the rendered prompt.
+// NEMO_DEEPSEEK_RETRY_MAX and NEMO_DEEPSEEK_RETRY_BASE_MS tune transient-error retries.
 // NEMO_MAX_TOKENS overrides the generation token budget.
+// NEMO_MODEL_CONTEXT_TOKENS, NEMO_CHARS_PER_TOKEN,
+// NEMO_CONTEXT_RESERVE_TOKENS, and NEMO_CONTEXT_SAFETY_MARGIN can derive the
+// chunked-bundle threshold from a specific model's configured context window.
 // NEMO_CHUNKED_THRESHOLD_CHARS overrides the source-size threshold that triggers
 // the chunked bundle path. NEMO_MAX_CHUNK_CHARS overrides the per-chunk size cap
 // used by the chunker. Both default to provider-appropriate values.
@@ -115,12 +139,14 @@ func Defaults() Config {
 		LlamaCLI:   defaultLlamaCLI,
 		LlamaModel: defaultLlamaModel,
 		DeepSeek: DeepSeekConfig{
-			BaseURL:         defaultDeepSeekBaseURL,
-			Model:           defaultDeepSeekModel,
-			MaxTokens:       defaultDeepSeekMaxTokens,
-			Thinking:        "enabled",
-			ReasoningEffort: "high",
-			ResponseFormat:  "text",
+			BaseURL:          defaultDeepSeekBaseURL,
+			Model:            defaultDeepSeekModel,
+			MaxTokens:        defaultDeepSeekMaxTokens,
+			Thinking:         "enabled",
+			ReasoningEffort:  "high",
+			ResponseFormat:   "text",
+			RetryMax:         defaultDeepSeekRetryMax,
+			RetryBaseDelayMS: defaultDeepSeekRetryBaseDelayMS,
 		},
 		GPULayers:                  defaultGPULayers,
 		MaxTokens:                  defaultMaxTokens,
@@ -184,11 +210,14 @@ func Defaults() Config {
 	if value := os.Getenv("NEMO_DEEPSEEK_SYSTEM_PROMPT"); value != "" {
 		cfg.DeepSeek.SystemPrompt = value
 	}
+	applyDeepSeekRetryEnvOverrides(&cfg)
 	if value := os.Getenv("NEMO_MAX_TOKENS"); value != "" {
 		if parsed, err := strconv.Atoi(value); err == nil && parsed > 0 {
 			cfg.MaxTokens = parsed
 		}
 	}
+	applyModelCapabilityEnvOverrides(&cfg)
+	applyModelAwareChunkDefaults(&cfg)
 	applyChunkEnvOverrides(&cfg)
 
 	return cfg
@@ -319,11 +348,14 @@ func ForProfileWithProvider(profile string, provider string) (Config, error) {
 	if value := os.Getenv("NEMO_DEEPSEEK_SYSTEM_PROMPT"); value != "" {
 		cfg.DeepSeek.SystemPrompt = value
 	}
+	applyDeepSeekRetryEnvOverrides(&cfg)
 	if value := os.Getenv("NEMO_MAX_TOKENS"); value != "" {
 		if parsed, err := strconv.Atoi(value); err == nil && parsed > 0 {
 			cfg.MaxTokens = parsed
 		}
 	}
+	applyModelCapabilityEnvOverrides(&cfg)
+	applyModelAwareChunkDefaults(&cfg)
 	applyChunkEnvOverrides(&cfg)
 
 	return cfg, nil
@@ -343,22 +375,80 @@ func ApplyProviderOverride(cfg *Config, provider string) error {
 	}
 	cfg.Provider = provider
 	applyProviderChunkDefaults(cfg)
+	applyModelCapabilityEnvOverrides(cfg)
+	applyModelAwareChunkDefaults(cfg)
 	applyChunkEnvOverrides(cfg)
 	return nil
 }
 
-// applyProviderChunkDefaults selects chunked-bundle thresholds based on the
-// active provider. DeepSeek's 128K input window is much larger than local
-// llama.cpp's 24576-token context, so the chunked path triggers far later and
-// each chunk can be larger.
+// applyProviderChunkDefaults selects provider defaults, then model-aware
+// calculation can refine the chunk threshold for backends that expose context
+// capability. Local llama keeps its empirical threshold unless explicitly
+// configured with NEMO_MODEL_CONTEXT_TOKENS.
 func applyProviderChunkDefaults(cfg *Config) {
 	switch cfg.Provider {
 	case "deepseek":
-		cfg.ChunkedBundleCharThreshold = defaultDeepSeekChunkedBundleCharThreshold
+		cfg.ModelContextTokens = defaultDeepSeekContextTokens
+		cfg.CharsPerToken = defaultDeepSeekCharsPerToken
+		cfg.ContextReserveTokens = defaultDeepSeekContextReserveTokens
+		cfg.ContextSafetyMargin = defaultDeepSeekContextSafetyMargin
+		cfg.ChunkedBundleCharThreshold = derivedChunkThreshold(*cfg)
 		cfg.MaxChunkChars = defaultDeepSeekMaxChunkChars
 	default:
+		cfg.ModelContextTokens = 0
+		cfg.CharsPerToken = 0
+		cfg.ContextReserveTokens = 0
+		cfg.ContextSafetyMargin = 0
 		cfg.ChunkedBundleCharThreshold = defaultLlamaChunkedBundleCharThreshold
 		cfg.MaxChunkChars = defaultLlamaMaxChunkChars
+	}
+}
+
+func applyModelAwareChunkDefaults(cfg *Config) {
+	if threshold := derivedChunkThreshold(*cfg); threshold > 0 {
+		cfg.ChunkedBundleCharThreshold = threshold
+	}
+}
+
+func derivedChunkThreshold(cfg Config) int {
+	if cfg.ModelContextTokens <= 0 || cfg.CharsPerToken <= 0 {
+		return 0
+	}
+	availableTokens := cfg.ModelContextTokens - cfg.ContextReserveTokens
+	if availableTokens <= 0 {
+		return 0
+	}
+	margin := cfg.ContextSafetyMargin
+	if margin <= 0 || margin > 1 {
+		margin = 0.75
+	}
+	threshold := int(math.Floor(float64(availableTokens) * cfg.CharsPerToken * margin))
+	if threshold <= 0 {
+		return 0
+	}
+	return threshold
+}
+
+func applyModelCapabilityEnvOverrides(cfg *Config) {
+	if value := os.Getenv("NEMO_MODEL_CONTEXT_TOKENS"); value != "" {
+		if parsed, err := strconv.Atoi(value); err == nil && parsed > 0 {
+			cfg.ModelContextTokens = parsed
+		}
+	}
+	if value := os.Getenv("NEMO_CHARS_PER_TOKEN"); value != "" {
+		if parsed, err := strconv.ParseFloat(value, 64); err == nil && parsed > 0 {
+			cfg.CharsPerToken = parsed
+		}
+	}
+	if value := os.Getenv("NEMO_CONTEXT_RESERVE_TOKENS"); value != "" {
+		if parsed, err := strconv.Atoi(value); err == nil && parsed >= 0 {
+			cfg.ContextReserveTokens = parsed
+		}
+	}
+	if value := os.Getenv("NEMO_CONTEXT_SAFETY_MARGIN"); value != "" {
+		if parsed, err := strconv.ParseFloat(value, 64); err == nil && parsed > 0 && parsed <= 1 {
+			cfg.ContextSafetyMargin = parsed
+		}
 	}
 }
 
@@ -371,6 +461,19 @@ func applyChunkEnvOverrides(cfg *Config) {
 	if value := os.Getenv("NEMO_MAX_CHUNK_CHARS"); value != "" {
 		if parsed, err := strconv.Atoi(value); err == nil && parsed > 0 {
 			cfg.MaxChunkChars = parsed
+		}
+	}
+}
+
+func applyDeepSeekRetryEnvOverrides(cfg *Config) {
+	if value := os.Getenv("NEMO_DEEPSEEK_RETRY_MAX"); value != "" {
+		if parsed, err := strconv.Atoi(value); err == nil && parsed >= 0 {
+			cfg.DeepSeek.RetryMax = parsed
+		}
+	}
+	if value := os.Getenv("NEMO_DEEPSEEK_RETRY_BASE_MS"); value != "" {
+		if parsed, err := strconv.Atoi(value); err == nil && parsed >= 0 {
+			cfg.DeepSeek.RetryBaseDelayMS = parsed
 		}
 	}
 }

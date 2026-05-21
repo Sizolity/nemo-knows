@@ -27,7 +27,13 @@ func isolateConfigEnv(t *testing.T) {
 		"NEMO_DEEPSEEK_RESPONSE_FORMAT",
 		"NEMO_DEEPSEEK_USER_ID",
 		"NEMO_DEEPSEEK_SYSTEM_PROMPT",
+		"NEMO_DEEPSEEK_RETRY_MAX",
+		"NEMO_DEEPSEEK_RETRY_BASE_MS",
 		"NEMO_MAX_TOKENS",
+		"NEMO_MODEL_CONTEXT_TOKENS",
+		"NEMO_CHARS_PER_TOKEN",
+		"NEMO_CONTEXT_RESERVE_TOKENS",
+		"NEMO_CONTEXT_SAFETY_MARGIN",
 		"NEMO_CHUNKED_THRESHOLD_CHARS",
 		"NEMO_MAX_CHUNK_CHARS",
 	} {
@@ -173,6 +179,12 @@ func TestDeepSeekProviderConfigFromEnvironment(t *testing.T) {
 	if cfg.DeepSeek.SystemPrompt != "Return JSON." {
 		t.Fatalf("DeepSeek.SystemPrompt = %q, want Return JSON.", cfg.DeepSeek.SystemPrompt)
 	}
+	if cfg.DeepSeek.RetryMax != 2 {
+		t.Fatalf("DeepSeek.RetryMax = %d, want 2", cfg.DeepSeek.RetryMax)
+	}
+	if cfg.DeepSeek.RetryBaseDelayMS != 1000 {
+		t.Fatalf("DeepSeek.RetryBaseDelayMS = %d, want 1000", cfg.DeepSeek.RetryBaseDelayMS)
+	}
 }
 
 func TestDeepSeekFastProfileUsesFlashModel(t *testing.T) {
@@ -254,7 +266,7 @@ func TestLlamaProviderUsesConservativeChunkThresholds(t *testing.T) {
 	}
 }
 
-func TestDeepSeekProviderUsesLargerChunkThresholds(t *testing.T) {
+func TestDeepSeekProviderDerivesChunkThresholdFromModelContext(t *testing.T) {
 	isolateConfigEnv(t)
 	t.Setenv("NEMO_MODEL_PROVIDER", "deepseek")
 
@@ -263,11 +275,35 @@ func TestDeepSeekProviderUsesLargerChunkThresholds(t *testing.T) {
 		t.Fatalf("ForProfile returned error: %v", err)
 	}
 
-	if cfg.ChunkedBundleCharThreshold != 300000 {
-		t.Fatalf("ChunkedBundleCharThreshold = %d, want 300000 for deepseek", cfg.ChunkedBundleCharThreshold)
+	if cfg.ModelContextTokens != 1000000 {
+		t.Fatalf("ModelContextTokens = %d, want 1000000 for deepseek", cfg.ModelContextTokens)
+	}
+	if cfg.ChunkedBundleCharThreshold != 1890000 {
+		t.Fatalf("ChunkedBundleCharThreshold = %d, want model-derived 1890000 for deepseek", cfg.ChunkedBundleCharThreshold)
 	}
 	if cfg.MaxChunkChars != 60000 {
 		t.Fatalf("MaxChunkChars = %d, want 60000 for deepseek", cfg.MaxChunkChars)
+	}
+}
+
+func TestModelContextEnvOverridesDeriveChunkThreshold(t *testing.T) {
+	isolateConfigEnv(t)
+	t.Setenv("NEMO_MODEL_PROVIDER", "llama")
+	t.Setenv("NEMO_MODEL_CONTEXT_TOKENS", "200000")
+	t.Setenv("NEMO_CHARS_PER_TOKEN", "3")
+	t.Setenv("NEMO_CONTEXT_RESERVE_TOKENS", "50000")
+	t.Setenv("NEMO_CONTEXT_SAFETY_MARGIN", "0.5")
+
+	cfg, err := ForProfile("stable")
+	if err != nil {
+		t.Fatalf("ForProfile returned error: %v", err)
+	}
+
+	if cfg.ChunkedBundleCharThreshold != 225000 {
+		t.Fatalf("ChunkedBundleCharThreshold = %d, want 225000 from model context", cfg.ChunkedBundleCharThreshold)
+	}
+	if cfg.MaxChunkChars != 18000 {
+		t.Fatalf("MaxChunkChars = %d, want llama default 18000", cfg.MaxChunkChars)
 	}
 }
 

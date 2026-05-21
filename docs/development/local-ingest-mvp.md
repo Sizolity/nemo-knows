@@ -73,18 +73,28 @@ truncating the document. The trigger is provider-aware:
   each chunk capped at **18,000 characters**. These limits were established
   against the 24576-token context window where larger single-shot prompts
   empirically dropped frontmatter or mid-document detail.
-- DeepSeek (`NEMO_MODEL_PROVIDER=deepseek`): source size above **300,000
-  characters**, with each chunk capped at **60,000 characters**. DeepSeek-V4's
-  128K-token input window (~460K ASCII chars) keeps the safety margin >50%
-  while avoiding the API-call multiplier of unnecessary chunking. See
-  [`deepseek-model-config.md`](deepseek-model-config.md#chunked-bundle-thresholds)
+- DeepSeek (`NEMO_MODEL_PROVIDER=deepseek`): source size is derived from model
+  capability when available. The default assumes a 1,000,000-token context,
+  reserves 100,000 tokens, estimates 3.5 chars/token, and applies a 0.60 safety
+  margin, yielding a **1,890,000-character** chunk trigger. Each chunk is capped
+  at **60,000 characters** once the chunked path is active. See
+  [`deepseek-model-config.md`](deepseek-model-config.md#model-aware-chunk-thresholds)
   for the rationale and override knobs.
 
-Either threshold can be overridden by environment variable:
+The model-derived threshold and chunk cap can be overridden by environment
+variable:
 
 ```sh
 NEMO_CHUNKED_THRESHOLD_CHARS=200000 NEMO_MAX_CHUNK_CHARS=40000 \
     nemo -provider llama -source raw/large.md -bundle-dir drafts/large -profile stable
+```
+
+Model context can also be configured explicitly:
+
+```sh
+NEMO_MODEL_CONTEXT_TOKENS=1000000 NEMO_CONTEXT_RESERVE_TOKENS=100000 \
+NEMO_CHARS_PER_TOKEN=3.5 NEMO_CONTEXT_SAFETY_MARGIN=0.60 \
+    nemo -provider deepseek -source raw/large.md -bundle-dir drafts/large -profile stable
 ```
 
 For multi-stage runs, prefer the CLI `-provider` flag over relying on `.env`

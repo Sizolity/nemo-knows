@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestClientGenerateCallsChatCompletions(t *testing.T) {
@@ -156,5 +157,59 @@ func TestClientGenerateRequiresAPIKey(t *testing.T) {
 	_, err := Client{BaseURL: "https://api.deepseek.com", Model: "deepseek-v4-pro"}.Generate(context.Background(), "hello")
 	if err == nil {
 		t.Fatal("expected missing API key error")
+	}
+}
+
+func TestClientGenerateRetriesTransientServerErrors(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		if attempts == 1 {
+			http.Error(w, "temporary overload", http.StatusBadGateway)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"ok"}}]}`))
+	}))
+	defer server.Close()
+
+	out, err := Client{
+		BaseURL:        server.URL,
+		APIKey:         "test-key",
+		Model:          "deepseek-v4-pro",
+		RetryMax:       1,
+		RetryBaseDelay: time.Nanosecond,
+	}.Generate(context.Background(), "hello")
+	if err != nil {
+		t.Fatalf("Generate returned error: %v", err)
+	}
+	if out != "ok" {
+		t.Fatalf("out = %q, want ok", out)
+	}
+	if attempts != 2 {
+		t.Fatalf("attempts = %d, want 2", attempts)
+	}
+}
+
+func TestClientGenerateDoesNotRetryClientErrors(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		http.Error(w, "bad request", http.StatusBadRequest)
+	}))
+	defer server.Close()
+
+	_, err := Client{
+		BaseURL:        server.URL,
+		APIKey:         "test-key",
+		Model:          "deepseek-v4-pro",
+		RetryMax:       2,
+		RetryBaseDelay: time.Nanosecond,
+	}.Generate(context.Background(), "hello")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if attempts != 1 {
+		t.Fatalf("attempts = %d, want 1", attempts)
 	}
 }
