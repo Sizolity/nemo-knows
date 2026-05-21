@@ -7,7 +7,36 @@ import (
 	"testing"
 )
 
+// isolateConfigEnv clears DeepSeek- and provider-related environment variables
+// so tests are not contaminated by the developer's shell or a project .env file.
+// Anything the test wants to assert must be set explicitly inside the test.
+func isolateConfigEnv(t *testing.T) {
+	t.Helper()
+	for _, key := range []string{
+		"NEMO_MODEL_PROVIDER",
+		"NEMO_LLAMA_CLI",
+		"NEMO_LLAMA_MODEL",
+		"NEMO_DEEPSEEK_API_KEY",
+		"NEMO_DEEPSEEK_BASE_URL",
+		"NEMO_DEEPSEEK_MODEL",
+		"NEMO_DEEPSEEK_MAX_TOKENS",
+		"NEMO_DEEPSEEK_THINKING",
+		"NEMO_DEEPSEEK_REASONING_EFFORT",
+		"NEMO_DEEPSEEK_TEMPERATURE",
+		"NEMO_DEEPSEEK_TOP_P",
+		"NEMO_DEEPSEEK_RESPONSE_FORMAT",
+		"NEMO_DEEPSEEK_USER_ID",
+		"NEMO_DEEPSEEK_SYSTEM_PROMPT",
+		"NEMO_MAX_TOKENS",
+		"NEMO_CHUNKED_THRESHOLD_CHARS",
+		"NEMO_MAX_CHUNK_CHARS",
+	} {
+		t.Setenv(key, "")
+	}
+}
+
 func TestProfileAppliesQwenStableDefaults(t *testing.T) {
+	isolateConfigEnv(t)
 	cfg, err := ForProfile("stable")
 	if err != nil {
 		t.Fatalf("ForProfile returned error: %v", err)
@@ -49,6 +78,7 @@ func TestProfileAppliesQwenStableDefaults(t *testing.T) {
 }
 
 func TestProfileAppliesQwenDeepDefaults(t *testing.T) {
+	isolateConfigEnv(t)
 	cfg, err := ForProfile("deep")
 	if err != nil {
 		t.Fatalf("ForProfile returned error: %v", err)
@@ -75,6 +105,7 @@ func TestProfileAppliesQwenDeepDefaults(t *testing.T) {
 }
 
 func TestProfileAppliesQwenFallbackNonThinkingDefaults(t *testing.T) {
+	isolateConfigEnv(t)
 	cfg, err := ForProfile("fallback")
 	if err != nil {
 		t.Fatalf("ForProfile returned error: %v", err)
@@ -95,6 +126,7 @@ func TestProfileAppliesQwenFallbackNonThinkingDefaults(t *testing.T) {
 }
 
 func TestDeepSeekProviderConfigFromEnvironment(t *testing.T) {
+	isolateConfigEnv(t)
 	t.Setenv("NEMO_MODEL_PROVIDER", "deepseek")
 	t.Setenv("NEMO_DEEPSEEK_API_KEY", "test-key")
 	t.Setenv("NEMO_DEEPSEEK_BASE_URL", "https://example.test")
@@ -144,6 +176,7 @@ func TestDeepSeekProviderConfigFromEnvironment(t *testing.T) {
 }
 
 func TestDeepSeekFastProfileUsesFlashModel(t *testing.T) {
+	isolateConfigEnv(t)
 	t.Setenv("NEMO_MODEL_PROVIDER", "deepseek")
 
 	cfg, err := ForProfile("fast")
@@ -172,6 +205,7 @@ func TestDeepSeekFastProfileUsesFlashModel(t *testing.T) {
 }
 
 func TestDeepSeekThinkingProfileOmitsSamplingConfig(t *testing.T) {
+	isolateConfigEnv(t)
 	t.Setenv("NEMO_MODEL_PROVIDER", "deepseek")
 
 	cfg, err := ForProfile("stable")
@@ -188,12 +222,14 @@ func TestDeepSeekThinkingProfileOmitsSamplingConfig(t *testing.T) {
 }
 
 func TestUnknownProfileReturnsError(t *testing.T) {
+	isolateConfigEnv(t)
 	if _, err := ForProfile("unknown"); err == nil {
 		t.Fatal("expected error for unknown profile")
 	}
 }
 
 func TestUnknownProviderReturnsError(t *testing.T) {
+	isolateConfigEnv(t)
 	t.Setenv("NEMO_MODEL_PROVIDER", "unknown")
 
 	if _, err := ForProfile("stable"); err == nil {
@@ -201,7 +237,89 @@ func TestUnknownProviderReturnsError(t *testing.T) {
 	}
 }
 
+func TestLlamaProviderUsesConservativeChunkThresholds(t *testing.T) {
+	isolateConfigEnv(t)
+	t.Setenv("NEMO_MODEL_PROVIDER", "llama")
+
+	cfg, err := ForProfile("stable")
+	if err != nil {
+		t.Fatalf("ForProfile returned error: %v", err)
+	}
+
+	if cfg.ChunkedBundleCharThreshold != 90000 {
+		t.Fatalf("ChunkedBundleCharThreshold = %d, want 90000 for llama", cfg.ChunkedBundleCharThreshold)
+	}
+	if cfg.MaxChunkChars != 18000 {
+		t.Fatalf("MaxChunkChars = %d, want 18000 for llama", cfg.MaxChunkChars)
+	}
+}
+
+func TestDeepSeekProviderUsesLargerChunkThresholds(t *testing.T) {
+	isolateConfigEnv(t)
+	t.Setenv("NEMO_MODEL_PROVIDER", "deepseek")
+
+	cfg, err := ForProfile("stable")
+	if err != nil {
+		t.Fatalf("ForProfile returned error: %v", err)
+	}
+
+	if cfg.ChunkedBundleCharThreshold != 300000 {
+		t.Fatalf("ChunkedBundleCharThreshold = %d, want 300000 for deepseek", cfg.ChunkedBundleCharThreshold)
+	}
+	if cfg.MaxChunkChars != 60000 {
+		t.Fatalf("MaxChunkChars = %d, want 60000 for deepseek", cfg.MaxChunkChars)
+	}
+}
+
+func TestChunkEnvOverridesWinOverProviderDefaults(t *testing.T) {
+	isolateConfigEnv(t)
+	t.Setenv("NEMO_MODEL_PROVIDER", "deepseek")
+	t.Setenv("NEMO_CHUNKED_THRESHOLD_CHARS", "150000")
+	t.Setenv("NEMO_MAX_CHUNK_CHARS", "40000")
+
+	cfg, err := ForProfile("stable")
+	if err != nil {
+		t.Fatalf("ForProfile returned error: %v", err)
+	}
+
+	if cfg.ChunkedBundleCharThreshold != 150000 {
+		t.Fatalf("ChunkedBundleCharThreshold = %d, want 150000 from env override", cfg.ChunkedBundleCharThreshold)
+	}
+	if cfg.MaxChunkChars != 40000 {
+		t.Fatalf("MaxChunkChars = %d, want 40000 from env override", cfg.MaxChunkChars)
+	}
+}
+
+func TestForProfileWithProviderOverridesEnvironmentProvider(t *testing.T) {
+	isolateConfigEnv(t)
+	t.Setenv("NEMO_MODEL_PROVIDER", "deepseek")
+
+	cfg, err := ForProfileWithProvider("stable", "llama")
+	if err != nil {
+		t.Fatalf("ForProfileWithProvider returned error: %v", err)
+	}
+
+	if cfg.Provider != "llama" {
+		t.Fatalf("Provider = %q, want llama", cfg.Provider)
+	}
+	if cfg.ChunkedBundleCharThreshold != 90000 {
+		t.Fatalf("ChunkedBundleCharThreshold = %d, want llama default 90000", cfg.ChunkedBundleCharThreshold)
+	}
+	if cfg.MaxChunkChars != 18000 {
+		t.Fatalf("MaxChunkChars = %d, want llama default 18000", cfg.MaxChunkChars)
+	}
+}
+
+func TestForProfileWithProviderRejectsUnknownProvider(t *testing.T) {
+	isolateConfigEnv(t)
+
+	if _, err := ForProfileWithProvider("stable", "other"); err == nil {
+		t.Fatal("expected error for unknown provider override")
+	}
+}
+
 func TestLoadDotEnvSetsUnsetValues(t *testing.T) {
+	isolateConfigEnv(t)
 	path := filepath.Join(t.TempDir(), ".env")
 	if err := os.WriteFile(path, []byte(strings.Join([]string{
 		"# local DeepSeek config",

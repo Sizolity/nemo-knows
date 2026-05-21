@@ -229,3 +229,41 @@ The DeepSeek documentation notes that the older `deepseek-chat` and
 `deepseek-reasoner` model names are compatibility aliases and are scheduled for
 deprecation on 2026-07-24, so new configuration should use `deepseek-v4-flash`
 or `deepseek-v4-pro`.
+
+## Chunked Bundle Thresholds
+
+The bundle command switches from single-shot generation to a multi-stage chunked
+path when the raw source exceeds a configurable character threshold. The
+defaults are provider-aware because DeepSeek's input window dwarfs the local
+`llama.cpp` 24576-token context window.
+
+| Provider | `ChunkedBundleCharThreshold` | `MaxChunkChars` | Rationale |
+| --- | ---: | ---: | --- |
+| `llama` | 90,000 | 18,000 | Empirically the largest single-shot prompt that the local 24576-token context can finish without dropping frontmatter or mid-document detail. |
+| `deepseek` | 300,000 | 60,000 | DeepSeek-V4 accepts 128K input tokens (~460K ASCII chars). A 300K-char ceiling keeps a >50% safety margin for prompt scaffolding and reasoning tokens while avoiding the N-times API-call cost of unnecessary chunking. |
+
+Why chunking still matters even when the model can technically fit the input:
+
+- Long-context LLMs still exhibit "lost in the middle" attention degradation.
+- Per-chunk `.raw.txt` artifacts preserve audit granularity for human review.
+- A failed single chunk can be re-run without redoing the whole document.
+
+But chunking has a real cost on DeepSeek that it does not have on local llama:
+each chunk is a separately billed API call with its own thinking-mode reasoning
+budget, and per-chunk latency adds up sequentially. Lifting the threshold for
+DeepSeek mostly trades chunk-level auditability for raw cost and wall-clock
+time.
+
+### Overriding the thresholds
+
+Both knobs are exposed as environment variables:
+
+```sh
+export NEMO_CHUNKED_THRESHOLD_CHARS=200000
+export NEMO_MAX_CHUNK_CHARS=40000
+```
+
+`NEMO_CHUNKED_THRESHOLD_CHARS` overrides the source-size cutoff that triggers
+the chunked path. `NEMO_MAX_CHUNK_CHARS` overrides the per-chunk size cap used
+by the chunker once the chunked path is active. Both accept positive integers;
+invalid or non-positive values fall back to the provider default.

@@ -8,6 +8,38 @@ import (
 	"testing"
 )
 
+// TestMain clears NEMO_*, HTTPS_PROXY, HTTP_PROXY, and NO_PROXY environment
+// variables before running the test suite. Without this, a developer shell that
+// sourced .env would inject DeepSeek provider/credential vars into Defaults()
+// and turn local fake-llama bundle tests into real DeepSeek API calls.
+func TestMain(m *testing.M) {
+	for _, key := range []string{
+		"NEMO_MODEL_PROVIDER",
+		"NEMO_LLAMA_CLI",
+		"NEMO_LLAMA_MODEL",
+		"NEMO_DEEPSEEK_API_KEY",
+		"NEMO_DEEPSEEK_BASE_URL",
+		"NEMO_DEEPSEEK_MODEL",
+		"NEMO_DEEPSEEK_MAX_TOKENS",
+		"NEMO_DEEPSEEK_THINKING",
+		"NEMO_DEEPSEEK_REASONING_EFFORT",
+		"NEMO_DEEPSEEK_TEMPERATURE",
+		"NEMO_DEEPSEEK_TOP_P",
+		"NEMO_DEEPSEEK_RESPONSE_FORMAT",
+		"NEMO_DEEPSEEK_USER_ID",
+		"NEMO_DEEPSEEK_SYSTEM_PROMPT",
+		"NEMO_MAX_TOKENS",
+		"NEMO_CHUNKED_THRESHOLD_CHARS",
+		"NEMO_MAX_CHUNK_CHARS",
+		"HTTPS_PROXY",
+		"HTTP_PROXY",
+		"NO_PROXY",
+	} {
+		_ = os.Unsetenv(key)
+	}
+	os.Exit(m.Run())
+}
+
 func TestRunGeneratesRawAndCleanedDraft(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shell script fake is Unix-specific")
@@ -63,6 +95,64 @@ EOF
 	rawPath := filepath.Join(dir, "draft.raw.txt")
 	if _, err := os.Stat(rawPath); err != nil {
 		t.Fatalf("expected raw output at %s: %v", rawPath, err)
+	}
+}
+
+func TestRunProviderFlagOverridesDotEnvProvider(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell script fake is Unix-specific")
+	}
+
+	dir := t.TempDir()
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("get wd: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(oldWd); err != nil {
+			t.Fatalf("restore wd: %v", err)
+		}
+	}()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("chdir temp repo: %v", err)
+	}
+
+	if err := os.WriteFile(".env", []byte("NEMO_MODEL_PROVIDER=deepseek\n"), 0o600); err != nil {
+		t.Fatalf("write .env: %v", err)
+	}
+	// loadDotEnv writes into the real process environment, not into a
+	// t.Setenv-tracked override, so we have to unset the variable explicitly
+	// to avoid leaking the deepseek provider into later tests in this package.
+	t.Cleanup(func() { _ = os.Unsetenv("NEMO_MODEL_PROVIDER") })
+	source := filepath.Join(dir, "source.md")
+	promptPath := filepath.Join(dir, "prompt.md")
+	out := filepath.Join(dir, "draft.md")
+	fake := filepath.Join(dir, "llama-cli")
+	if err := os.WriteFile(source, []byte("# Source\n"), 0o644); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+	if err := os.WriteFile(promptPath, []byte("Path: RAW_SOURCE_PATH\nRAW_SOURCE_CONTENT"), 0o644); err != nil {
+		t.Fatalf("write prompt: %v", err)
+	}
+	if err := os.WriteFile(fake, []byte(`#!/usr/bin/env sh
+cat <<'EOF'
+---
+kind: source
+title: Test
+---
+# Draft
+EOF
+`), 0o755); err != nil {
+		t.Fatalf("write fake llama: %v", err)
+	}
+	t.Setenv("NEMO_LLAMA_CLI", fake)
+	t.Setenv("NEMO_LLAMA_MODEL", "model.gguf")
+
+	if code := run([]string{"-provider", "llama", "-source", source, "-prompt", promptPath, "-out", out}); code != 0 {
+		t.Fatalf("run returned exit code %d", code)
+	}
+	if _, err := os.Stat(out); err != nil {
+		t.Fatalf("expected draft output: %v", err)
 	}
 }
 
@@ -1391,6 +1481,12 @@ func TestRunApplyApprovedAppliesBundle(t *testing.T) {
 	}
 	if _, err := os.Stat("drafts/bundle/apply-report.md"); err != nil {
 		t.Fatalf("expected apply report: %v", err)
+	}
+	if code := run([]string{"-lint-wiki", "-out-dir", "evals/apply-lint"}); code != 0 {
+		t.Fatalf("post-apply lint returned exit code %d", code)
+	}
+	if _, err := os.Stat("evals/apply-lint/wiki-lint.json"); err != nil {
+		t.Fatalf("expected post-apply lint output: %v", err)
 	}
 }
 

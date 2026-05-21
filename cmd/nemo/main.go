@@ -41,26 +41,41 @@ func run(args []string) int {
 	generateCandidates := fs.String("generate-candidates", "", "directory for a reviewed bundle whose concept/topic candidate drafts should be generated")
 	evalCandidates := fs.String("eval-candidates", "", "directory for a reviewed bundle whose concept/topic candidate drafts should be evaluated")
 	reviewCandidates := fs.String("review-candidates", "", "directory for a reviewed bundle whose concept/topic candidate drafts should be reviewed")
+	llmReviewCandidates := fs.String("llm-review-candidates", "", "directory for candidate drafts to review with the configured model")
+	lintBundle := fs.String("lint-bundle", "", "directory for reviewed candidate drafts to crosslink-lint")
 	evalBundle := fs.String("eval-bundle", "", "directory for a reviewed ingest bundle to evaluate")
 	evalRegression := fs.String("eval-regression", "", "directory containing eval regression cases")
+	resumeBundle := fs.String("resume", "", "resume a reviewed bundle pipeline by running missing post-bundle stages")
 	lintWiki := fs.Bool("lint-wiki", false, "run deterministic read-only lint checks over wiki/")
 	applyApproved := fs.String("apply-approved", "", "directory for an approved reviewed bundle to apply")
 	approve := fs.Bool("approve", false, "explicitly approve wiki writes for apply mode")
 	forceApply := fs.Bool("force-apply", false, "allow re-applying a bundle that already has an ingest log entry")
 	persistRawWeb := fs.Bool("persist-raw-web", false, "copy the input source to raw/web/<slug>.md before bundle generation")
 	profile := fs.String("profile", "stable", "generation profile: fast, stable, deep, or fallback")
+	provider := fs.String("provider", "", "generation backend override: llama or deepseek (wins over .env)")
 
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 
-	cfg, err := config.ForProfile(*profile)
+	cfg, err := config.ForProfileWithProvider(*profile, *provider)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 2
 	}
 	if *applyApproved != "" {
 		if err := runApplyApproved(*applyApproved, *approve, *forceApply); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		return 0
+	}
+	if *resumeBundle != "" {
+		if *outDir == "" {
+			fmt.Fprintln(os.Stderr, "required flags for resume mode: -resume, -out-dir")
+			return 2
+		}
+		if err := runResumeBundle(*resumeBundle, *outDir, cfg); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
@@ -90,6 +105,28 @@ func run(args []string) int {
 			return 2
 		}
 		if err := runReviewCandidates(*reviewCandidates, *outDir); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		return 0
+	}
+	if *llmReviewCandidates != "" {
+		if *outDir == "" {
+			fmt.Fprintln(os.Stderr, "required flags for LLM candidate review mode: -llm-review-candidates, -out-dir")
+			return 2
+		}
+		if err := runLLMReviewCandidates(*llmReviewCandidates, *outDir, cfg); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		return 0
+	}
+	if *lintBundle != "" {
+		if *outDir == "" {
+			fmt.Fprintln(os.Stderr, "required flags for bundle lint mode: -lint-bundle, -out-dir")
+			return 2
+		}
+		if err := runLintBundle(*lintBundle, *outDir); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
@@ -181,7 +218,10 @@ var candidateWikilinkRE = regexp.MustCompile(`\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]`
 var markdownHeadingRE = regexp.MustCompile(`(?m)^#\s+.+$`)
 var sourceDraftFrontmatterRE = regexp.MustCompile(`(?s)^---\s*\n(.*?)\n---\s*`)
 
-const chunkedBundleCharThreshold = 90000
+// chunkNotesPerGroup is the minimum chunk count that triggers the middle
+// group-notes layer. The chunked-bundle character threshold and per-chunk size
+// cap are configurable per provider via config.Config; see cfg.ChunkedBundleCharThreshold
+// and cfg.MaxChunkChars.
 const chunkNotesPerGroup = 6
 
 type candidateDraftTarget struct {
@@ -555,6 +595,61 @@ func runApplyApproved(bundleDir string, approve bool, force bool) error {
 	return nil
 }
 
+func runResumeBundle(bundleDir string, outDir string, cfg config.Config) error {
+	if !pathExists(filepath.Join(bundleDir, "source.md")) || !pathExists(filepath.Join(bundleDir, "ingest-plan.md")) {
+		return fmt.Errorf("resume currently requires existing source.md and ingest-plan.md in %s", bundleDir)
+	}
+	applyPlan := filepath.Join(bundleDir, "apply-plan.md")
+	if !pathExists(applyPlan) {
+		if err := runReviewBundle(bundleDir, applyPlan); err != nil {
+			return err
+		}
+	}
+	if !pathExists(filepath.Join(outDir, "bundle", "scores.json")) {
+		if err := runEvalBundle(bundleDir, filepath.Join(outDir, "bundle")); err != nil {
+			return err
+		}
+	}
+	if !hasCandidateDrafts(bundleDir) {
+		if err := runGenerateCandidates(bundleDir, cfg); err != nil {
+			return err
+		}
+	}
+	if !pathExists(filepath.Join(outDir, "candidates", "candidate-scores.json")) {
+		if err := runEvalCandidates(bundleDir, filepath.Join(outDir, "candidates")); err != nil {
+			return err
+		}
+	}
+	if !pathExists(filepath.Join(outDir, "review", "candidate-review.md")) {
+		if err := runReviewCandidates(bundleDir, filepath.Join(outDir, "review")); err != nil {
+			return err
+		}
+	}
+	fmt.Fprintf(os.Stderr, "resumed %s through %s\n", bundleDir, outDir)
+	return nil
+}
+
+func pathExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+func hasCandidateDrafts(bundleDir string) bool {
+	root := filepath.Join(bundleDir, "candidates", "wiki")
+	found := false
+	_ = filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		if filepath.Ext(path) == ".md" {
+			found = true
+			return filepath.SkipAll
+		}
+		return nil
+	})
+	return found
+}
+
 func runEvalCandidates(bundleDir string, outDir string) error {
 	result, err := evalharness.EvaluateCandidatesWithRoot(".", bundleDir)
 	if err != nil {
@@ -594,6 +689,148 @@ func runReviewCandidates(bundleDir string, outDir string) error {
 
 	fmt.Fprintf(os.Stderr, "wrote %s\n", path)
 	return nil
+}
+
+type llmCandidateReviewResult struct {
+	Bundle  string               `json:"bundle"`
+	Reviews []llmCandidateReview `json:"reviews"`
+}
+
+type llmCandidateReview struct {
+	Path   string `json:"path"`
+	Review string `json:"review"`
+}
+
+func runLLMReviewCandidates(bundleDir string, outDir string, cfg config.Config) error {
+	applyPlan, err := os.ReadFile(filepath.Join(bundleDir, "apply-plan.md"))
+	if err != nil {
+		return fmt.Errorf("read apply plan: %w", err)
+	}
+	sourceDraft, err := os.ReadFile(filepath.Join(bundleDir, "source.md"))
+	if err != nil {
+		return fmt.Errorf("read source draft: %w", err)
+	}
+	result := llmCandidateReviewResult{Bundle: bundleDir}
+	generator := generatorFromConfig(cfg)
+	for _, target := range candidateDraftTargets(string(applyPlan)) {
+		path := filepath.Join(bundleDir, "candidates", filepath.FromSlash(target.Path))
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("read candidate draft %s: %w", target.Path, err)
+		}
+		prompt := renderLLMCandidateReviewPrompt(target.Path, string(sourceDraft), string(content))
+		review, err := generator.Generate(context.Background(), prompt)
+		if err != nil {
+			return fmt.Errorf("review candidate %s: %w", target.Path, err)
+		}
+		result.Reviews = append(result.Reviews, llmCandidateReview{Path: target.Path, Review: strings.TrimSpace(review)})
+	}
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		return fmt.Errorf("create LLM review output directory: %w", err)
+	}
+	encoded, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode LLM candidate review: %w", err)
+	}
+	jsonPath := filepath.Join(outDir, "candidate-llm-review.json")
+	mdPath := filepath.Join(outDir, "candidate-llm-review.md")
+	if err := os.WriteFile(jsonPath, append(encoded, '\n'), 0o644); err != nil {
+		return fmt.Errorf("write LLM candidate review json: %w", err)
+	}
+	if err := os.WriteFile(mdPath, []byte(renderLLMCandidateReview(result)), 0o644); err != nil {
+		return fmt.Errorf("write LLM candidate review report: %w", err)
+	}
+	fmt.Fprintf(os.Stderr, "wrote %s and %s\n", jsonPath, mdPath)
+	return nil
+}
+
+func renderLLMCandidateReviewPrompt(path string, sourceDraft string, candidateDraft string) string {
+	return strings.Join([]string{
+		"You are reviewing a candidate Markdown wiki page.",
+		"Return concise Markdown only. Do not rewrite the page.",
+		"",
+		"Assess three things:",
+		"- title fidelity: does the body support the page title?",
+		"- information density: does each paragraph add source-backed value?",
+		"- originality: is the candidate rewritten rather than copied from source.md?",
+		"",
+		"Return this shape:",
+		"- title_fidelity: pass|borderline|fail — reason",
+		"- density: pass|borderline|fail — reason",
+		"- originality: pass|borderline|fail — reason",
+		"- recommendation: one sentence",
+		"",
+		"Candidate path:",
+		path,
+		"",
+		"source.md:",
+		sourceDraft,
+		"",
+		"Candidate draft:",
+		candidateDraft,
+	}, "\n")
+}
+
+func renderLLMCandidateReview(result llmCandidateReviewResult) string {
+	var b strings.Builder
+	b.WriteString("# LLM Candidate Review\n\n")
+	b.WriteString(fmt.Sprintf("Bundle: `%s`\n\n", result.Bundle))
+	if len(result.Reviews) == 0 {
+		b.WriteString("(none)\n")
+		return b.String()
+	}
+	for _, review := range result.Reviews {
+		b.WriteString(fmt.Sprintf("## `%s`\n\n%s\n\n", review.Path, review.Review))
+	}
+	return b.String()
+}
+
+func runLintBundle(bundleDir string, outDir string) error {
+	result, err := evalharness.EvaluateBundleCrosslinks(".", bundleDir)
+	if err != nil {
+		return fmt.Errorf("lint bundle crosslinks: %w", err)
+	}
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		return fmt.Errorf("create bundle lint output directory: %w", err)
+	}
+	encoded, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode bundle crosslink lint: %w", err)
+	}
+	jsonPath := filepath.Join(outDir, "bundle-crosslinks.json")
+	mdPath := filepath.Join(outDir, "bundle-crosslinks.md")
+	if err := os.WriteFile(jsonPath, append(encoded, '\n'), 0o644); err != nil {
+		return fmt.Errorf("write bundle crosslink json: %w", err)
+	}
+	if err := os.WriteFile(mdPath, []byte(renderBundleCrosslinks(result)), 0o644); err != nil {
+		return fmt.Errorf("write bundle crosslink report: %w", err)
+	}
+	fmt.Fprintf(os.Stderr, "wrote %s and %s\n", jsonPath, mdPath)
+	return nil
+}
+
+func renderBundleCrosslinks(result evalharness.CrosslinkResult) string {
+	var b strings.Builder
+	b.WriteString("# Bundle Crosslink Lint\n\n")
+	b.WriteString(fmt.Sprintf("Bundle: `%s`\n\n", result.Bundle))
+	b.WriteString("## Issues\n\n")
+	if len(result.Issues) == 0 {
+		b.WriteString("(none)\n\n")
+	} else {
+		for _, issue := range result.Issues {
+			b.WriteString(fmt.Sprintf("- `%s` `%s`: %s\n", issue.Code, issue.Path, issue.Message))
+		}
+		b.WriteString("\n")
+	}
+	b.WriteString("## Graph\n\n")
+	if len(result.Graph) == 0 {
+		b.WriteString("(none)\n")
+		return b.String()
+	}
+	for _, edge := range result.Graph {
+		b.WriteString(fmt.Sprintf("- `%s` -> `%s`\n", edge.From, edge.To))
+	}
+	return b.String()
 }
 
 func runLintWiki(outDir string) error {
@@ -686,6 +923,7 @@ func renderCandidateEvalTrace(result evalharness.CandidateResult) string {
 	b.WriteString(fmt.Sprintf("- frontmatter: `%s`\n", result.Scores.Frontmatter))
 	b.WriteString(fmt.Sprintf("- sources: `%s`\n", result.Scores.Sources))
 	b.WriteString(fmt.Sprintf("- title: `%s`\n", result.Scores.Title))
+	b.WriteString(fmt.Sprintf("- title_alignment: `%s`\n", result.Scores.TitleAlignment))
 	b.WriteString(fmt.Sprintf("- wikilinks: `%s`\n", result.Scores.Wikilinks))
 	b.WriteString(fmt.Sprintf("- length: `%s`\n", result.Scores.Length))
 	b.WriteString(fmt.Sprintf("- originality: `%s`\n", result.Scores.Originality))
@@ -764,7 +1002,7 @@ func runBundle(source string, bundleDir string, cfg config.Config) error {
 	if err != nil {
 		return fmt.Errorf("read source: %w", err)
 	}
-	if len(sourceContent) > chunkedBundleCharThreshold {
+	if cfg.ChunkedBundleCharThreshold > 0 && len(sourceContent) > cfg.ChunkedBundleCharThreshold {
 		return runChunkedBundle(source, string(sourceContent), bundleDir, cfg)
 	}
 
@@ -797,7 +1035,11 @@ func runBundle(source string, bundleDir string, cfg config.Config) error {
 }
 
 func runChunkedBundle(source string, sourceContent string, bundleDir string, cfg config.Config) error {
-	plan := chunking.PlanSource(filepath.ToSlash(source), sourceContent, chunking.DefaultMaxChunkChars)
+	maxChunkChars := cfg.MaxChunkChars
+	if maxChunkChars <= 0 {
+		maxChunkChars = chunking.DefaultMaxChunkChars
+	}
+	plan := chunking.PlanSource(filepath.ToSlash(source), sourceContent, maxChunkChars)
 	chunksDir := filepath.Join(bundleDir, "chunks")
 	if err := os.RemoveAll(chunksDir); err != nil {
 		return fmt.Errorf("reset chunks directory: %w", err)

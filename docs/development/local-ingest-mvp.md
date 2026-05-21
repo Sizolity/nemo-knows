@@ -65,10 +65,27 @@ unexpected claims.
 
 ## Long-Source Ingest
 
-When the raw source is longer than the local model can reliably process in one
+When the raw source is longer than the active model can reliably process in one
 prompt, bundle generation uses a structure-aware chunked path instead of
-truncating the document. As of 2026-05-19, the trigger is a source size above
-90,000 characters.
+truncating the document. The trigger is provider-aware:
+
+- Local `llama.cpp` (default): source size above **90,000 characters**, with
+  each chunk capped at **18,000 characters**. These limits were established
+  against the 24576-token context window where larger single-shot prompts
+  empirically dropped frontmatter or mid-document detail.
+- DeepSeek (`NEMO_MODEL_PROVIDER=deepseek`): source size above **300,000
+  characters**, with each chunk capped at **60,000 characters**. DeepSeek-V4's
+  128K-token input window (~460K ASCII chars) keeps the safety margin >50%
+  while avoiding the API-call multiplier of unnecessary chunking. See
+  [`deepseek-model-config.md`](deepseek-model-config.md#chunked-bundle-thresholds)
+  for the rationale and override knobs.
+
+Either threshold can be overridden by environment variable:
+
+```sh
+NEMO_CHUNKED_THRESHOLD_CHARS=200000 NEMO_MAX_CHUNK_CHARS=40000 \
+    nemo -source raw/large.md -bundle-dir drafts/large -profile stable
+```
 
 The long-source path writes the normal bundle files plus chunk artifacts:
 
