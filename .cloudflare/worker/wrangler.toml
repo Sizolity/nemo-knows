@@ -3,4 +3,4 @@ main = "src/worker.ts"
 compatibility_date = "2026-05-22"
 
 [vars]
-NEMO_ORIGIN = "https://nemo.example.com"
+NEMO_ORIGIN = "https://nemo-origin.shingo.dpdns.org"
