@@ -64,7 +64,7 @@ sudo systemctl enable --now cloudflared
 ## 3. 部署 Worker
 
 ```bash
-cd .cloudflare
+cd .cloudflare/worker
 
 # 安装依赖
 npm install
