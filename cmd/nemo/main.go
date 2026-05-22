@@ -625,37 +625,6 @@ func normalizeCandidateHeading(body string, title string) string {
 	return heading + "\n\n" + body
 }
 
-func ensureCandidateWikilink(body string, allowed map[string]bool) string {
-	if candidateWikilinkRE.MatchString(body) || len(allowed) == 0 {
-		return body
-	}
-	slugs := make([]string, 0, len(allowed))
-	for slug := range allowed {
-		slugs = append(slugs, slug)
-	}
-	sort.Slice(slugs, func(i int, j int) bool {
-		if len(slugs[i]) == len(slugs[j]) {
-			return slugs[i] < slugs[j]
-		}
-		return len(slugs[i]) > len(slugs[j])
-	})
-	for _, slug := range slugs {
-		phrase := titleFromSlug(slug)
-		re := regexp.MustCompile(`(?i)\b` + regexp.QuoteMeta(phrase) + `\b`)
-		lines := strings.Split(body, "\n")
-		for i, line := range lines {
-			if strings.HasPrefix(strings.TrimSpace(line), "#") || !re.MatchString(line) {
-				continue
-			}
-			lines[i] = re.ReplaceAllStringFunc(line, func(match string) string {
-				return "[[" + slug + "|" + match + "]]"
-			})
-			return strings.Join(lines, "\n")
-		}
-	}
-	return body
-}
-
 func titleFromSlug(slug string) string {
 	parts := strings.Split(slug, "-")
 	for i, part := range parts {
