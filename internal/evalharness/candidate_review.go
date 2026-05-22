@@ -90,8 +90,12 @@ func RenderCandidateReview(review CandidateReview) string {
 	for _, item := range review.Items {
 		b.WriteString(fmt.Sprintf("### `%s`\n\n", item.Path))
 		b.WriteString(fmt.Sprintf("- severity: `%s`\n", item.Severity))
-		b.WriteString("- problem: " + item.Problem + "\n")
-		b.WriteString("- recommendation: " + item.Recommendation + "\n\n")
+		b.WriteString("- problem: ")
+		b.WriteString(item.Problem)
+		b.WriteByte('\n')
+		b.WriteString("- recommendation: ")
+		b.WriteString(item.Recommendation)
+		b.WriteString("\n\n")
 	}
 	return b.String()
 }

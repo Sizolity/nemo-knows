@@ -418,7 +418,9 @@ func sourceRefsForCandidate(sourceDraft []byte) []string {
 func markdownSourceList(refs []string) string {
 	var b strings.Builder
 	for _, ref := range refs {
-		b.WriteString("- " + ref + "\n")
+		b.WriteString("- ")
+		b.WriteString(ref)
+		b.WriteByte('\n')
 	}
 
 	return strings.TrimRight(b.String(), "\n")
@@ -547,11 +549,17 @@ func normalizeCandidateDraft(cleaned string, target candidateDraftTarget, source
 
 	var b strings.Builder
 	b.WriteString("---\n")
-	b.WriteString("title: " + target.Title + "\n")
-	b.WriteString("kind: " + target.Kind + "\n")
+	b.WriteString("title: ")
+	b.WriteString(target.Title)
+	b.WriteByte('\n')
+	b.WriteString("kind: ")
+	b.WriteString(target.Kind)
+	b.WriteByte('\n')
 	b.WriteString("sources:\n")
 	for _, ref := range sourceRefs {
-		b.WriteString("  - " + ref + "\n")
+		b.WriteString("  - ")
+		b.WriteString(ref)
+		b.WriteByte('\n')
 	}
 	b.WriteString("confidence: medium\n")
 	b.WriteString("---\n\n")
@@ -595,7 +603,9 @@ func markdownAllowedLinks(allowed map[string]bool) string {
 	sort.Strings(slugs)
 	var b strings.Builder
 	for _, slug := range slugs {
-		b.WriteString("- [[" + slug + "]]\n")
+		b.WriteString("- [[")
+		b.WriteString(slug)
+		b.WriteString("]]\n")
 	}
 	return strings.TrimRight(b.String(), "\n")
 }
@@ -968,7 +978,9 @@ func renderRegressionSummary(result evalharness.RegressionResult) string {
 		b.WriteString(fmt.Sprintf("- bundle: `%s`\n", item.Bundle))
 		b.WriteString(fmt.Sprintf("- overall score: `%s`\n", item.ActualScores.Overall))
 		for _, failure := range item.Failures {
-			b.WriteString("- failure: " + failure + "\n")
+			b.WriteString("- failure: ")
+			b.WriteString(failure)
+			b.WriteByte('\n')
 		}
 		b.WriteString("\n")
 	}
@@ -1009,7 +1021,9 @@ func renderCandidateEvalTrace(result evalharness.CandidateResult) string {
 		b.WriteString(fmt.Sprintf("### `%s`\n\n", candidate.Path))
 		b.WriteString(fmt.Sprintf("- overall: `%s`\n", candidate.Scores.Overall))
 		for _, entry := range candidate.Trace {
-			b.WriteString("- " + entry + "\n")
+			b.WriteString("- ")
+			b.WriteString(entry)
+			b.WriteByte('\n')
 		}
 		b.WriteString("\n")
 	}
@@ -1048,11 +1062,15 @@ func renderEvalTrace(result evalharness.Result) string {
 	b.WriteString(fmt.Sprintf("- wiki_safety: `%s`\n", result.Scores.WikiSafety))
 	b.WriteString(fmt.Sprintf("- candidate_paths: `%s`\n", result.Scores.CandidatePaths))
 	b.WriteString(fmt.Sprintf("- duplicate_detection: `%s`\n", result.Scores.DuplicateDetection))
+	b.WriteString(fmt.Sprintf("- source_completeness: `%s`\n", result.Scores.SourceCompleteness))
+	b.WriteString(fmt.Sprintf("- apply_plan_coverage: `%s`\n", result.Scores.ApplyPlanCoverage))
 	b.WriteString(fmt.Sprintf("- apply_readiness: `%s`\n", result.Scores.ApplyReadiness))
 	b.WriteString(fmt.Sprintf("- overall: `%s`\n\n", result.Scores.Overall))
 	b.WriteString("## Trace\n\n")
 	for _, entry := range result.Trace {
-		b.WriteString("- " + entry + "\n")
+		b.WriteString("- ")
+		b.WriteString(entry)
+		b.WriteByte('\n')
 	}
 	return b.String()
 }
@@ -1308,10 +1326,14 @@ func normalizeSourceDraft(content string, source string) string {
 
 	var b strings.Builder
 	b.WriteString("---\n")
-	b.WriteString("title: " + title + "\n")
+	b.WriteString("title: ")
+	b.WriteString(title)
+	b.WriteByte('\n')
 	b.WriteString("kind: source\n")
 	b.WriteString("sources:\n")
-	b.WriteString("  - " + source + "\n")
+	b.WriteString("  - ")
+	b.WriteString(source)
+	b.WriteByte('\n')
 	b.WriteString("confidence: medium\n")
 	b.WriteString("---\n\n")
 	b.WriteString(body)
