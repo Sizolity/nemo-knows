@@ -171,8 +171,8 @@ func TestEvaluateBundleFlagsCompletenessClaimsForTruncatedRawSource(t *testing.T
 func TestEvaluateBundlePassesTruncatedRawSourceWhenDraftAcknowledgesBoundary(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "raw", "moby-dick.md"), "Chapter 93\n\n[truncated at 900000 characters]\n")
-	writeFile(t, filepath.Join(dir, "drafts", "bundle", "source.md"), "---\nkind: source\nsources:\n  - raw/moby-dick.md\n---\n\n## What It Is\n\nA partial corpus item truncated at 900000 characters near Chapter 93.\n")
-	writeFile(t, filepath.Join(dir, "drafts", "bundle", "ingest-plan.md"), "---\nkind: topic\n---\n\n## Source Summary\n\nThe source is incomplete and ends around Chapter 93.\n")
+	writeFile(t, filepath.Join(dir, "drafts", "bundle", "source.md"), "---\nkind: source\nsources:\n  - raw/moby-dick.md\n---\n\n## What It Is\n\nA partial corpus item truncated at 900000 characters near Chapter 93. The source does not contain the complete work.\n")
+	writeFile(t, filepath.Join(dir, "drafts", "bundle", "ingest-plan.md"), "---\nkind: topic\n---\n\n## Source Summary\n\nThe source is incomplete and ends around Chapter 93.\n\n## Review Checklist\n\n- [ ] Do not describe the source as complete text or all chapters.\n")
 	writeFile(t, filepath.Join(dir, "drafts", "bundle", "apply-plan.md"), validApplyPlan("wiki/sources/moby-dick.md"))
 
 	result, err := EvaluateBundle(filepath.Join(dir, "drafts", "bundle"))
