@@ -23,6 +23,16 @@ Rules:
   comparisons usually produce topic pages; literary, historical, or narrative
   sources should usually produce topic pages for themes, motifs, or practices
   and only rarely concept pages.
+- Preserve source-boundary facts. If the chunk or group notes mention a
+  `[truncated at ...]` marker, incomplete retrieval, missing ending, mid-sentence
+  ending, or any other truncation boundary, the `Source Summary` and relevant
+  review checklist item must state that boundary clearly.
+- When a truncation or incomplete-source boundary is present, do not describe the
+  source as complete, entire, full text, all chapters, final chapters, or without
+  abridgment. Candidate descriptions must also avoid those claims.
+- Do not infer source completeness from a title, table of contents, or upstream
+  publication source. Only claim completeness if the notes explicitly establish
+  that the raw file includes the full work.
 - Consolidate repeated candidate hints across chunks. Prefer a small set of broadly useful pages.
 - When group notes are present, treat them as the authoritative whole-document
   summary. The raw per-chunk notes section may then be empty, which is normal.

@@ -37,6 +37,8 @@ func makeRegressionCase(t *testing.T, casesDir string, name string, candidate st
     "wiki_safety": "pass",
     "candidate_paths": "pass",
     "duplicate_detection": "pass",
+    "source_completeness": "pass",
+    "apply_plan_coverage": "pass",
     "apply_readiness": "pass",
     "overall": "pass"
   }
@@ -61,4 +63,12 @@ func makeRegressionCase(t *testing.T, casesDir string, name string, candidate st
 		"- [x] `ingest-plan.md` includes required section `Review Checklist`\n\n"+
 		"## Candidate Changes\n\n"+
 		"- `"+candidate+"` — create new page.\n")
+	writeFile(t, filepath.Join(caseDir, "bundle", "candidates", filepath.FromSlash(candidate)), "---\ntitle: Regression Candidate\nkind: "+candidateKind(candidate)+"\nsources:\n  - source.md\n  - raw/source.md\nconfidence: medium\n---\n\n# Regression Candidate\n\nThis regression candidate represents the planned page.\n")
+}
+
+func candidateKind(candidate string) string {
+	if filepath.Dir(candidate) == "wiki/topics" {
+		return "topic"
+	}
+	return "concept"
 }

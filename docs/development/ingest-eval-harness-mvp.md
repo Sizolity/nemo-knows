@@ -50,6 +50,7 @@ The harness makes quality explicit and repeatable:
 - safety checks,
 - candidate path checks,
 - duplicate-detection checks,
+- source-completeness checks,
 - apply-readiness checks,
 - run traces for debugging.
 
@@ -101,6 +102,10 @@ Initial score dimensions:
 - `candidate_paths`: candidate paths are legal wiki knowledge-page paths.
 - `duplicate_detection`: exact existing pages or likely duplicate pages are
   called out.
+- `source_completeness`: generated source drafts do not make completeness claims
+  when the referenced raw source has an explicit truncation marker.
+- `apply_plan_coverage`: every page listed in the apply plan is represented by
+  a generated artifact before the bundle is treated as ready.
 - `apply_readiness`: the apply plan is good enough for human review.
 - `overall`: aggregate decision.
 
@@ -123,11 +128,33 @@ automatically." and no command writes into `wiki/`.
   duplicate label appears.
 - `fail` when an exact existing page is proposed as a create.
 
+`source_completeness` is:
+
+- `pass` when referenced raw sources have no truncation marker, or when the
+  generated source draft/ingest plan acknowledges the truncation boundary.
+- `borderline` when a referenced raw source contains `[truncated at ...]` but
+  the generated drafts do not mention truncation or incompleteness.
+- `fail` when a referenced raw source contains `[truncated at ...]` and the
+  generated drafts claim the source is complete, entire, full text, all
+  chapters, final chapters, or without abridgment.
+
+`apply_plan_coverage` is:
+
+- `pass` when each planned `wiki/concepts/` or `wiki/topics/` page has a
+  generated candidate draft, and planned `wiki/sources/` pages are represented
+  by the generated `source.md`.
+- `borderline` when multiple planned `wiki/sources/` pages share the single
+  generated `source.md` artifact.
+- `fail` when planned concept/topic candidate drafts are missing, or when a
+  planned source page has no valid `source.md` artifact.
+
 `apply_readiness` is:
 
 - `pass` when all dimensions pass.
-- `borderline` when only duplicate or candidate quality needs human judgment.
-- `fail` when schema, safety, or candidate paths fail.
+- `borderline` when only duplicate, source-completeness, apply-plan coverage, or
+  candidate quality needs human judgment.
+- `fail` when schema, safety, candidate paths, source completeness, or apply
+  plan coverage fail.
 
 ## Acceptance Criteria
 

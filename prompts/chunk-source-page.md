@@ -12,6 +12,17 @@ Rules:
 - Do not invent facts beyond the chunk notes.
 - Consolidate repeated claims across chunks instead of listing every section.
 - Mention important coverage from early, middle, and late sections when present.
+- Preserve source-boundary facts. If the chunk or group notes mention a
+  `[truncated at ...]` marker, incomplete retrieval, missing ending, mid-sentence
+  ending, or any other truncation boundary, the `What It Is` section must state
+  that boundary clearly.
+- When a truncation or incomplete-source boundary is present, do not describe the
+  source as complete, entire, full text, all chapters, final chapters, or without
+  abridgment. Use wording such as "retrieved text through..." or "partial corpus
+  item ending at..." instead.
+- Do not infer source completeness from a title, table of contents, or upstream
+  publication source. Only claim completeness if the notes explicitly establish
+  that the raw file includes the full work.
 - Synthesize the chunk and group notes in fresh prose. Do not concatenate or
   copy whole sentences from the notes unless the exact phrase is a named API,
   title, command, or quotation that must remain exact.

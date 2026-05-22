@@ -135,6 +135,10 @@ func scoreByName(scores Scores, name string) string {
 		return scores.CandidatePaths
 	case "duplicate_detection":
 		return scores.DuplicateDetection
+	case "source_completeness":
+		return scores.SourceCompleteness
+	case "apply_plan_coverage":
+		return scores.ApplyPlanCoverage
 	case "apply_readiness":
 		return scores.ApplyReadiness
 	case "overall":
