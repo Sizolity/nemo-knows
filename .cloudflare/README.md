@@ -93,32 +93,10 @@ npm run deploy
   并附带 `checksums.txt`。
 
 公开仓库不应默认由 push 触发服务器远程执行。这里的安全边界是：
-GitHub 只发布可下载、可校验的包；服务器由本机 timer 主动拉取和部署。
+GitHub 只托管代码和构建结果；服务器由本机 timer 主动拉取和部署。
 不要把服务器 SSH 私钥放进公开仓库的自动 push 部署链路里。
 
-### 路线 A：Release 包自动更新（服务器可访问 HTTPS）
-
-```bash
-# 在服务器上的部署目录运行；NEMO_REPO 是 GitHub 的 owner/repo
-NEMO_DEPLOY_DIR=/path/to/nemo-knows \
-NEMO_REPO=yourname/nemo-knows \
-NEMO_ARCH=amd64 \
-NEMO_RELEASE_TAG=main-latest \
-./deploy/systemd/install-release-updater.sh
-```
-
-`nemo-release-update.timer` 会定时执行：
-
-1. `git fetch` 并尝试快进本地默认分支（如果 tracked working tree 干净）。
-2. 下载 `main-latest` 的对应架构 tarball 和 `checksums.txt`。
-3. 校验 sha256。
-4. 替换 `.bin/nemo` 和 `.bin/nemo-web`。
-5. 重启 `nemo-web.service`。
-
-### 路线 B：Git over SSH 自动更新（服务器 HTTPS 下载受限）
-
-如果服务器防火墙会阻挡直接 HTTPS 下载外网 release asset，但 SSH 可用，
-使用这条路线。服务器需要能通过 SSH 读取 GitHub 仓库，并且需要安装 Go。
+### 默认路线：Git over SSH 自动更新
 
 ```bash
 # 服务器上的 origin 应该是 git@github.com:Sizolity/nemo-knows.git
@@ -142,12 +120,30 @@ NEMO_GIT_UPDATE_INTERVAL=10min \
 5. 本地构建 `.bin/nemo` 和 `.bin/nemo-web`。
 6. 重启 `nemo-web.service`。
 
+这条路线适合当前服务器网络：SSH 可用，但直接 HTTPS 下载外网文件很慢或会
+被防火墙阻挡。服务器需要能通过 SSH 读取 GitHub 仓库，并且需要安装 Go。
+
 如果要立即运行一次：
 
 ```bash
-systemctl --user start nemo-release-update.service # Release 路线
-systemctl --user start nemo-git-update.service     # Git over SSH 路线
+systemctl --user start nemo-git-update.service
 ```
+
+### 备用路线：Release 包更新（仅当服务器 HTTPS 可用）
+
+如果服务器能稳定访问 GitHub Release asset，可以改用预构建包：
+
+```bash
+# 在服务器上的部署目录运行；NEMO_REPO 是 GitHub 的 owner/repo
+NEMO_DEPLOY_DIR=/path/to/nemo-knows \
+NEMO_REPO=yourname/nemo-knows \
+NEMO_ARCH=amd64 \
+NEMO_RELEASE_TAG=main-latest \
+./deploy/systemd/install-release-updater.sh
+```
+
+`nemo-release-update.timer` 会下载 `main-latest` 的对应架构 tarball 和
+`checksums.txt`，校验后替换二进制并重启服务。
 
 仓库包含 systemd user unit 安装脚本：
 
