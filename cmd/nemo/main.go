@@ -24,6 +24,7 @@ import (
 	"github.com/huic/nemo-knows/internal/review"
 	"github.com/huic/nemo-knows/internal/web"
 	"github.com/huic/nemo-knows/internal/wikilint"
+	"github.com/huic/nemo-knows/internal/wikimaint"
 )
 
 func main() {
@@ -49,6 +50,8 @@ func run(args []string) int {
 	evalRegression := fs.String("eval-regression", "", "directory containing eval regression cases")
 	resumeBundle := fs.String("resume", "", "resume a reviewed bundle pipeline by running missing post-bundle stages")
 	lintWiki := fs.Bool("lint-wiki", false, "run deterministic read-only lint checks over wiki/")
+	maintainWiki := fs.Bool("maintain-wiki", false, "run wiki-only autonomous maintenance")
+	maintainMode := fs.String("mode", wikimaint.ModeReport, "maintenance mode: report, safe, propose, or auto")
 	applyApproved := fs.String("apply-approved", "", "directory for an approved reviewed bundle to apply")
 	approve := fs.Bool("approve", false, "explicitly approve wiki writes for apply mode")
 	forceApply := fs.Bool("force-apply", false, "allow re-applying a bundle that already has an ingest log entry")
@@ -76,6 +79,17 @@ func run(args []string) int {
 	}
 	if *applyApproved != "" {
 		if err := runApplyApproved(*applyApproved, *approve, *forceApply); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		return 0
+	}
+	if *maintainWiki {
+		if *outDir == "" {
+			fmt.Fprintln(os.Stderr, "required flags for wiki maintenance mode: -maintain-wiki, -out-dir")
+			return 2
+		}
+		if err := runMaintainWiki(*maintainMode, *outDir, cfg); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
@@ -765,11 +779,18 @@ func runReviewCandidates(bundleDir string, outDir string) error {
 		return fmt.Errorf("review candidate drafts: %w", err)
 	}
 	review := evalharness.ReviewCandidates(result)
+
+	crosslinks, clErr := evalharness.EvaluateBundleCrosslinks(".", bundleDir)
+	var crosslinkItems []evalharness.CandidateReviewItem
+	if clErr == nil {
+		crosslinkItems = evalharness.ReviewCrosslinks(crosslinks)
+	}
+
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		return fmt.Errorf("create candidate review output directory: %w", err)
 	}
 	path := filepath.Join(outDir, "candidate-review.md")
-	if err := os.WriteFile(path, []byte(evalharness.RenderCandidateReview(review)), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(evalharness.RenderCandidateReview(review, crosslinkItems...)), 0o644); err != nil {
 		return fmt.Errorf("write candidate review: %w", err)
 	}
 
@@ -939,6 +960,25 @@ func runLintWiki(outDir string) error {
 	}
 
 	fmt.Fprintf(os.Stderr, "wrote %s and %s\n", filepath.Join(outDir, "wiki-lint.json"), filepath.Join(outDir, "wiki-lint.md"))
+	return nil
+}
+
+func runMaintainWiki(mode string, outDir string, cfg config.Config) error {
+	opts := wikimaint.Options{
+		Mode:   mode,
+		OutDir: outDir,
+	}
+	if mode == wikimaint.ModePropose || mode == wikimaint.ModeAuto {
+		opts.Generator = generatorFromConfig(cfg)
+	}
+	result, err := wikimaint.Maintain(".", opts)
+	if err != nil {
+		return fmt.Errorf("maintain wiki: %w", err)
+	}
+	fmt.Fprintf(os.Stderr, "wrote %s and %s\n", filepath.Join(outDir, "wiki-maintain.json"), filepath.Join(outDir, "wiki-maintain.md"))
+	if result.Changed {
+		fmt.Fprintln(os.Stderr, "wiki maintenance applied safe changes")
+	}
 	return nil
 }
 

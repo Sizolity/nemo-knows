@@ -1,0 +1,73 @@
+name: CD
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run Go tests
+        run: go test ./...
+
+  build-server-binaries:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build server binaries
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          set -euo pipefail
+          out="dist/nemo-knows-${GOOS}-${GOARCH}"
+          mkdir -p "$out"
+          go build -trimpath -ldflags="-s -w" -o "$out/nemo" ./cmd/nemo
+          go build -trimpath -ldflags="-s -w" -o "$out/nemo-web" ./cmd/nemo-web
+          cp README.md AGENTS.md "$out/"
+          tar -C dist -czf "$out.tar.gz" "nemo-knows-${GOOS}-${GOARCH}"
+
+      - name: Upload server binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: nemo-knows-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/nemo-knows-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz
+          if-no-files-found: error

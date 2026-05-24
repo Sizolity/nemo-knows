@@ -33,7 +33,10 @@ type CandidateAggregateScore struct {
 	Wikilinks      string `json:"wikilinks"`
 	Markdown       string `json:"markdown"`
 	Length         string `json:"length"`
+	Depth          string `json:"depth"`
 	Originality    string `json:"originality"`
+	Scope          string `json:"scope"`
+	Redundancy     string `json:"redundancy"`
 	Overall        string `json:"overall"`
 }
 
@@ -90,6 +93,8 @@ func evaluateCandidates(root string, bundleDir string, validateLinks bool) (Cand
 		return result, nil
 	}
 
+	scoreRedundancy(bundleDir, targets, &result)
+
 	result.Scores = aggregateCandidateScores(result.Candidates)
 	for _, candidate := range result.Candidates {
 		for _, entry := range candidate.Trace {
@@ -121,7 +126,10 @@ func scoreCandidateFile(target string, content string, sourceDraft string, allow
 	result.Scores.Wikilinks = scoreCandidateWikilinks(body, allowedLinks, supportedLinks, validateLinks, &result.Trace)
 	result.Scores.Markdown = scoreCandidateMarkdown(body, &result.Trace)
 	result.Scores.Length = scoreCandidateLength(body, &result.Trace)
+	result.Scores.Depth = scoreCandidateDepth(body, &result.Trace)
 	result.Scores.Originality = scoreCandidateOriginality(body, sourceDraft, &result.Trace)
+	result.Scores.Scope = scoreCandidateScope(body, sourceDraft, &result.Trace)
+	result.Scores.Redundancy = "pass" // set later by cross-candidate check
 	result.Scores.Overall = aggregateOneCandidate(result.Scores)
 
 	return result
@@ -335,6 +343,177 @@ func scoreCandidateOriginality(body string, sourceDraft string, trace *[]string)
 	return "pass"
 }
 
+// scoreCandidateDepth checks that the page has substantive prose, not just
+// headers, lists, and boilerplate that happen to pass the word-count gate.
+//
+// Markdown paragraphs are single lines, so a dense 150-word paragraph counts
+// as one "prose line." To avoid penalising well-written dense pages, total
+// prose word count acts as a fallback: >= 120 prose words rescue a low line
+// count from borderline to pass.
+func scoreCandidateDepth(body string, trace *[]string) string {
+	prose := proseSentences(body)
+	proseWords := 0
+	for _, line := range prose {
+		proseWords += len(strings.Fields(line))
+	}
+	switch {
+	case len(prose) < 2:
+		*trace = append(*trace, fmt.Sprintf("depth: too few prose sentences (%d, %d prose words)", len(prose), proseWords))
+		return "fail"
+	case len(prose) >= 4:
+		*trace = append(*trace, fmt.Sprintf("depth: adequate prose (%d sentences, %d prose words)", len(prose), proseWords))
+		return "pass"
+	case proseWords >= 120:
+		*trace = append(*trace, fmt.Sprintf("depth: dense prose (%d sentences, %d prose words)", len(prose), proseWords))
+		return "pass"
+	default:
+		*trace = append(*trace, fmt.Sprintf("depth: shallow prose (%d sentences, %d prose words)", len(prose), proseWords))
+		return "borderline"
+	}
+}
+
+// scoreCandidateScope detects source-summary drift: a candidate that mirrors
+// the source.md structure rather than offering original synthesis.
+func scoreCandidateScope(body string, sourceDraft string, trace *[]string) string {
+	bodyLines := proseSentences(body)
+	if len(bodyLines) < 2 {
+		*trace = append(*trace, "scope: too few prose sentences to evaluate scope")
+		return "pass"
+	}
+	_, sourceBody := splitCandidateFrontmatter(sourceDraft)
+	sourceShingles := tokenShingles(tokenizeForSimilarity(sourceBody), 4)
+	if len(sourceShingles) == 0 {
+		*trace = append(*trace, "scope: source too short for scope comparison")
+		return "pass"
+	}
+	drifted := 0
+	for _, line := range bodyLines {
+		if shingleOverlap(line, sourceShingles, 4) >= 0.5 {
+			drifted++
+		}
+	}
+	ratio := float64(drifted) / float64(len(bodyLines))
+	switch {
+	case ratio >= 0.6:
+		*trace = append(*trace, fmt.Sprintf("scope: %.0f%% of prose mirrors source.md structure (%d/%d lines)", ratio*100, drifted, len(bodyLines)))
+		return "borderline"
+	default:
+		*trace = append(*trace, fmt.Sprintf("scope: %.0f%% source overlap, acceptable (%d/%d lines)", ratio*100, drifted, len(bodyLines)))
+		return "pass"
+	}
+}
+
+// scoreRedundancy compares each pair of sibling candidates for excessive
+// content overlap. High overlap indicates a concept-splitting problem where
+// two pages cover the same material.
+func scoreRedundancy(bundleDir string, targets []string, result *CandidateResult) {
+	type body struct {
+		idx     int
+		path    string
+		tokens  []string
+	}
+	bodies := make([]body, 0, len(targets))
+	for i, target := range targets {
+		path := filepath.Join(bundleDir, "candidates", filepath.FromSlash(target))
+		content, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		_, b := splitCandidateFrontmatter(string(content))
+		bodies = append(bodies, body{idx: i, path: target, tokens: tokenizeForSimilarity(b)})
+	}
+	if len(bodies) < 2 {
+		return
+	}
+
+	flagged := map[int]string{}
+	for i := 0; i < len(bodies); i++ {
+		aShingles := tokenShingles(bodies[i].tokens, 4)
+		if len(aShingles) == 0 {
+			continue
+		}
+		for j := i + 1; j < len(bodies); j++ {
+			bShingles := tokenShingles(bodies[j].tokens, 4)
+			if len(bShingles) == 0 {
+				continue
+			}
+			overlap := symmetricShingleOverlap(aShingles, bShingles)
+			if overlap >= 0.6 {
+				flagged[bodies[i].idx] = worst(flagged[bodies[i].idx], "fail")
+				flagged[bodies[j].idx] = worst(flagged[bodies[j].idx], "fail")
+				appendTrace(result, bodies[i].idx, fmt.Sprintf("redundancy: %.0f%% overlap with %s", overlap*100, bodies[j].path))
+				appendTrace(result, bodies[j].idx, fmt.Sprintf("redundancy: %.0f%% overlap with %s", overlap*100, bodies[i].path))
+			} else if overlap >= 0.35 {
+				flagged[bodies[i].idx] = worst(flagged[bodies[i].idx], "borderline")
+				flagged[bodies[j].idx] = worst(flagged[bodies[j].idx], "borderline")
+				appendTrace(result, bodies[i].idx, fmt.Sprintf("redundancy: %.0f%% overlap with %s", overlap*100, bodies[j].path))
+				appendTrace(result, bodies[j].idx, fmt.Sprintf("redundancy: %.0f%% overlap with %s", overlap*100, bodies[i].path))
+			}
+		}
+	}
+	for i := range result.Candidates {
+		if score, ok := flagged[i]; ok {
+			result.Candidates[i].Scores.Redundancy = score
+			result.Candidates[i].Scores.Overall = aggregateOneCandidate(result.Candidates[i].Scores)
+		} else {
+			result.Candidates[i].Scores.Redundancy = "pass"
+			result.Candidates[i].Trace = append(result.Candidates[i].Trace, "redundancy: no significant overlap with sibling candidates")
+		}
+	}
+}
+
+func appendTrace(result *CandidateResult, idx int, msg string) {
+	if idx >= 0 && idx < len(result.Candidates) {
+		result.Candidates[idx].Trace = append(result.Candidates[idx].Trace, msg)
+	}
+}
+
+func symmetricShingleOverlap(a map[string]bool, b map[string]bool) float64 {
+	if len(a) == 0 || len(b) == 0 {
+		return 0
+	}
+	matches := 0
+	for s := range a {
+		if b[s] {
+			matches++
+		}
+	}
+	smaller := len(a)
+	if len(b) < smaller {
+		smaller = len(b)
+	}
+	return float64(matches) / float64(smaller)
+}
+
+func worst(current string, proposed string) string {
+	if current == "" {
+		return proposed
+	}
+	return worstScore(current, proposed)
+}
+
+// proseSentences returns lines that look like running prose: at least 40
+// characters, not starting with heading/list markers.
+func proseSentences(content string) []string {
+	lines := []string{}
+	for _, line := range strings.Split(content, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if strings.HasPrefix(line, "#") || strings.HasPrefix(line, "-") ||
+			strings.HasPrefix(line, "*") || strings.HasPrefix(line, "|") ||
+			strings.HasPrefix(line, ">") || strings.HasPrefix(line, "```") {
+			continue
+		}
+		if len(line) < 40 {
+			continue
+		}
+		lines = append(lines, line)
+	}
+	return lines
+}
+
 func meaningfulLines(content string) []string {
 	lines := []string{}
 	for _, line := range strings.Split(content, "\n") {
@@ -414,7 +593,10 @@ func aggregateCandidateScores(candidates []CandidateFileResult) CandidateAggrega
 		Wikilinks:      "pass",
 		Markdown:       "pass",
 		Length:         "pass",
+		Depth:          "pass",
 		Originality:    "pass",
+		Scope:          "pass",
+		Redundancy:     "pass",
 		Overall:        "pass",
 	}
 	for _, candidate := range candidates {
@@ -425,7 +607,10 @@ func aggregateCandidateScores(candidates []CandidateFileResult) CandidateAggrega
 		score.Wikilinks = worstScore(score.Wikilinks, candidate.Scores.Wikilinks)
 		score.Markdown = worstScore(score.Markdown, candidate.Scores.Markdown)
 		score.Length = worstScore(score.Length, candidate.Scores.Length)
+		score.Depth = worstScore(score.Depth, candidate.Scores.Depth)
 		score.Originality = worstScore(score.Originality, candidate.Scores.Originality)
+		score.Scope = worstScore(score.Scope, candidate.Scores.Scope)
+		score.Redundancy = worstScore(score.Redundancy, candidate.Scores.Redundancy)
 		score.Overall = worstScore(score.Overall, candidate.Scores.Overall)
 	}
 	return score
@@ -433,7 +618,12 @@ func aggregateCandidateScores(candidates []CandidateFileResult) CandidateAggrega
 
 func aggregateOneCandidate(scores CandidateAggregateScore) string {
 	overall := "pass"
-	for _, score := range []string{scores.Frontmatter, scores.Sources, scores.Title, scores.TitleAlignment, scores.Wikilinks, scores.Markdown, scores.Length, scores.Originality} {
+	for _, score := range []string{
+		scores.Frontmatter, scores.Sources, scores.Title,
+		scores.TitleAlignment, scores.Wikilinks, scores.Markdown,
+		scores.Length, scores.Depth, scores.Originality,
+		scores.Scope, scores.Redundancy,
+	} {
 		overall = worstScore(overall, score)
 	}
 	return overall

@@ -14,8 +14,17 @@ Rules:
   source does not support the relationship, write it as plain text.
 - Wikilinks are optional. Do not add a Related Concepts section just to include
   links.
+- When two or more sibling pages in the Allowed Links list are genuinely
+  relevant to the topic, try to reference them in the body prose. A
+  well-connected wiki page usually links to at least two siblings.
 - Do not invent facts.
-- Prefer concise synthesis prose.
+- Prefer concise synthesis prose. Structure the body as at least four short
+  paragraphs, each covering a distinct aspect of the topic. Avoid compressing
+  the entire page into one or two dense blocks; break the analysis into
+  readable steps.
+- Minimise bullet lists. Use running prose paragraphs as the primary form;
+  reserve lists only for genuinely list-shaped content such as enumerations
+  or comparison items.
 - Do not copy whole sentences from the source material. Rephrase every
   source-backed claim in original reference prose.
 - A paragraph that merely restates the source summary belongs in the source

@@ -79,6 +79,34 @@ npm run dev
 npm run deploy
 ```
 
+## 4. GitHub CD
+
+仓库包含 GitHub Actions CD workflow（`.github/workflows/cd.yml`）：
+
+- push 到 `main` 或手动 `workflow_dispatch` 时运行。
+- 先执行 `go test ./...`。
+- 为服务器构建 Linux 二进制产物：
+  - `nemo-knows-linux-amd64.tar.gz`
+  - `nemo-knows-linux-arm64.tar.gz`
+- 每个产物包含 `nemo`、`nemo-web`、`README.md`、`AGENTS.md`。
+- 产物通过 GitHub Actions artifacts 保存，服务器可以下载后替换本地
+  `.bin/nemo` 和 `.bin/nemo-web`。
+
+Cloudflare Worker 仍走 Cloudflare 自己的拉取/部署流程。GitHub CD 不运行
+`wrangler deploy`，也不需要 Cloudflare API token。
+
+服务器更新示例：
+
+```bash
+# 从 GitHub Actions 下载对应架构的 nemo-knows-linux-*.tar.gz 后：
+tar -xzf nemo-knows-linux-amd64.tar.gz
+install -m 0755 nemo-knows-linux-amd64/nemo .bin/nemo
+install -m 0755 nemo-knows-linux-amd64/nemo-web .bin/nemo-web
+```
+
+后续如果要让 GitHub Actions 直接部署到服务器，可以再加 SSH deploy job
+（需要配置服务器 host、user、private key、部署目录和 systemd 服务名）。
+
 Worker 部署后绑定到你想要的公开域名（在 Cloudflare Dashboard 或 wrangler.toml
 中配置 `routes`）。
 

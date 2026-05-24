@@ -917,6 +917,61 @@ func TestRunLintsWiki(t *testing.T) {
 	}
 }
 
+func TestRunMaintainsWikiSafeMode(t *testing.T) {
+	dir := t.TempDir()
+	outDir := filepath.Join(dir, "maintain")
+	if err := os.MkdirAll(filepath.Join(dir, "wiki", "concepts"), 0o755); err != nil {
+		t.Fatalf("mkdir wiki: %v", err)
+	}
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("get wd: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(oldWd); err != nil {
+			t.Fatalf("restore wd: %v", err)
+		}
+	}()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("chdir temp repo: %v", err)
+	}
+	if err := os.WriteFile("wiki/index.md", []byte("---\ntitle: Index\nkind: index\n---\n\n## Concepts\n\n- [[stale]] — Stale.\n"), 0o644); err != nil {
+		t.Fatalf("write index: %v", err)
+	}
+	if err := os.WriteFile("wiki/log.md", []byte("---\ntitle: Log\nkind: log\n---\n\n## [2026-05-16] note | ok\n"), 0o644); err != nil {
+		t.Fatalf("write log: %v", err)
+	}
+	if err := os.WriteFile("wiki/concepts/known.md", []byte("---\ntitle: Known\nkind: concept\nsources:\n  - wiki/sources/example.md\nconfidence: medium\n---\n\n# Known\n"), 0o644); err != nil {
+		t.Fatalf("write page: %v", err)
+	}
+
+	if code := run([]string{"-maintain-wiki", "-mode", "safe", "-out-dir", outDir}); code != 0 {
+		t.Fatalf("run returned exit code %d", code)
+	}
+	for _, path := range []string{
+		filepath.Join(outDir, "wiki-maintain.json"),
+		filepath.Join(outDir, "wiki-maintain.md"),
+	} {
+		if _, err := os.Stat(path); err != nil {
+			t.Fatalf("expected wiki maintenance output %s: %v", path, err)
+		}
+	}
+	index, err := os.ReadFile("wiki/index.md")
+	if err != nil {
+		t.Fatalf("read index: %v", err)
+	}
+	if !strings.Contains(string(index), "[[known]]") || strings.Contains(string(index), "[[stale]]") {
+		t.Fatalf("unexpected maintained index:\n%s", index)
+	}
+	log, err := os.ReadFile("wiki/log.md")
+	if err != nil {
+		t.Fatalf("read log: %v", err)
+	}
+	if !strings.Contains(string(log), "lint | wiki autonomous maintenance") {
+		t.Fatalf("expected maintenance log entry:\n%s", log)
+	}
+}
+
 func TestRunEvaluatesRegressionCases(t *testing.T) {
 	dir := t.TempDir()
 	casesDir := filepath.Join(dir, "cases")

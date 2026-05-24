@@ -66,6 +66,14 @@ func candidateReviewRecommendation(problem string) string {
 		return "Restore canonical candidate frontmatter: title, kind, sources, and confidence."
 	case strings.Contains(problem, "length: too short") || strings.Contains(problem, "length: short"):
 		return "Expand the draft with concise source-backed prose before approved apply."
+	case strings.Contains(problem, "depth: too few"):
+		return "The page passes the word-count gate but has too few substantive prose sentences. Add original analysis, explanation, or context grounded in the source."
+	case strings.Contains(problem, "depth: shallow"):
+		return "The page is thin. Expand with source-backed prose sentences that go beyond headers and bullet lists."
+	case strings.Contains(problem, "scope:") && strings.Contains(problem, "mirrors source.md"):
+		return "The candidate reads like a compressed copy of source.md. Rewrite to synthesize, compare, or explain the topic from the candidate's own angle rather than mirroring the source structure."
+	case strings.Contains(problem, "redundancy:") && strings.Contains(problem, "% overlap with"):
+		return "This candidate overlaps significantly with a sibling. Merge the two pages or narrow each to a distinct sub-topic."
 	case strings.Contains(problem, "originality:") && !strings.Contains(problem, "not mostly copied"):
 		return "Rewrite copied passages in original reference prose while preserving source-backed claims."
 	case strings.Contains(problem, "candidate: missing draft file"):
@@ -75,19 +83,51 @@ func candidateReviewRecommendation(problem string) string {
 	}
 }
 
-func RenderCandidateReview(review CandidateReview) string {
+// ReviewCrosslinks produces review items from crosslink lint findings, turning
+// informational zero-inbound issues into actionable repair recommendations.
+func ReviewCrosslinks(crosslinks CrosslinkResult) []CandidateReviewItem {
+	items := []CandidateReviewItem{}
+	for _, issue := range crosslinks.Issues {
+		switch issue.Code {
+		case "zero-inbound":
+			items = append(items, CandidateReviewItem{
+				Path:           issue.Path,
+				Severity:       "borderline",
+				Problem:        "crosslink: " + issue.Message,
+				Recommendation: "Add a [[wikilink]] to this page from at least one sibling candidate. If no natural link exists, consider whether this topic should be merged into another page.",
+			})
+		case "missing-target":
+			items = append(items, CandidateReviewItem{
+				Path:           issue.Path,
+				Severity:       "borderline",
+				Problem:        "crosslink: " + issue.Message,
+				Recommendation: "Remove the broken wikilink or add the missing target as a reviewed candidate before apply.",
+			})
+		}
+	}
+	return items
+}
+
+// RenderCandidateReview formats the review including optional crosslink items.
+func RenderCandidateReview(review CandidateReview, crosslinkItems ...CandidateReviewItem) string {
+	allItems := append(review.Items, crosslinkItems...)
+	overall := review.Overall
+	if len(crosslinkItems) > 0 && overall == "pass" {
+		overall = "needs-review"
+	}
+
 	var b strings.Builder
 	b.WriteString("# Candidate Review\n\n")
 	b.WriteString(fmt.Sprintf("Bundle: `%s`\n\n", review.Bundle))
 	b.WriteString("This is a review artifact. Do not apply these suggestions automatically.\n\n")
-	b.WriteString(fmt.Sprintf("- overall: `%s`\n", review.Overall))
-	b.WriteString(fmt.Sprintf("- items: `%d`\n\n", len(review.Items)))
+	b.WriteString(fmt.Sprintf("- overall: `%s`\n", overall))
+	b.WriteString(fmt.Sprintf("- items: `%d`\n\n", len(allItems)))
 	b.WriteString("## Suggested Repairs\n\n")
-	if len(review.Items) == 0 {
+	if len(allItems) == 0 {
 		b.WriteString("(none)\n")
 		return b.String()
 	}
-	for _, item := range review.Items {
+	for _, item := range allItems {
 		b.WriteString(fmt.Sprintf("### `%s`\n\n", item.Path))
 		b.WriteString(fmt.Sprintf("- severity: `%s`\n", item.Severity))
 		b.WriteString("- problem: ")
