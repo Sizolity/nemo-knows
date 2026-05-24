@@ -62,6 +62,20 @@ check_go() {
 	echo "using go: $go_bin ($("$go_bin" version))"
 }
 
+ensure_deploy_script_modes() {
+	for script in \
+		deploy/release/build-local-current.sh \
+		deploy/release/update-from-git.sh \
+		deploy/release/update-from-github-release.sh \
+		deploy/systemd/install-git-updater.sh \
+		deploy/systemd/install-release-updater.sh \
+		deploy/systemd/install-user-units.sh; do
+		if [ -f "$script" ] && [ ! -x "$script" ]; then
+			chmod +x "$script"
+		fi
+	done
+}
+
 mkdir -p "$deploy_dir/.bin"
 exec 9>"$lock_path"
 if ! flock -n 9; then
@@ -92,6 +106,7 @@ fi
 
 git merge --ff-only "$remote/$branch"
 after="$(git rev-parse HEAD)"
+ensure_deploy_script_modes
 
 if [ "$before" = "$after" ] && [ "$force_build" != "true" ] && [ -x .bin/nemo ] && [ -x .bin/nemo-web ]; then
 	echo "checkout unchanged at $after"

@@ -116,9 +116,10 @@ NEMO_GIT_UPDATE_INTERVAL=10min \
 1. `git fetch --prune origin main`。
 2. 拒绝在 tracked working tree 有本地改动时自动部署。
 3. 快进到 `origin/main`。
-4. 运行 `go test ./...`。
-5. 本地构建 `.bin/nemo` 和 `.bin/nemo-web`。
-6. 重启 `nemo-web.service`。
+4. 确保仓库内的部署脚本有执行权限。
+5. 运行 `go test ./...`。
+6. 本地构建 `.bin/nemo` 和 `.bin/nemo-web`。
+7. 重启 `nemo-web.service`。
 
 这条路线适合当前服务器网络：SSH 可用，但直接 HTTPS 下载外网文件很慢或会
 被防火墙阻挡。服务器需要能通过 SSH 读取 GitHub 仓库，并且需要安装 Go。
