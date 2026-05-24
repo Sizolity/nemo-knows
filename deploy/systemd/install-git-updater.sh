@@ -7,6 +7,8 @@ branch="${NEMO_DEPLOY_BRANCH:-main}"
 interval="${NEMO_GIT_UPDATE_INTERVAL:-10min}"
 run_tests="${NEMO_RUN_TESTS:-true}"
 restart_service="${NEMO_RESTART_SERVICE:-nemo-web.service}"
+go_bin="${NEMO_GO:-}"
+service_path="${NEMO_SERVICE_PATH:-/usr/local/go/bin:/usr/bin:/bin:/usr/sbin:/sbin:/snap/bin}"
 
 unit_dir="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 mkdir -p "$unit_dir"
@@ -24,6 +26,8 @@ Environment=NEMO_DEPLOY_REMOTE=$remote
 Environment=NEMO_DEPLOY_BRANCH=$branch
 Environment=NEMO_RUN_TESTS=$run_tests
 Environment=NEMO_RESTART_SERVICE=$restart_service
+Environment=NEMO_GO=$go_bin
+Environment=PATH=$service_path
 ExecStart=$deploy_dir/deploy/release/update-from-git.sh
 EOF
 

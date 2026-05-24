@@ -122,6 +122,12 @@ NEMO_GIT_UPDATE_INTERVAL=10min \
 
 这条路线适合当前服务器网络：SSH 可用，但直接 HTTPS 下载外网文件很慢或会
 被防火墙阻挡。服务器需要能通过 SSH 读取 GitHub 仓库，并且需要安装 Go。
+脚本会自动从 `PATH`、`/usr/local/go/bin/go`、`/usr/bin/go` 等位置查找 Go，
+并按 `go.mod` 校验版本。若 Go 安装在其他位置，设置：
+
+```bash
+NEMO_GO=/absolute/path/to/go ./deploy/systemd/install-git-updater.sh
+```
 
 如果要立即运行一次：
 
