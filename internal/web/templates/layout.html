@@ -13,36 +13,34 @@
     <a class="brand" href="/">nemo-knows Wiki</a>
     <nav>
       <a class="nav-icon" href="/graph" title="知识图谱" aria-label="知识图谱">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.2"></circle><circle cx="18" cy="6" r="2.2"></circle><circle cx="12" cy="13" r="2.4"></circle><circle cx="5" cy="19" r="2.2"></circle><circle cx="19" cy="19" r="2.2"></circle><line x1="7.4" y1="7.4" x2="10.6" y2="11.4"></line><line x1="16.6" y1="7.4" x2="13.4" y2="11.4"></line><line x1="11.2" y1="14.9" x2="6.3" y2="17.3"></line><line x1="12.8" y1="14.9" x2="17.7" y2="17.3"></line></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="2"></circle><circle cx="18" cy="6" r="2"></circle><circle cx="12" cy="15" r="2"></circle><line x1="7.5" y1="7.5" x2="10.5" y2="13.2"></line><line x1="16.5" y1="7.5" x2="13.5" y2="13.2"></line></svg>
+        图谱
       </a>
-      <a class="nav-icon" href="https://github.com/Sizolity/nemo-knows" target="_blank" rel="noopener noreferrer" title="原仓库（GitHub）" aria-label="原仓库 GitHub">
-        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.73.5.75 5.48.75 11.75c0 4.97 3.22 9.18 7.69 10.67.56.1.77-.24.77-.54 0-.27-.01-.97-.01-1.9-3.13.68-3.79-1.51-3.79-1.51-.51-1.3-1.25-1.65-1.25-1.65-1.02-.7.08-.69.08-.69 1.13.08 1.73 1.16 1.73 1.16 1.01 1.73 2.64 1.23 3.28.94.1-.73.39-1.23.71-1.51-2.5-.28-5.13-1.25-5.13-5.56 0-1.23.44-2.23 1.16-3.02-.12-.29-.5-1.44.11-3 0 0 .95-.3 3.11 1.15.9-.25 1.87-.38 2.83-.39.96.01 1.93.14 2.83.39 2.16-1.45 3.1-1.15 3.1-1.15.62 1.56.23 2.71.11 3 .72.79 1.16 1.79 1.16 3.02 0 4.32-2.64 5.27-5.15 5.55.4.34.76 1.02.76 2.06 0 1.49-.01 2.69-.01 3.05 0 .3.21.65.78.54 4.46-1.49 7.68-5.7 7.68-10.67C23.25 5.48 18.27.5 12 .5z"></path></svg>
+      <a class="nav-icon" href="https://github.com/Sizolity/nemo-knows" target="_blank" rel="noopener noreferrer" title="GitHub" aria-label="GitHub">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.58 2 12.26c0 4.53 2.86 8.38 6.84 9.74.5.09.68-.22.68-.49 0-.24-.01-1.04-.01-1.89-2.78.62-3.37-1.22-3.37-1.22-.45-1.18-1.1-1.49-1.1-1.49-.9-.63.07-.62.07-.62 1 .07 1.53 1.05 1.53 1.05.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05A9.3 9.3 0 0 1 12 7c.85 0 1.7.12 2.5.34 1.9-1.33 2.74-1.05 2.74-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.8-4.57 5.06.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.8 0 .27.18.59.69.49A10.1 10.1 0 0 0 22 12.26C22 6.58 17.52 2 12 2z"></path></svg>
+        GitHub
       </a>
     </nav>
   </header>
   <div class="app-body">
     <aside class="app-sidebar">
       <div class="sidebar-category">
-        <div class="sidebar-cat-header badge-general">
-          <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+        <div class="sidebar-cat-header">
           快速导航
         </div>
         <ul class="sidebar-list">
           <li class="{{if eq .Path "wiki/index.md"}}active{{end}}">
             <a href="/view?path=wiki/index.md">
-              <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
               内容索引
             </a>
           </li>
           <li class="{{if eq .Path "wiki/log.md"}}active{{end}}">
             <a href="/view?path=wiki/log.md">
-              <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
               变更日志
             </a>
           </li>
           <li class="{{if eq .Path "/build"}}active{{end}}">
             <a href="/build">
-              <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
               知识构建
             </a>
           </li>
@@ -50,8 +48,7 @@
       </div>
 
       <div class="sidebar-category">
-        <div class="sidebar-cat-header badge-source">
-          <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+        <div class="sidebar-cat-header">
           来源文献 ({{len .SidebarSources}})
         </div>
         <ul class="sidebar-list">
@@ -64,8 +61,7 @@
       </div>
 
       <div class="sidebar-category">
-        <div class="sidebar-cat-header badge-entity">
-          <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        <div class="sidebar-cat-header">
           核心实体 ({{len .SidebarEntities}})
         </div>
         <ul class="sidebar-list">
@@ -78,8 +74,7 @@
       </div>
 
       <div class="sidebar-category">
-        <div class="sidebar-cat-header badge-concept">
-          <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"></path><path d="M10 22h4"></path><path d="M15.09 14c.18-.19.33-.42.49-.61C16.85 11.8 17.5 10 17.5 8a5.5 5.5 0 0 0-11 0c0 2 .65 3.8 1.92 5.39.16.19.31.42.49.61c.42.43.59.83.59 1.41h5c0-.58.17-.98.59-1.41z"></path></svg>
+        <div class="sidebar-cat-header">
           技术概念 ({{len .SidebarConcepts}})
         </div>
         <ul class="sidebar-list">
@@ -92,8 +87,7 @@
       </div>
 
       <div class="sidebar-category">
-        <div class="sidebar-cat-header badge-topic">
-          <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+        <div class="sidebar-cat-header">
           综合主题 ({{len .SidebarTopics}})
         </div>
         <ul class="sidebar-list">

@@ -1,79 +1,42 @@
 {{define "build"}}
 {{template "layout-start" .}}
-<section class="hero" style="margin-bottom: 32px;">
-  <p class="eyebrow">数据导入与编译</p>
-  <h1>添加新文献并构建为大模型知识库</h1>
-  <p>在此处直接输入或粘贴全新的原始文献材料。保存后，文献将以 Markdown 格式持久化存储，随后您便可以一键调度 nemo-knows 的 AI 流水线进行知识提炼、关系编译并同步汇入您的双链知识图谱中。</p>
+<section class="hero">
+  <p class="eyebrow">构建</p>
+  <h1>知识库维护</h1>
+  <p>上传或粘贴 Markdown，系统会校验后入库，并使用默认 Stable 配置启动编译。</p>
 </section>
 
 {{if .Error}}
-  <div class="card" style="margin-bottom: 24px; border-color: #fca5a5; background: #fef2f2; color: #b91c1c; padding: 16px 20px; border-radius: 12px;">
-    <p style="margin: 0; display: flex; align-items: center; gap: 8px;">
-      <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+  <div class="notice notice-error">
+    <p>
       <strong>保存失败：</strong>{{.Error}}
     </p>
   </div>
 {{end}}
 
 {{if .Success}}
-  <div class="card" style="margin-bottom: 24px; border-color: #86efac; background: #f0fdf4; color: #166534; padding: 16px 20px; border-radius: 12px;">
-    <p style="margin: 0; display: flex; align-items: center; gap: 8px;">
-      <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+  <div class="notice notice-success">
+    <p>
       <strong>导入成功：</strong>{{.Success}}
     </p>
   </div>
 {{end}}
 
-<div class="grid" style="display: grid; gap: 24px; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); margin-bottom: 40px;">
-  <section class="card" style="padding: 28px;">
-    <h2 style="margin-top: 0; font-size: 20px; display: flex; align-items: center; gap: 10px;">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px; color: var(--accent); flex-shrink: 0;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-      导入新文献数据
-    </h2>
-    <p class="muted" style="font-size: 13.5px; margin-bottom: 20px; line-height: 1.6;">输入文献英文唯一标识文件名并粘贴内容。提交后将存储在 <code>wiki/sources/</code> 目录下，作为知识库的根事实（Sources）来源条目。</p>
+<section class="card">
+  <h2>添加 Markdown</h2>
 
-    <form method="POST" action="/build">
-      <input type="hidden" name="action" value="save_source">
-      <label style="display: block; margin-bottom: 18px;">
-        <span style="font-size: 13.5px; font-weight: 600; display: block; margin-bottom: 8px; color: var(--text);">文献文件名 (例如: <code>my-essay.md</code>)</span>
-        <input type="text" name="name" placeholder="请输入文件名，如 my-essay.md" required style="padding: 11px 14px; border: 1px solid var(--line); border-radius: 8px; width: 100%; font-family: inherit; font-size: 14px; background: #fff;">
-      </label>
-      <label style="display: block; margin-bottom: 20px;">
-        <span style="font-size: 13.5px; font-weight: 600; display: block; margin-bottom: 8px; color: var(--text);">文献正文内容 (Markdown / 纯文本)</span>
-        <textarea name="content" placeholder="请在此处直接粘贴或输入您的根文献内容..." required style="min-height: 240px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; width: 100%; font-family: inherit; font-size: 14px; resize: vertical; line-height: 1.6; background: #fff;"></textarea>
-      </label>
-      <button type="submit" class="button-link" style="border: 0; min-height: 42px; display: flex; justify-content: center; align-items: center; width: 100%; font-weight: 700; font-size: 14px;">保存到 wiki/sources/</button>
-    </form>
-  </section>
-
-  <section class="card" style="padding: 28px;">
-    <h2 style="margin-top: 0; font-size: 20px; display: flex; align-items: center; gap: 10px;">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px; color: var(--accent); flex-shrink: 0;"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-      开始编译知识库
-    </h2>
-    <p class="muted" style="font-size: 13.5px; margin-bottom: 20px; line-height: 1.6;">大语言模型将提取文献中涉及的所有来源（Sources）、实体（Entities）、概念（Concepts）与主题（Topics），生成结构化草稿，并在审批通过后将其汇编入正式知识库。</p>
-
-    <form method="POST" action="/run">
-      <label style="display: block; margin-bottom: 18px;">
-        <span style="font-size: 13.5px; font-weight: 600; display: block; margin-bottom: 8px; color: var(--text);">选择参考文献来源 (来自 <code>wiki/sources/</code>)</span>
-        <select name="source" required style="padding: 11px 14px; border: 1px solid var(--line); border-radius: 8px; width: 100%; font-family: inherit; font-size: 14px; background: #fff;">
-          <option value="">-- 请选择要编译构建的来源条目 --</option>
-          {{range .Sources}}
-            <option value="{{.}}">{{.}}</option>
-          {{end}}
-        </select>
-      </label>
-      <label style="display: block; margin-bottom: 20px;">
-        <span style="font-size: 13.5px; font-weight: 600; display: block; margin-bottom: 8px; color: var(--text);">生成强度配置 (Profile)</span>
-        <select name="profile" style="padding: 11px 14px; border: 1px solid var(--line); border-radius: 8px; width: 100%; font-family: inherit; font-size: 14px; background: #fff;">
-          <option value="stable" {{if eq .CFG.Profile "stable"}}selected{{end}}>Stable (推荐，稳定性最佳)</option>
-          <option value="fast" {{if eq .CFG.Profile "fast"}}selected{{end}}>Fast (快速测试)</option>
-          <option value="deep" {{if eq .CFG.Profile "deep"}}selected{{end}}>Deep (深度推理提取)</option>
-        </select>
-      </label>
-      <button type="submit" class="button-link" style="border: 0; min-height: 42px; display: flex; justify-content: center; align-items: center; width: 100%; font-weight: 700; font-size: 14px;">启动 AI 汇编与提炼</button>
-    </form>
-  </section>
-</div>
+  <form method="POST" action="/build" enctype="multipart/form-data">
+    <input type="hidden" name="action" value="save_source">
+    <label>
+      <span>上传 .md 文件</span>
+      <input type="file" name="file" accept=".md,text/markdown,text/plain">
+    </label>
+    <label>
+      <span>或粘贴 Markdown</span>
+      <textarea name="content" placeholder="# Title&#10;&#10;Markdown 内容"></textarea>
+    </label>
+    <button type="submit">保存并启动</button>
+  </form>
+</section>
 {{template "layout-end" .}}
 {{end}}

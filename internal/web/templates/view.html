@@ -1,7 +1,7 @@
 {{define "view"}}
 {{template "layout-start" .}}
 <div class="card content">
-  <p class="eyebrow" style="margin-bottom: 24px; border-bottom: 1px solid var(--line); padding-bottom: 12px; color: var(--muted);">{{.Path}}</p>
+  <p class="page-path">{{.Path}}</p>
   {{.Content}}
 </div>
 {{template "layout-end" .}}

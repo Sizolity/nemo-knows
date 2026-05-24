@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"html"
 	"html/template"
+	"io"
 	"io/fs"
 	"math"
 	"net/http"
@@ -24,9 +25,12 @@ import (
 	"sync"
 	"syscall"
 	"time"
+	"unicode/utf8"
 
 	"github.com/huic/nemo-knows/internal/config"
 )
+
+const maxMarkdownUploadBytes = 4 << 20
 
 //go:embed templates/*.html
 var templatesFS embed.FS
@@ -113,6 +117,8 @@ var webTemplates = template.Must(template.New("web").Funcs(template.FuncMap{
 	},
 	"titleForPath": titleForMarkdownFile,
 }).ParseFS(templatesFS, "templates/*.html"))
+
+var markdownFileNameRE = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*\.md$`)
 
 // NewServer constructs a Server with the given configuration and pipeline.
 // pipeline may be nil; if it is, /run requests respond with 503.
@@ -235,10 +241,24 @@ func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 		profile = s.cfg.Profile
 	}
 	provider := strings.TrimSpace(r.FormValue("provider"))
+	if err := s.startJob(source, profile, provider); err != nil {
+		status := http.StatusBadRequest
+		if strings.Contains(err.Error(), "already in progress") {
+			status = http.StatusConflict
+		}
+		http.Error(w, err.Error(), status)
+		return
+	}
+	http.Redirect(w, r, "/job", http.StatusSeeOther)
+}
+
+func (s *Server) startJob(source string, profile string, provider string) error {
+	if s.pipeline == nil {
+		return fmt.Errorf("ingest pipeline is not available in this build")
+	}
 	cfg, err := config.ForProfileWithProvider(profile, provider)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return err
 	}
 
 	jobID := webJobID(source)
@@ -256,14 +276,13 @@ func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	if s.job != nil && s.job.Status == "running" {
 		s.mu.Unlock()
-		http.Error(w, "another nemo run is already in progress", http.StatusConflict)
-		return
+		return fmt.Errorf("another nemo run is already in progress")
 	}
 	s.job = job
 	s.mu.Unlock()
 
 	go s.runJob(job, cfg)
-	http.Redirect(w, r, "/job", http.StatusSeeOther)
+	return nil
 }
 
 func (s *Server) handleJob(w http.ResponseWriter, r *http.Request) {
@@ -303,28 +322,25 @@ func (s *Server) handleBuild(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		action := r.FormValue("action")
 		if action == "save_source" {
-			name := strings.TrimSpace(r.FormValue("name"))
-			content := r.FormValue("content")
-			if name == "" || content == "" {
-				errMsg = "文献名称和内容不能为空"
+			name, content, err := markdownUploadFromRequest(r, time.Now())
+			if err != nil {
+				errMsg = err.Error()
 			} else {
-				// Always normalize to .md so the file integrates with the
-				// rest of the wiki and is picked up by sidebar listings.
-				if !strings.HasSuffix(name, ".md") {
-					name = strings.TrimSuffix(name, ".txt") + ".md"
-				}
-				// Strip any directory components to prevent traversal.
-				name = filepath.Base(name)
 				targetDir := filepath.Join("wiki", "sources")
+				targetPath := filepath.Join(targetDir, name)
 				if err := os.MkdirAll(targetDir, 0o755); err != nil {
 					errMsg = "创建 wiki/sources/ 目录失败: " + err.Error()
+				} else if _, err := os.Stat(targetPath); err == nil {
+					errMsg = "同名 Markdown 已存在，请换一个文件名"
+				} else if !os.IsNotExist(err) {
+					errMsg = "检查文件失败: " + err.Error()
+				} else if err := os.WriteFile(targetPath, []byte(content), 0o644); err != nil {
+					errMsg = "保存 Markdown 失败: " + err.Error()
+				} else if err := s.startJob(filepath.ToSlash(targetPath), "stable", ""); err != nil {
+					errMsg = "Markdown 已保存，但启动编译失败: " + err.Error()
 				} else {
-					targetPath := filepath.Join(targetDir, name)
-					if err := os.WriteFile(targetPath, []byte(content), 0o644); err != nil {
-						errMsg = "保存文献失败: " + err.Error()
-					} else {
-						successMsg = fmt.Sprintf("新文献 wiki/sources/%s 已写入知识库，可以在下方选择并启动编译。", name)
-					}
+					http.Redirect(w, r, "/job", http.StatusSeeOther)
+					return
 				}
 			}
 		}
@@ -334,6 +350,102 @@ func (s *Server) handleBuild(w http.ResponseWriter, r *http.Request) {
 	data.Error = errMsg
 	data.Success = successMsg
 	s.render(w, "build", data)
+}
+
+func markdownUploadFromRequest(r *http.Request, now time.Time) (string, string, error) {
+	if err := r.ParseMultipartForm(maxMarkdownUploadBytes); err != nil {
+		return "", "", fmt.Errorf("解析上传内容失败: %w", err)
+	}
+	file, header, err := r.FormFile("file")
+	if err == nil {
+		defer file.Close()
+		content, err := readLimitedMarkdown(file)
+		if err != nil {
+			return "", "", err
+		}
+		return validateMarkdownUpload(header.Filename, content, now)
+	}
+	if err != http.ErrMissingFile {
+		return "", "", fmt.Errorf("读取上传文件失败: %w", err)
+	}
+	return validateMarkdownUpload("", r.FormValue("content"), now)
+}
+
+func readLimitedMarkdown(reader io.Reader) (string, error) {
+	limited := io.LimitReader(reader, maxMarkdownUploadBytes+1)
+	content, err := io.ReadAll(limited)
+	if err != nil {
+		return "", fmt.Errorf("读取 Markdown 失败: %w", err)
+	}
+	if len(content) > maxMarkdownUploadBytes {
+		return "", fmt.Errorf("Markdown 文件不能超过 4 MiB")
+	}
+	return string(content), nil
+}
+
+func validateMarkdownUpload(name string, content string, now time.Time) (string, string, error) {
+	name = strings.TrimSpace(name)
+	content = strings.TrimSpace(content)
+	if content == "" {
+		return "", "", fmt.Errorf("请上传 .md 文件或粘贴 Markdown 内容")
+	}
+	if !utf8.ValidString(content) {
+		return "", "", fmt.Errorf("内容必须是有效 UTF-8 文本")
+	}
+	if strings.ContainsRune(content, '\x00') {
+		return "", "", fmt.Errorf("内容不能包含 NUL 控制字符")
+	}
+	lower := strings.ToLower(content)
+	if strings.Contains(lower, "<script") {
+		return "", "", fmt.Errorf("内容不能包含 script 标签")
+	}
+	name, err := normalizeMarkdownName(name, content, now)
+	if err != nil {
+		return "", "", err
+	}
+	return name, content + "\n", nil
+}
+
+func normalizeMarkdownName(name string, content string, now time.Time) (string, error) {
+	if name == "" {
+		if title := firstMarkdownTitle(content); title != "" {
+			name = slugFromFilename(title) + ".md"
+		} else {
+			if now.IsZero() {
+				now = time.Now()
+			}
+			name = "source-" + now.Format("20060102-150405") + ".md"
+		}
+	}
+	if name != filepath.Base(name) || strings.ContainsAny(name, `/\`) {
+		return "", fmt.Errorf("文件名不能包含目录路径")
+	}
+	name = filepath.Base(name)
+	if name == "." || name == string(filepath.Separator) || name == "" {
+		return "", fmt.Errorf("文件名不能为空")
+	}
+	if !strings.HasSuffix(strings.ToLower(name), ".md") {
+		return "", fmt.Errorf("只支持 .md 文件")
+	}
+	slug := slugFromFilename(name)
+	if slug == "" {
+		return "", fmt.Errorf("无法从文件名生成有效标识")
+	}
+	name = slug + ".md"
+	if !markdownFileNameRE.MatchString(name) {
+		return "", fmt.Errorf("文件名只能包含英文字母、数字、点、下划线和连字符，并且必须是 .md 文件")
+	}
+	return name, nil
+}
+
+func firstMarkdownTitle(content string) string {
+	trimmed := strings.TrimSpace(content)
+	for _, line := range strings.Split(trimmed, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "# ") {
+			return strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "# "))
+		}
+	}
+	return ""
 }
 
 // ---------------------------------------------------------------------------
