@@ -378,7 +378,7 @@ func readLimitedMarkdown(reader io.Reader) (string, error) {
 		return "", fmt.Errorf("读取 Markdown 失败: %w", err)
 	}
 	if len(content) > maxMarkdownUploadBytes {
-		return "", fmt.Errorf("Markdown 文件不能超过 4 MiB")
+		return "", fmt.Errorf("markdown 文件不能超过 4 MiB")
 	}
 	return string(content), nil
 }

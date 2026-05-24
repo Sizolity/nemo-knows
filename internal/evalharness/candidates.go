@@ -408,9 +408,9 @@ func scoreCandidateScope(body string, sourceDraft string, trace *[]string) strin
 // two pages cover the same material.
 func scoreRedundancy(bundleDir string, targets []string, result *CandidateResult) {
 	type body struct {
-		idx     int
-		path    string
-		tokens  []string
+		idx    int
+		path   string
+		tokens []string
 	}
 	bodies := make([]body, 0, len(targets))
 	for i, target := range targets {
