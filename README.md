@@ -165,7 +165,9 @@ See [`.cloudflare/README.md`](.cloudflare/README.md) for setup details. The
 Worker caches read-heavy GET routes such as `/view`, `/graph`, and `/static`,
 while POST routes such as `/run` and `/build` pass through to the local console.
 The documented server path uses a GitHub Release channel (`main-latest`) plus a
-server-side `systemd` timer, so GitHub never SSHes into the host.
+server-side `systemd` timer, so GitHub never SSHes into the host. Servers that
+cannot download HTTPS release assets can instead use the documented Git-over-SSH
+timer and build locally.
 
 ## Configuration
 
@@ -261,7 +263,8 @@ go build -o .bin/nemo-web ./cmd/nemo-web
 CI runs `gofmt`, `go test ./...`, and `staticcheck`. CD builds Linux `nemo` and
 `nemo-web` packages for `amd64` and `arm64` and publishes the latest successful
 default-branch package to the `main-latest` GitHub Release channel. Servers pull
-that package themselves; GitHub does not deploy over SSH.
+that package themselves, or pull source over SSH and build locally when outbound
+HTTPS is restricted. GitHub does not deploy over SSH.
 
 ## Status
 

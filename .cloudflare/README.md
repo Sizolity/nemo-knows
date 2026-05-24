@@ -79,7 +79,7 @@ npm run dev
 npm run deploy
 ```
 
-## 4. GitHub Release 部署
+## 4. 服务器自动部署
 
 仓库包含 GitHub Actions CD workflow（`.github/workflows/cd.yml`）：
 
@@ -96,7 +96,7 @@ npm run deploy
 GitHub 只发布可下载、可校验的包；服务器由本机 timer 主动拉取和部署。
 不要把服务器 SSH 私钥放进公开仓库的自动 push 部署链路里。
 
-服务器首次安装自动更新：
+### 路线 A：Release 包自动更新（服务器可访问 HTTPS）
 
 ```bash
 # 在服务器上的部署目录运行；NEMO_REPO 是 GitHub 的 owner/repo
@@ -115,10 +115,38 @@ NEMO_RELEASE_TAG=main-latest \
 4. 替换 `.bin/nemo` 和 `.bin/nemo-web`。
 5. 重启 `nemo-web.service`。
 
+### 路线 B：Git over SSH 自动更新（服务器 HTTPS 下载受限）
+
+如果服务器防火墙会阻挡直接 HTTPS 下载外网 release asset，但 SSH 可用，
+使用这条路线。服务器需要能通过 SSH 读取 GitHub 仓库，并且需要安装 Go。
+
+```bash
+# 服务器上的 origin 应该是 git@github.com:Sizolity/nemo-knows.git
+git remote set-url origin git@github.com:Sizolity/nemo-knows.git
+ssh -T git@github.com
+
+NEMO_DEPLOY_DIR=/path/to/nemo-knows \
+NEMO_DEPLOY_REMOTE=origin \
+NEMO_DEPLOY_BRANCH=main \
+NEMO_RUN_TESTS=true \
+NEMO_GIT_UPDATE_INTERVAL=10min \
+./deploy/systemd/install-git-updater.sh
+```
+
+`nemo-git-update.timer` 会定时执行：
+
+1. `git fetch --prune origin main`。
+2. 拒绝在 tracked working tree 有本地改动时自动部署。
+3. 快进到 `origin/main`。
+4. 运行 `go test ./...`。
+5. 本地构建 `.bin/nemo` 和 `.bin/nemo-web`。
+6. 重启 `nemo-web.service`。
+
 如果要立即运行一次：
 
 ```bash
-systemctl --user start nemo-release-update.service
+systemctl --user start nemo-release-update.service # Release 路线
+systemctl --user start nemo-git-update.service     # Git over SSH 路线
 ```
 
 仓库包含 systemd user unit 安装脚本：
