@@ -7,7 +7,7 @@ const CACHEABLE_PREFIXES = ["/view", "/graph", "/static/"];
 const CACHE_TTL = 300; // seconds
 
 export default {
-	async fetch(request: Request, env: Env): Promise<Response> {
+	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
 		const url = new URL(request.url);
 		const origin = env.NEMO_ORIGIN.replace(/\/+$/, "");
 		const target = origin + url.pathname + url.search;
@@ -22,7 +22,7 @@ export default {
 			if (res.ok) {
 				const cached = new Response(res.body, res);
 				cached.headers.set("Cache-Control", `public, max-age=${CACHE_TTL}`);
-				request.ctx?.waitUntil(cache.put(cacheKey, cached.clone()));
+				ctx.waitUntil(cache.put(cacheKey, cached.clone()));
 				return cached;
 			}
 			return res;
@@ -31,7 +31,7 @@ export default {
 		// POST /run, /build etc. — pass through, bust cache for related pages.
 		const res = await forward(request, target);
 		if (request.method === "POST" && res.ok) {
-			purgeViewCache(request, env);
+			ctx.waitUntil(purgeViewCache(env));
 		}
 		return res;
 	},
@@ -57,7 +57,7 @@ async function forward(original: Request, target: string): Promise<Response> {
 }
 
 // Best-effort cache purge after mutations so the next read sees fresh data.
-async function purgeViewCache(request: Request, env: Env) {
+async function purgeViewCache(env: Env) {
 	const cache = caches.default;
 	const origin = env.NEMO_ORIGIN.replace(/\/+$/, "");
 	for (const prefix of ["/view", "/graph", "/"]) {

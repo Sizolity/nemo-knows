@@ -63,6 +63,7 @@ jobs:
           go build -trimpath -ldflags="-s -w" -o "$out/nemo" ./cmd/nemo
           go build -trimpath -ldflags="-s -w" -o "$out/nemo-web" ./cmd/nemo-web
           cp README.md AGENTS.md "$out/"
+          cp -R deploy "$out/"
           tar -C dist -czf "$out.tar.gz" "nemo-knows-${GOOS}-${GOARCH}"
 
       - name: Upload server binaries
@@ -71,3 +72,45 @@ jobs:
           name: nemo-knows-${{ matrix.goos }}-${{ matrix.goarch }}
           path: dist/nemo-knows-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz
           if-no-files-found: error
+
+  publish-main-release:
+    needs: build-server-binaries
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Download server artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Prepare release assets
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          find dist -name 'nemo-knows-linux-*.tar.gz' -exec cp {} release-assets/ \;
+          cd release-assets
+          sha256sum nemo-knows-linux-*.tar.gz > checksums.txt
+          printf '%s\n' "$GITHUB_SHA" > commit.txt
+
+      - name: Publish main release channel
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: main-latest
+        run: |
+          set -euo pipefail
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" \
+              --title "Latest main build" \
+              --notes "Moving release channel for the latest successful main build." \
+              --latest
+          fi
+          gh release upload "$RELEASE_TAG" release-assets/* --clobber
+          gh release edit "$RELEASE_TAG" \
+            --title "Latest main build" \
+            --notes "Latest successful main build: $GITHUB_SHA"

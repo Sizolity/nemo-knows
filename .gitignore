@@ -37,3 +37,7 @@ drafts/**/*.fallback.raw.txt
 
 # Local web console runtime log
 web.log
+
+# Server-side deployment state
+.deploy-state/
+.releases/

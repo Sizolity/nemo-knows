@@ -1,0 +1,46 @@
+name: Worker
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: worker-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: .cloudflare/worker/package-lock.json
+
+      - name: Install dependencies
+        working-directory: .cloudflare/worker
+        run: npm ci
+
+      - name: Typecheck Worker
+        working-directory: .cloudflare/worker
+        run: npm run check
+
+      - name: Deploy Worker
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
+        working-directory: .cloudflare/worker
+        run: npm run deploy
+
+      - name: Explain skipped deploy
+        if: env.CLOUDFLARE_API_TOKEN == '' || env.CLOUDFLARE_ACCOUNT_ID == ''
+        run: echo "Worker deploy skipped: set CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets."

@@ -79,7 +79,7 @@ npm run dev
 npm run deploy
 ```
 
-## 4. GitHub CD
+## 4. GitHub Release 部署
 
 仓库包含 GitHub Actions CD workflow（`.github/workflows/cd.yml`）：
 
@@ -88,24 +88,84 @@ npm run deploy
 - 为服务器构建 Linux 二进制产物：
   - `nemo-knows-linux-amd64.tar.gz`
   - `nemo-knows-linux-arm64.tar.gz`
-- 每个产物包含 `nemo`、`nemo-web`、`README.md`、`AGENTS.md`。
-- 产物通过 GitHub Actions artifacts 保存，服务器可以下载后替换本地
-  `.bin/nemo` 和 `.bin/nemo-web`。
+- 每个产物包含 `nemo`、`nemo-web`、`README.md`、`AGENTS.md` 和 `deploy/`。
+- 默认分支的成功构建会发布到固定 GitHub Release 通道 `main-latest`，
+  并附带 `checksums.txt`。
 
-Cloudflare Worker 仍走 Cloudflare 自己的拉取/部署流程。GitHub CD 不运行
-`wrangler deploy`，也不需要 Cloudflare API token。
+公开仓库不应默认由 push 触发服务器远程执行。这里的安全边界是：
+GitHub 只发布可下载、可校验的包；服务器由本机 timer 主动拉取和部署。
+不要把服务器 SSH 私钥放进公开仓库的自动 push 部署链路里。
 
-服务器更新示例：
+服务器首次安装自动更新：
 
 ```bash
-# 从 GitHub Actions 下载对应架构的 nemo-knows-linux-*.tar.gz 后：
-tar -xzf nemo-knows-linux-amd64.tar.gz
-install -m 0755 nemo-knows-linux-amd64/nemo .bin/nemo
-install -m 0755 nemo-knows-linux-amd64/nemo-web .bin/nemo-web
+# 在服务器上的部署目录运行；NEMO_REPO 是 GitHub 的 owner/repo
+NEMO_DEPLOY_DIR=/path/to/nemo-knows \
+NEMO_REPO=yourname/nemo-knows \
+NEMO_ARCH=amd64 \
+NEMO_RELEASE_TAG=main-latest \
+./deploy/systemd/install-release-updater.sh
 ```
 
-后续如果要让 GitHub Actions 直接部署到服务器，可以再加 SSH deploy job
-（需要配置服务器 host、user、private key、部署目录和 systemd 服务名）。
+`nemo-release-update.timer` 会定时执行：
+
+1. `git fetch` 并尝试快进本地默认分支（如果 tracked working tree 干净）。
+2. 下载 `main-latest` 的对应架构 tarball 和 `checksums.txt`。
+3. 校验 sha256。
+4. 替换 `.bin/nemo` 和 `.bin/nemo-web`。
+5. 重启 `nemo-web.service`。
+
+如果要立即运行一次：
+
+```bash
+systemctl --user start nemo-release-update.service
+```
+
+仓库包含 systemd user unit 安装脚本：
+
+```bash
+# 在服务器上的部署目录运行
+NEMO_DEPLOY_DIR=/path/to/nemo-knows \
+NEMO_WEB_ADDR=127.0.0.1:8787 \
+NEMO_MAINTAIN_MODE=auto \
+./deploy/systemd/install-user-units.sh
+```
+
+它会安装并启用：
+
+- `nemo-web.service`：常驻 `nemo-web`
+- `nemo-wiki-maintain.timer`：定时运行 wiki 自动维护
+
+分支、预发布分支、测试分支走手动路径。你可以先切换到对应 ref，再本地
+构建部署：
+
+```bash
+git fetch origin test-branch
+git switch --detach origin/test-branch
+NEMO_RUN_TESTS=true ./deploy/release/build-local-current.sh
+```
+
+也可以让脚本显式拉一个 ref：
+
+```bash
+NEMO_DEPLOY_REF=test-branch ./deploy/release/build-local-current.sh
+```
+
+## 5. Worker 自动化
+
+Worker 部署 workflow 位于 `.github/workflows/worker.yml`。由于仓库公开，
+它只支持手动 `workflow_dispatch`，不会在 push 时自动部署。
+
+需要在 GitHub Secrets 中配置：
+
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
+
+手动运行该 workflow 时会执行：
+
+1. `npm ci`
+2. `npm run check`（Wrangler dry-run）
+3. `npm run deploy`
 
 Worker 部署后绑定到你想要的公开域名（在 Cloudflare Dashboard 或 wrangler.toml
 中配置 `routes`）。
