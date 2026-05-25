@@ -62,6 +62,7 @@ jobs:
           mkdir -p "$out"
           go build -trimpath -ldflags="-s -w" -o "$out/nemo" ./cmd/nemo
           go build -trimpath -ldflags="-s -w" -o "$out/nemo-web" ./cmd/nemo-web
+          go build -trimpath -ldflags="-s -w" -o "$out/nemo-server" ./cmd/nemo-server
           cp README.md AGENTS.md "$out/"
           cp -R deploy "$out/"
           tar -C dist -czf "$out.tar.gz" "nemo-knows-${GOOS}-${GOARCH}"
