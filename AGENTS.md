@@ -10,14 +10,18 @@ conflict so the schema can be updated.
 
 - `raw/` is **immutable**. Read it. Never modify, rename, or delete
   anything under `raw/` without explicit user permission.
-- `wiki/` is **yours to maintain**. Create, update, link, and rearrange
-  pages here freely, following the conventions below.
+- `wiki/` is **the runtime wiki workspace**. Keep `wiki/index.md`,
+  `wiki/log.md`, and directory placeholders in Git; pages generated under
+  `wiki/sources/`, `wiki/entities/`, `wiki/concepts/`, `wiki/topics/`, and
+  `wiki/assets/` are deployment/runtime output unless the user explicitly asks
+  to promote them into tracked source material.
 - `AGENTS.md` (this file) is the **schema**. Treat changes to it as
   significant: surface the diff in chat before committing.
 
-The wiki is a *compounding artifact*, not a chat scratchpad. Every edit
-should make the wiki more accurate, more interconnected, or more
-navigable. If an edit doesn't do at least one of those, don't make it.
+The runtime wiki is a *compounding artifact*, not a chat scratchpad. Every edit
+should make the wiki more accurate, more interconnected, or more navigable.
+Generated pages may be regenerated from deployment inputs; only the skeleton and
+explicitly promoted pages belong in Git.
 
 ## 1. Directory conventions
 
@@ -25,14 +29,14 @@ navigable. If an edit doesn't do at least one of those, don't make it.
 nemo-knows/
 ├── raw/                        # source material (immutable)
 │   └── <free-form>             # filename echoes the source; subdirs OK
-├── wiki/                       # LLM-maintained Markdown (your domain)
+├── wiki/                       # runtime LLM-maintained Markdown workspace
 │   ├── index.md                # content catalogue (you maintain it)
 │   ├── log.md                  # append-only operation log
-│   ├── sources/                # one page per ingested source
-│   ├── entities/               # people, organisations, products, places
-│   ├── concepts/               # ideas, mechanisms, definitions
-│   ├── topics/                 # cross-cutting syntheses, comparisons
-│   └── assets/                 # images and other binary attachments
+│   ├── sources/                # generated source pages; .gitkeep tracked
+│   ├── entities/               # generated entity pages; .gitkeep tracked
+│   ├── concepts/               # generated concept pages; .gitkeep tracked
+│   ├── topics/                 # generated topic pages; .gitkeep tracked
+│   └── assets/                 # generated assets; .gitkeep tracked
 └── AGENTS.md                   # this file
 ```
 
@@ -40,6 +44,11 @@ The four wiki subdirectories (`sources/`, `entities/`, `concepts/`,
 `topics/`) are the default vocabulary. Add a new subdirectory only when
 a category genuinely doesn't fit and you've discussed it with the user;
 when you do, document it in this section.
+
+Generated wiki pages are ignored by Git by default. To intentionally preserve a
+generated page as durable source material, move it out of the ignored runtime
+set or adjust `.gitignore` in the same change, then update `wiki/index.md` and
+append a `schema-change` or `note` entry to `wiki/log.md`.
 
 ## 2. File conventions
 

@@ -41,3 +41,16 @@ web.log
 # Server-side deployment state
 .deploy-state/
 .releases/
+
+# Runtime-regenerated wiki pages. Keep only the required wiki skeleton in Git:
+# wiki/index.md, wiki/log.md, and directory placeholders.
+wiki/sources/*
+wiki/entities/*
+wiki/concepts/*
+wiki/topics/*
+wiki/assets/*
+!wiki/sources/.gitkeep
+!wiki/entities/.gitkeep
+!wiki/concepts/.gitkeep
+!wiki/topics/.gitkeep
+!wiki/assets/.gitkeep

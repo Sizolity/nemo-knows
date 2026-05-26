@@ -68,3 +68,23 @@ Touched:
 - wiki/sources/llm-wiki.md (updated)
 - wiki/log.md (updated)
 Open: none.
+
+## [2026-05-26] schema-change | runtime-regenerated wiki pages
+
+The tracked wiki state was reduced to the required skeleton files
+(`wiki/index.md`, `wiki/log.md`, and directory placeholders). Runtime pages
+under `wiki/sources/`, `wiki/entities/`, `wiki/concepts/`, `wiki/topics/`, and
+`wiki/assets/` are regenerated from deployment inputs and are no longer stored
+in Git.
+Touched:
+- AGENTS.md (updated)
+- .gitignore (updated)
+- wiki/index.md (updated)
+- wiki/log.md (updated)
+- wiki/sources/.gitkeep (created)
+- wiki/entities/.gitkeep (created)
+- wiki/concepts/.gitkeep (created)
+- wiki/topics/.gitkeep (created)
+- wiki/assets/.gitkeep (created)
+Open: generated wiki pages should be reviewed on the server before promotion to
+tracked source material.
