@@ -11,6 +11,8 @@ Rules:
 - Use sources: [{{RAW_SOURCE_PATH}}].
 - Do not invent facts.
 - Do not add URLs that are not explicitly present in the raw document.
+- Use a concise `title`: a noun phrase, not a full sentence. Prefer no more
+  than 8 English words or 18 Chinese characters.
 - Condense and synthesize the source; do not quote or concatenate long
   passages from it.
 - Keep the summary concise.

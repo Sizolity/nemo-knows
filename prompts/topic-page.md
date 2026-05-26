@@ -8,6 +8,8 @@ Rules:
 - Output only Markdown.
 - Include YAML frontmatter.
 - Use kind: topic.
+- Use the provided topic name as the page title, but keep it concise: no more
+  than 8 English words or 18 Chinese characters.
 - Use Obsidian-style wikilinks only when the source material clearly supports
   the relationship.
 - Only use wikilinks from the Allowed Links list. If a term is not listed or the
