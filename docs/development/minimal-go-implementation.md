@@ -9,14 +9,14 @@ Build a small Go command that makes the current manual draft workflow
 repeatable:
 
 ```text
-raw source -> prompt render -> llama.cpp -> raw model output -> cleaned draft
+pipeline/raw source -> prompt render -> llama.cpp -> raw model output -> cleaned draft
 ```
 
 The command should write both:
 
 ```text
-drafts/<name>.raw.txt
-drafts/<name>.md
+pipeline/drafts/<name>.raw.txt
+pipeline/drafts/<name>.md
 ```
 
 The raw file keeps the full llama.cpp output for debugging. The Markdown file
@@ -53,24 +53,24 @@ it easier to inspect, test, and replace individual pieces.
 
 ```sh
 go run ./cmd/nemo \
-  -source raw/llm-wiki.md \
+  -source pipeline/raw/llm-wiki.md \
   -prompt prompts/source-page.md \
-  -out drafts/llm-wiki-source.md
+  -out pipeline/drafts/llm-wiki-source.md
 ```
 
 Expected outputs:
 
 ```text
-drafts/llm-wiki-source.raw.txt
-drafts/llm-wiki-source.md
+pipeline/drafts/llm-wiki-source.raw.txt
+pipeline/drafts/llm-wiki-source.md
 ```
 
 The next local-only maintenance check uses bundle mode:
 
 ```sh
 go run ./cmd/nemo \
-  -source raw/llm-wiki.md \
-  -bundle-dir drafts/llm-wiki-ingest \
+  -source pipeline/raw/llm-wiki.md \
+  -bundle-dir pipeline/drafts/llm-wiki-ingest \
   -profile stable
 ```
 
@@ -209,8 +209,9 @@ version. Moving a draft into `wiki/` remains a reviewed step.
 4. Implement `internal/prompt.Render`.
 5. Implement `internal/llama.CLI`.
 6. Implement `cmd/nemo/main.go`.
-7. Run the command on `raw/llm-wiki.md` with `prompts/source-page.md`.
-8. Review `drafts/llm-wiki-source.raw.txt` and `drafts/llm-wiki-source.md`.
+7. Run the command on `pipeline/raw/llm-wiki.md` with `prompts/source-page.md`.
+8. Review `pipeline/drafts/llm-wiki-source.raw.txt` and
+   `pipeline/drafts/llm-wiki-source.md`.
 
 Start with `internal/draft.Clean`; it is independent of llama.cpp, already has
 observed failure cases, and can be covered with unit tests.

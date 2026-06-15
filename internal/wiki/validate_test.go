@@ -3,7 +3,7 @@ package wiki
 import "testing"
 
 func TestIsRawPath(t *testing.T) {
-	ok, err := IsRawPath("raw/llm-wiki.md")
+	ok, err := IsRawPath("pipeline/raw/llm-wiki.md")
 	if err != nil {
 		t.Fatalf("IsRawPath returned error: %v", err)
 	}
@@ -18,6 +18,14 @@ func TestIsRawPath(t *testing.T) {
 	if ok {
 		t.Fatal("expected wiki path not to be a raw path")
 	}
+
+	ok, err = IsRawPath("raw/llm-wiki.md")
+	if err != nil {
+		t.Fatalf("IsRawPath returned error: %v", err)
+	}
+	if ok {
+		t.Fatal("expected legacy root raw path not to be current pipeline raw path")
+	}
 }
 
 func TestIsWikiPath(t *testing.T) {
@@ -29,7 +37,7 @@ func TestIsWikiPath(t *testing.T) {
 		t.Fatal("expected wiki path to be valid")
 	}
 
-	ok, err = IsWikiPath("raw/llm-wiki.md")
+	ok, err = IsWikiPath("pipeline/raw/llm-wiki.md")
 	if err != nil {
 		t.Fatalf("IsWikiPath returned error: %v", err)
 	}

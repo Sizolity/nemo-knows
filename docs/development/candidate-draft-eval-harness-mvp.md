@@ -19,8 +19,8 @@ minimum contract expected by approved apply and the wiki schema.
 
 ```sh
 go run ./cmd/nemo \
-  -eval-candidates drafts/mvp7-real-test-llm-wiki \
-  -out-dir evals/runs/mvp7-real-test
+  -eval-candidates pipeline/drafts/mvp7-real-test-llm-wiki \
+  -out-dir pipeline/evals/runs/mvp7-real-test
 ```
 
 The command does not call the model and does not write to `wiki/`.
@@ -32,13 +32,14 @@ Each candidate draft is scored on:
 - `frontmatter`: YAML frontmatter exists, includes `title`, `kind`, `sources`,
   and `confidence`, and `kind` matches the target directory.
 - `sources`: `sources` includes `source.md` and at least one durable source
-  reference such as `raw/...` or `wiki/sources/...`.
+  reference such as `pipeline/raw/...` or `wiki/sources/...`.
 - `title`: frontmatter title exists and the body has a matching top-level
   heading.
 - `wikilinks`: wikilinks are optional; when present, every target resolves to
-  either an existing `wiki/` page or a concept/topic candidate named in the
-  reviewed apply plan; and existing-page links are marked `borderline` when the
-  target is not supported by the current source material or reviewed candidates.
+  either an existing `wiki/` page or an entity/concept/topic candidate named in
+  the reviewed apply plan; and existing-page links are marked `borderline` when
+  the target is not supported by the current source material or reviewed
+  candidates.
 - `length`: body is long enough to be useful but not a full article.
 - `originality`: draft is not mostly copied line-for-line from `source.md`.
 
@@ -47,8 +48,8 @@ Scores are coarse and stable: `pass`, `borderline`, or `fail`.
 ## Outputs
 
 ```text
-evals/runs/<run-id>/candidate-scores.json
-evals/runs/<run-id>/candidate-trace.md
+pipeline/evals/runs/<run-id>/candidate-scores.json
+pipeline/evals/runs/<run-id>/candidate-trace.md
 ```
 
 The JSON output records aggregate scores and one result per candidate. The trace

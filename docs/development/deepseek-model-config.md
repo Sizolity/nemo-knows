@@ -13,7 +13,7 @@ export NEMO_DEEPSEEK_BASE_URL=https://api.deepseek.com
 For long multi-stage pipelines, lock the backend on the command line as well:
 
 ```sh
-nemo -provider deepseek -source raw/large.md -bundle-dir drafts/large -profile stable
+nemo -provider deepseek -source pipeline/raw/large.md -bundle-dir pipeline/drafts/large -profile stable
 ```
 
 The `-provider` flag wins over `.env` for that process. Use it on every stage

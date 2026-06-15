@@ -5,16 +5,16 @@ import (
 	"unicode"
 )
 
-// IsRawPath reports whether path points at a repository raw source path.
+// IsRawPath reports whether path points at a repository pipeline raw source path.
 //
 // The path argument is expected to be repository-relative.
 //
 // The returned bool is true only when the path is valid for immutable source
-// material under raw/.
+// material under pipeline/raw/.
 //
 // The error is returned if the path cannot be validated.
 func IsRawPath(path string) (bool, error) {
-	return hasPathPrefix(path, RawDir), nil
+	return hasPathPrefix(path, PipelineRawDir), nil
 }
 
 // IsWikiPath reports whether path points at a repository wiki path.

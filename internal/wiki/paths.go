@@ -1,6 +1,6 @@
 package wiki
 
 const (
-	RawDir  = "raw"
-	WikiDir = "wiki"
+	PipelineRawDir = "pipeline/raw"
+	WikiDir        = "wiki"
 )

@@ -9,7 +9,7 @@ Validate whether the local model can support basic knowledge-base maintenance
 work by producing reviewable ingest artifacts:
 
 ```text
-raw source -> local model -> draft bundle -> human/agent review -> wiki edits
+pipeline/raw source -> local model -> pipeline/drafts bundle -> human/agent review -> wiki edits
 ```
 
 This stage is about maintenance assistance, not fully autonomous maintenance.
@@ -18,34 +18,34 @@ This stage is about maintenance assistance, not fully autonomous maintenance.
 
 ```sh
 go run ./cmd/nemo \
-  -source raw/llm-wiki.md \
-  -bundle-dir drafts/llm-wiki-ingest \
+  -source pipeline/raw/llm-wiki.md \
+  -bundle-dir pipeline/drafts/llm-wiki-ingest \
   -profile stable
 ```
 
 Expected outputs:
 
 ```text
-drafts/llm-wiki-ingest/source.raw.txt
-drafts/llm-wiki-ingest/source.md
-drafts/llm-wiki-ingest/ingest-plan.raw.txt
-drafts/llm-wiki-ingest/ingest-plan.md
+pipeline/drafts/llm-wiki-ingest/source.raw.txt
+pipeline/drafts/llm-wiki-ingest/source.md
+pipeline/drafts/llm-wiki-ingest/ingest-plan.raw.txt
+pipeline/drafts/llm-wiki-ingest/ingest-plan.md
 ```
 
-For public web material that starts outside `raw/`, the bundle command can
-explicitly persist a create-only source copy first:
+For public web material that starts outside `pipeline/raw/`, the bundle command
+can explicitly persist a create-only source copy first:
 
 ```sh
 go run ./cmd/nemo \
-  -source drafts/web-e2e-sources/qwen-llama-cpp.md \
-  -bundle-dir drafts/web-e2e-qwen \
+  -source pipeline/drafts/web-e2e-sources/qwen-llama-cpp.md \
+  -bundle-dir pipeline/drafts/web-e2e-qwen \
   -profile stable \
   -persist-raw-web
 ```
 
-This writes `raw/web/qwen-llama-cpp.md` if it does not already exist, then uses
-that durable raw path for prompt rendering. It must not overwrite existing
-`raw/` files.
+This writes `pipeline/raw/web/qwen-llama-cpp.md` if it does not already exist,
+then uses that durable test-source path for prompt rendering. It must not
+overwrite existing `pipeline/raw/` files.
 
 ## Bundle Contents
 
@@ -89,7 +89,7 @@ variable:
 
 ```sh
 NEMO_CHUNKED_THRESHOLD_CHARS=200000 NEMO_MAX_CHUNK_CHARS=40000 \
-    nemo -provider llama -source raw/large.md -bundle-dir drafts/large -profile stable
+    nemo -provider llama -source pipeline/raw/large.md -bundle-dir pipeline/drafts/large -profile stable
 ```
 
 Model context can also be configured explicitly:
@@ -98,7 +98,7 @@ Model context can also be configured explicitly:
 NEMO_MODEL_CONTEXT_TOKENS=1000000 NEMO_CONTEXT_RESERVE_TOKENS=100000 \
 NEMO_CONTEXT_OUTPUT_RESERVE_TOKENS=384000 NEMO_CHARS_PER_TOKEN=3.5 \
 NEMO_CONTEXT_SAFETY_MARGIN=0.60 NEMO_QUALITY_CHUNK_THRESHOLD_CHARS=600000 \
-    nemo -provider deepseek -source raw/large.md -bundle-dir drafts/large -profile stable
+    nemo -provider deepseek -source pipeline/raw/large.md -bundle-dir pipeline/drafts/large -profile stable
 ```
 
 For multi-stage runs, prefer the CLI `-provider` flag over relying on `.env`
@@ -109,18 +109,18 @@ generation.
 The long-source path writes the normal bundle files plus chunk artifacts:
 
 ```text
-drafts/<run>/source.md
-drafts/<run>/source.raw.txt
-drafts/<run>/ingest-plan.md
-drafts/<run>/ingest-plan.raw.txt
-drafts/<run>/chunks/outline.md
-drafts/<run>/chunks/chunk-index.json
-drafts/<run>/chunks/chunk-01.md
-drafts/<run>/chunks/chunk-01.raw.txt
-drafts/<run>/chunks/combined-notes.md
-drafts/<run>/chunks/group-01.md
-drafts/<run>/chunks/group-01.raw.txt
-drafts/<run>/chunks/combined-group-notes.md
+pipeline/drafts/<run>/source.md
+pipeline/drafts/<run>/source.raw.txt
+pipeline/drafts/<run>/ingest-plan.md
+pipeline/drafts/<run>/ingest-plan.raw.txt
+pipeline/drafts/<run>/chunks/outline.md
+pipeline/drafts/<run>/chunks/chunk-index.json
+pipeline/drafts/<run>/chunks/chunk-01.md
+pipeline/drafts/<run>/chunks/chunk-01.raw.txt
+pipeline/drafts/<run>/chunks/combined-notes.md
+pipeline/drafts/<run>/chunks/group-01.md
+pipeline/drafts/<run>/chunks/group-01.raw.txt
+pipeline/drafts/<run>/chunks/combined-group-notes.md
 ```
 
 The group files are present only when the source produces more than one group
@@ -195,10 +195,10 @@ The group-notes path was validated against real public-web corpus sources on
 
 | Source | Size | Chunk notes | Group notes | Result |
 | --- | ---: | ---: | ---: | --- |
-| `raw/web/corpus-2026-05-18/031-effective-go.md` | 99 KB | 7 | 2 | pass |
-| `raw/web/corpus-2026-05-18/032-go-modules-reference.md` | 191 KB | 13 | 3 | pass |
-| `raw/web/corpus-2026-05-18/060-dom-standard.md` | 468 KB | 32 | 6 | pass |
-| `raw/web/corpus-2026-05-18/102-moby-dick.md` | 892 KB | 53 | 9 | pass |
+| `pipeline/raw/web/corpus-2026-05-18/031-effective-go.md` | 99 KB | 7 | 2 | pass |
+| `pipeline/raw/web/corpus-2026-05-18/032-go-modules-reference.md` | 191 KB | 13 | 3 | pass |
+| `pipeline/raw/web/corpus-2026-05-18/060-dom-standard.md` | 468 KB | 32 | 6 | pass |
+| `pipeline/raw/web/corpus-2026-05-18/102-moby-dick.md` | 892 KB | 53 | 9 | pass |
 
 These real runs completed bundle generation, bundle review, bundle eval,
 candidate generation, candidate eval, and candidate review. Candidate review
@@ -210,8 +210,9 @@ Follow-up single-shot testing on 2026-05-21 showed that context capacity alone
 is not enough for evidence-heavy sources. DeepSeek could ingest the 892 KB
 *Moby-Dick* source in one request, but candidate generation from the compressed
 source page produced thin or unsupported topic pages. Candidate prompts now
-include target-title raw excerpts when a durable `raw/` source is available, so
-large-source candidates are grounded in more than the source summary.
+include target-title raw excerpts when a durable `pipeline/raw/` source is
+available, so large-source candidates are grounded in more than the source
+summary.
 
 Round-4 validation on 2026-05-21 raised the real-source ceiling to 892 KB and
 the mechanical synthetic ceiling to 1.8 MB (102 chunks, 17 group notes) using a
@@ -225,8 +226,8 @@ the post-bundle stages instead of regenerating chunks:
 
 ```sh
 nemo -provider llama \
-  -resume drafts/<run-id> \
-  -out-dir evals/runs/<run-id>
+  -resume pipeline/drafts/<run-id> \
+  -out-dir pipeline/evals/runs/<run-id>
 ```
 
 Resume checks for `apply-plan.md`, bundle eval output, candidate drafts,
@@ -234,8 +235,8 @@ candidate eval, and candidate review, then runs only the missing stages. Delete
 the bundle manually when a full regeneration is intended.
 
 Detailed local artifacts are recorded in
-`evals/runs/real-corpus-2026-05-19-group-notes-summary.md`. These files are test
-artifacts, not maintained wiki pages.
+`pipeline/evals/runs/real-corpus-2026-05-19-group-notes-summary.md`. These
+files are test artifacts, not maintained wiki pages.
 
 ## Review Boundary
 
@@ -244,7 +245,7 @@ The bundle command must not write to `wiki/`.
 Accepted wiki changes remain a separate reviewed operation:
 
 ```text
-draft bundle -> review -> wiki source/concept/topic edits -> index update -> log append
+draft bundle -> review -> wiki source/entity/concept/topic edits -> index update -> log append
 ```
 
 This protects the knowledge base from model artifacts such as:
@@ -387,9 +388,9 @@ The system should be more permissive with time and output length, but stricter
 about accepting results. The desired behavior is:
 
 1. Generate with the selected profile, defaulting to `stable`.
-2. If `-persist-raw-web` is set, copy the source into `raw/web/<slug>.md` before
-   rendering prompts. This is explicit, create-only, and keeps candidate source
-   attribution durable.
+2. If `-persist-raw-web` is set, copy the source into
+   `pipeline/raw/web/<slug>.md` before rendering prompts. This is explicit,
+   create-only, and keeps candidate source attribution durable.
 3. Disable thinking for maintenance profiles unless `deep` is explicitly
    selected. The `stable`, `fast`, and `fallback` profiles pass
    `--reasoning off`, `--reasoning-budget 0`, and
@@ -418,8 +419,8 @@ This MVP is successful when:
 - cleaned drafts do not contain prompt echoes, thinking blocks, or llama.cpp
   runtime logs.
 - `wiki/` is unchanged by the bundle command.
-- web-derived bundle sources can be explicitly persisted to new `raw/web/`
-  files, but existing raw files are never overwritten.
+- web-derived bundle sources can be explicitly persisted to new
+  `pipeline/raw/web/` files, but existing raw files are never overwritten.
 - raw outputs remain available for debugging.
 
 ## Next Step

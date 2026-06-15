@@ -22,14 +22,14 @@ suggests conservative fixes.
 
 ```sh
 go run ./cmd/nemo \
-  -review-candidates drafts/web-e2e-sqlite \
-  -out-dir evals/runs/web-e2e/sqlite-review
+  -review-candidates pipeline/drafts/web-e2e-sqlite \
+  -out-dir pipeline/evals/runs/web-e2e/sqlite-review
 ```
 
 Expected output:
 
 ```text
-evals/runs/<run-id>/candidate-review.md
+pipeline/evals/runs/<run-id>/candidate-review.md
 ```
 
 ## Repair Policy
@@ -43,8 +43,9 @@ The command is intentionally advisory:
 - It treats missing links, weak semantic links, missing durable sources,
   title/frontmatter problems, short drafts, and copied prose as review items.
 
-This keeps the wiki aligned with the core project model: `raw/` is the durable
-source layer, `drafts/` is the model-output buffer, and `wiki/` changes remain
+This keeps the wiki aligned with the core project model: `pipeline/raw/` is the
+immutable test source layer, `pipeline/drafts/` is the model-output buffer,
+`wiki/sources/` is the production source-page layer, and `wiki/` changes remain
 explicit and auditable.
 
 ## Acceptance Criteria

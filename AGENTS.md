@@ -27,7 +27,7 @@ nemo-knows/
 │   ├── raw/              #   test source material (immutable)
 │   ├── drafts/           #   model-output buffers
 │   └── evals/            #   evaluation harness
-├── tmp/                  # ad-hoc test scratch space (gitignored)
+├── tmp/                  # production/debug scratch space (gitignored)
 ├── cmd/                  # Go CLI entry points (nemo, nemo-web, nemo-server)
 ├── internal/             # Go packages
 ├── prompts/              # prompt templates for the ingest pipeline
@@ -45,9 +45,13 @@ nemo-knows/
   evaluations and stress runs do not produce wiki log entries. A log
   entry in `wiki/log.md` is required only when reviewed content is
   actually applied to `wiki/`.
+- **Production wiki workflows are wiki-first.** They read and write `wiki/`
+  directly, may use `tmp/` for transient debug or review artifacts, and should
+  not depend on `pipeline/` unless the user is explicitly running a development
+  or stability-evaluation pipeline.
 - **`wiki/` is the product.** The autonomous maintainer
-  (`nemo -maintain-wiki`) operates on `wiki/` alone and never reads
-  `pipeline/` or `tmp/`.
+  (`nemo -maintain-wiki`) uses `wiki/` as its knowledge input, never reads
+  `pipeline/`, and may write transient reports or debug artifacts under `tmp/`.
 - **Do not run `git push` automatically.** The user controls what
   leaves this machine.
 - **Do not commit secrets.** `.env` is gitignored; `.env.example` is a
@@ -84,9 +88,9 @@ Development pipeline (for testing prompts and review logic):
 Wiki maintenance:
 
 ```sh
-.bin/nemo -lint-wiki -out-dir pipeline/evals/runs/wiki-lint
-.bin/nemo -maintain-wiki -mode report -out-dir pipeline/evals/runs/wiki-maint
-.bin/nemo -maintain-wiki -mode safe -out-dir pipeline/evals/runs/wiki-maint
+.bin/nemo -lint-wiki -out-dir tmp/wiki-lint
+.bin/nemo -maintain-wiki -mode report -out-dir tmp/wiki-maint
+.bin/nemo -maintain-wiki -mode safe -out-dir tmp/wiki-maint
 ```
 
 ## 3. Prompt templates

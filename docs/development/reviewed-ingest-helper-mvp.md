@@ -18,14 +18,14 @@ pages into a reviewable file-by-file plan.
 
 ```sh
 go run ./cmd/nemo \
-  -review-bundle drafts/actual-use-llm-wiki \
-  -out drafts/actual-use-llm-wiki/apply-plan.md
+  -review-bundle pipeline/drafts/actual-use-llm-wiki \
+  -out pipeline/drafts/actual-use-llm-wiki/apply-plan.md
 ```
 
 Expected output:
 
 ```text
-drafts/actual-use-llm-wiki/apply-plan.md
+pipeline/drafts/actual-use-llm-wiki/apply-plan.md
 ```
 
 ## Inputs
@@ -53,8 +53,8 @@ The helper validates:
 - `ingest-plan.md` frontmatter uses `kind: topic`.
 - `ingest-plan.md` includes `Source Summary`, `Candidate Wiki Pages`,
   `Suggested Links`, and `Review Checklist`.
-- Candidate wiki paths are under `wiki/sources/`, `wiki/concepts/`, or
-  `wiki/topics/`.
+- Candidate wiki paths are under `wiki/sources/`, `wiki/entities/`,
+  `wiki/concepts/`, or `wiki/topics/`.
 - Candidate wiki filenames are lowercase and hyphenated.
 - Candidate wiki paths are extracted only from the `Candidate Wiki Pages`
   section. Paths mentioned in checklists or manual instructions are not treated

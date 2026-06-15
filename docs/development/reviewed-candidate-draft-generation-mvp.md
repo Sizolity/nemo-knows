@@ -19,14 +19,15 @@ turn one-line candidate descriptions directly into permanent wiki pages.
 
 ```sh
 go run ./cmd/nemo \
-  -generate-candidates drafts/actual-use-llm-wiki \
+  -generate-candidates pipeline/drafts/actual-use-llm-wiki \
   -profile stable
 ```
 
-The command reads `drafts/<bundle>/apply-plan.md` and generates drafts for
+The command reads `pipeline/drafts/<bundle>/apply-plan.md` and generates drafts for
 candidate paths under:
 
 ```text
+wiki/entities/
 wiki/concepts/
 wiki/topics/
 ```
@@ -51,25 +52,27 @@ Generated candidate drafts mirror their eventual wiki paths below
 `candidates/`:
 
 ```text
-drafts/<bundle>/candidates/wiki/concepts/<slug>.md
-drafts/<bundle>/candidates/wiki/topics/<slug>.md
+pipeline/drafts/<bundle>/candidates/wiki/entities/<slug>.md
+pipeline/drafts/<bundle>/candidates/wiki/concepts/<slug>.md
+pipeline/drafts/<bundle>/candidates/wiki/topics/<slug>.md
 ```
 
 Each generated draft also keeps the raw model output next to it:
 
 ```text
-drafts/<bundle>/candidates/wiki/concepts/<slug>.raw.txt
+pipeline/drafts/<bundle>/candidates/wiki/concepts/<slug>.raw.txt
 ```
 
 ## Policy
 
 - The command never writes to `wiki/`.
-- The command never writes to `raw/`.
-- Only `wiki/concepts/` and `wiki/topics/` candidate paths are generated.
+- The command never writes to `pipeline/raw/`.
+- Only `wiki/entities/`, `wiki/concepts/`, and `wiki/topics/` candidate paths
+  are generated.
 - Existing candidate draft files may be overwritten because they are draft
   artifacts, not accepted wiki pages.
 - Candidate prompts receive an Allowed Links list built from existing `wiki/`
-  pages plus concept/topic candidates in the reviewed apply plan.
+  pages plus entity/concept/topic candidates in the reviewed apply plan.
 - Generated candidate drafts are normalized after cleaning: wikilinks outside
   the Allowed Links list are downgraded to plain text before the draft is saved.
 - Candidate normalization also enforces a deterministic `# <title>` heading.
@@ -83,7 +86,8 @@ This MVP is successful when:
 
 - `go test ./...` passes.
 - source candidates in `apply-plan.md` are ignored.
-- concept/topic candidates generate mirrored draft files under `candidates/`.
+- entity/concept/topic candidates generate mirrored draft files under
+  `candidates/`.
 - generated drafts are cleaned Markdown, with raw model output preserved.
 - generated drafts do not preserve model-invented wikilinks to pages outside
   the current wiki or reviewed candidate set.

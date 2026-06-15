@@ -30,9 +30,11 @@ wiki/
 ```
 
 The wiki describes itself (index + log), contains its content (sources,
-entities, concepts, topics), and tracks its own history (log). All knowledge
-operations — adding documents, updating pages, maintaining structure, answering
-questions — happen inside it.
+entities, concepts, topics), and tracks its own history (log). `wiki/index.md`
+uses ordinary Markdown relative links for direct navigation; body pages may
+still use `[[wikilinks]]` as semantic cross-references. All knowledge operations
+— adding documents, updating pages, maintaining structure, answering questions
+— happen inside it.
 
 Everything else in the repository is **development infrastructure** for the
 Go CLI that maintains the wiki:
@@ -70,18 +72,28 @@ Quick start:
 go build -o .bin/nemo ./cmd/nemo
 
 # Lint the wiki
-.bin/nemo -lint-wiki -out-dir evals/runs/wiki-lint
+.bin/nemo -lint-wiki -out-dir tmp/wiki-lint
 
 # Autonomous maintenance (report only)
-.bin/nemo -maintain-wiki -mode report -out-dir evals/runs/wiki-maint
+.bin/nemo -maintain-wiki -mode report -out-dir tmp/wiki-maint
 
 # Autonomous maintenance (apply safe fixes)
-.bin/nemo -maintain-wiki -mode safe -out-dir evals/runs/wiki-maint
+.bin/nemo -maintain-wiki -mode safe -out-dir tmp/wiki-maint
+
+# Query the maintained wiki without writing
+.bin/nemo -query "How does WAL affect SQLite readers?"
+
+# Draft a filed query answer for review under tmp/query-drafts/
+.bin/nemo -query "How does WAL affect SQLite readers?" -file-query
+
+# File a reviewed query answer back into wiki/topics/ with an audit log entry
+.bin/nemo -query "How does WAL affect SQLite readers?" -file-query -approve
 ```
 
 The full development pipeline (bundle → review → eval → candidates → apply) is
-documented in `docs/development/`. It routes model output through `drafts/` and
-`evals/` for testing before anything reaches `wiki/`.
+documented in `docs/development/`. It routes model output through
+`pipeline/drafts/` and `pipeline/evals/` for development testing before anything
+reaches `wiki/`. Production wiki-only debugging output should go under `tmp/`.
 
 ## Web Console
 
@@ -89,10 +101,10 @@ documented in `docs/development/`. It routes model output through `drafts/` and
 go run ./cmd/nemo-web -addr 127.0.0.1:8787
 ```
 
-Open `http://127.0.0.1:8787` to browse the wiki, resolve `[[wikilinks]]`, view
-the knowledge graph, and start background ingest jobs. The console does not
-apply output to `wiki/` — accepted writes go through the explicit CLI apply
-workflow.
+Open `http://127.0.0.1:8787` to browse the wiki, follow Markdown index links,
+resolve semantic `[[wikilinks]]`, view the knowledge graph, and start background
+ingest jobs. The console does not apply output to `wiki/` — accepted writes go
+through the explicit CLI apply workflow.
 
 ## Configuration
 

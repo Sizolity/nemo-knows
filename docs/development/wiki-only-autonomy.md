@@ -2,7 +2,7 @@
 
 `nemo -maintain-wiki` runs the self-maintenance loop for the production
 knowledge layer. It reads only `wiki/` as input and never selects sources from
-`raw/`, `drafts/`, or `evals/`.
+`pipeline/raw/`, `pipeline/drafts/`, or `pipeline/evals/`.
 
 This follows the boundary described by `wiki/sources/llm-wiki.md`: humans
 provide sources and intent, while the system keeps the wiki structured,
@@ -26,7 +26,9 @@ The maintainer supports four modes:
 
 Current safe repairs are limited to keeping `wiki/index.md` consistent with
 existing knowledge pages: missing entries are added, duplicate entries are
-deduplicated, and stale entries for missing pages are removed.
+deduplicated, stale entries for missing pages are removed, and legacy
+`[[slug]]` catalogue entries are normalized to Markdown relative links such as
+`[slug](concepts/slug.md)`.
 
 Semantic tasks such as orphan pages, broken wikilinks, schema repairs, and log
 anomalies are model-assisted in `propose` and `auto` modes. That matches the
@@ -99,8 +101,8 @@ flock -n /tmp/nemo-wiki-maintain.lock \
 ```
 
 `auto` mode is suitable for background use only when the configured model is the
-intended production maintainer. It never edits `raw/`, and it rolls back wiki
-changes that increase lint issues or introduce lint errors.
+intended production maintainer. It never edits `pipeline/raw/`, and it rolls
+back wiki changes that increase lint issues or introduce lint errors.
 
 ## systemd User Units
 

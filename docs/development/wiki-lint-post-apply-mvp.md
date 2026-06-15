@@ -19,15 +19,15 @@ human decision before any wiki edits.
 ```sh
 go run ./cmd/nemo \
   -lint-wiki \
-  -out-dir evals/runs/wiki-lint-real
+  -out-dir tmp/wiki-lint-real
 ```
 
 Candidate bundles can be linted before apply with a separate read-only check:
 
 ```sh
 go run ./cmd/nemo \
-  -lint-bundle drafts/<run-id> \
-  -out-dir evals/runs/<run-id>/crosslinks
+  -lint-bundle pipeline/drafts/<run-id> \
+  -out-dir pipeline/evals/runs/<run-id>/crosslinks
 ```
 
 This reports broken candidate wikilinks, candidate-to-candidate edges, and
@@ -41,8 +41,8 @@ MVP-9 checks:
 - invalid or missing `kind`,
 - missing `sources` on source/entity/concept/topic pages,
 - missing or invalid `confidence` on source/entity/concept/topic pages,
-- duplicated index entries,
-- wikilinks that point to missing pages,
+- duplicated index entries in either Markdown-link or legacy wikilink form,
+- semantic wikilinks that point to missing pages,
 - orphan pages that are not linked from any other page or `wiki/index.md`,
 - invalid `wiki/log.md` entry actions.
 
@@ -57,8 +57,8 @@ Bundle crosslink lint checks:
 ## Outputs
 
 ```text
-evals/runs/<run-id>/wiki-lint.json
-evals/runs/<run-id>/wiki-lint.md
+tmp/wiki-lint-real/wiki-lint.json
+tmp/wiki-lint-real/wiki-lint.md
 ```
 
 The JSON output is intended for regression checks. The Markdown output is for
@@ -79,7 +79,7 @@ This MVP is successful when:
 
 - `go test ./...` passes.
 - lint reports invalid frontmatter and invalid log actions.
-- lint reports duplicate index entries.
-- lint reports missing wikilink targets.
+- lint reports duplicate Markdown or legacy index entries.
+- lint reports missing semantic wikilink targets.
 - lint reports orphan pages.
 - real `wiki/` can be linted without edits.

@@ -2,26 +2,27 @@
 
 Date: 2026-05-17
 
-Eval scores, traces, and candidate-review Markdown under `evals/runs/` are
-**local outputs** from `nemo -eval-*` / `-review-*` commands; that directory is
+Eval scores, traces, and candidate-review Markdown under `pipeline/evals/runs/`
+are **local outputs** from `nemo -eval-*` / `-review-*` commands; that directory is
 gitignored. Re-run those commands after changing bundles or prompts if you need
 fresh JSON/Markdown artifacts.
 
 ## Inputs
 
-- `drafts/web-e2e-sources/qwen-llama-cpp.md`
-- `drafts/web-e2e-sources/sqlite-wal.md`
-- `drafts/web-e2e-sources/git-branching.md`
+- `pipeline/drafts/web-e2e-sources/qwen-llama-cpp.md`
+- `pipeline/drafts/web-e2e-sources/sqlite-wal.md`
+- `pipeline/drafts/web-e2e-sources/git-branching.md`
 
-The initial run used public-web excerpts stored under `drafts/` for testing.
+The initial run used public-web excerpts stored under `pipeline/drafts/` for testing.
 After the source-durability change, the same inputs were explicitly persisted to:
 
-- `raw/web/qwen-llama-cpp.md`
-- `raw/web/sqlite-wal.md`
-- `raw/web/git-branching.md`
+- `pipeline/raw/web/qwen-llama-cpp.md`
+- `pipeline/raw/web/sqlite-wal.md`
+- `pipeline/raw/web/git-branching.md`
 
 This keeps web-derived tests aligned with the normal ingest rule that durable
-claims trace to `raw/...` or `wiki/sources/...`.
+test claims trace to `pipeline/raw/...`, while production wiki source pages live
+under `wiki/sources/...`.
 
 ## Runtime
 
@@ -41,10 +42,10 @@ found in raw outputs.
 
 All three reviewed bundles passed deterministic bundle evaluation (run
 `-eval-bundle` per bundle with an `-out-dir` of your choice; compare to
-`expected.json` shapes under `evals/cases/*-web/` where applicable).
+`expected.json` shapes under `pipeline/evals/cases/*-web/` where applicable).
 
 Each bundle produced one source page candidate plus two concept/topic page
-candidates.
+candidates; newer candidate workflows also support entity pages.
 
 ## Candidate Evaluation
 
@@ -56,11 +57,12 @@ sources:
   - source.md
 ```
 
-The candidate evaluator requires a durable `raw/...` or `wiki/sources/...`
-reference. This was correct for production: a temporary `drafts/` input should
-not be silently accepted as a durable wiki source.
+The candidate evaluator requires a durable `pipeline/raw/...` or
+`wiki/sources/...` reference. This was correct for production: a temporary
+`pipeline/drafts/` input should not be silently accepted as a durable wiki
+source.
 
-After rerunning with durable `raw/web/...` inputs and source-supported link
+After rerunning with durable `pipeline/raw/web/...` inputs and source-supported link
 constraints, candidate source attribution passed for all three bundles. Current
 candidate results:
 
@@ -79,12 +81,13 @@ Observed content issues:
 
 The local inference path is operationally stable for these short public-web
 inputs. Source durability is now handled by an explicit create-only
-`raw/web/<slug>.md` persistence step before bundle generation.
+`pipeline/raw/web/<slug>.md` persistence step before bundle generation.
 
 The link quality gate now prevents broken links and also reports weak semantic
-links. This does not deviate from the core wiki idea: it preserves immutable raw
-sources, keeps model output in `drafts/`, and uses evaluation to prevent
-structurally valid but poorly justified links from entering the maintained wiki
+links. This does not deviate from the core wiki idea: it preserves immutable
+test sources, keeps model output in `pipeline/drafts/`, and uses evaluation to
+prevent structurally valid but poorly justified links from entering the
+maintained wiki
 without review.
 
 ## Candidate Review
@@ -129,7 +132,7 @@ MVP-12 validated the final promotion step in an isolated temporary root rather
 than writing to the real `wiki/`:
 
 ```text
-raw/web/... -> bundle -> candidates -> eval pass -> review pass -> approved apply -> wiki lint
+pipeline/raw/web/... -> bundle -> candidates -> eval pass -> review pass -> approved apply -> wiki lint
 ```
 
 The first dry-run surfaced two promotion gaps:
@@ -160,6 +163,7 @@ pages checked: 21
 ```
 
 This confirms the production promotion loop is structurally ready for reviewed
-candidate pages: applied pages keep durable `raw/web/...` source references,
-`wiki/index.md` is updated for sources/concepts/topics, `wiki/log.md` receives
+candidate pages: applied pages keep durable `pipeline/raw/web/...` source
+references, `wiki/index.md` is updated for sources/entities/concepts/topics,
+`wiki/log.md` receives
 append-only ingest entries, and `apply-report.md` records no skipped files.

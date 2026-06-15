@@ -26,7 +26,7 @@ Claude-style plan/generate/review loop inside
 The inner loop handles one real ingest:
 
 ```text
-raw source -> source.md -> ingest-plan.md -> apply-plan.md
+pipeline/raw source -> source.md -> ingest-plan.md -> apply-plan.md
 ```
 
 The outer harness evaluates the artifacts:
@@ -57,7 +57,7 @@ The harness makes quality explicit and repeatable:
 ## Initial Directory Layout
 
 ```text
-evals/
+pipeline/evals/
   cases/
     llm-wiki/
       expected.json
@@ -74,16 +74,21 @@ output. This keeps the harness deterministic and fast.
 
 ```sh
 go run ./cmd/nemo \
-  -eval-bundle drafts/actual-use-llm-wiki \
-  -out-dir evals/runs/llm-wiki-manual
+  -eval-bundle pipeline/drafts/actual-use-llm-wiki \
+  -out-dir pipeline/evals/runs/llm-wiki-manual
 ```
 
 Expected outputs:
 
 ```text
-evals/runs/llm-wiki-manual/scores.json
-evals/runs/llm-wiki-manual/trace.md
+pipeline/evals/runs/llm-wiki-manual/scores.json
+pipeline/evals/runs/llm-wiki-manual/trace.md
+pipeline/drafts/actual-use-llm-wiki/scores.json
 ```
+
+`-eval-bundle` writes the same deterministic score file to the bundle root as
+the explicit `-apply-approved` gate. The output directory keeps the run trace and
+copy of the scores for audit and comparison.
 
 ## Scoring
 
@@ -118,7 +123,7 @@ required validation checks.
 automatically." and no command writes into `wiki/`.
 
 `candidate_paths` is `pass` when all candidate paths are under
-`wiki/sources/`, `wiki/concepts/`, or `wiki/topics/`.
+`wiki/sources/`, `wiki/entities/`, `wiki/concepts/`, or `wiki/topics/`.
 
 `duplicate_detection` is:
 
@@ -140,13 +145,13 @@ automatically." and no command writes into `wiki/`.
 
 `apply_plan_coverage` is:
 
-- `pass` when each planned `wiki/concepts/` or `wiki/topics/` page has a
-  generated candidate draft, and planned `wiki/sources/` pages are represented
-  by the generated `source.md`.
+- `pass` when each planned `wiki/entities/`, `wiki/concepts/`, or
+  `wiki/topics/` page has a generated candidate draft, and planned
+  `wiki/sources/` pages are represented by the generated `source.md`.
 - `borderline` when multiple planned `wiki/sources/` pages share the single
   generated `source.md` artifact.
-- `fail` when planned concept/topic candidate drafts are missing, or when a
-  planned source page has no valid `source.md` artifact.
+- `fail` when planned entity/concept/topic candidate drafts are missing, or
+  when a planned source page has no valid `source.md` artifact.
 
 `apply_readiness` is:
 
@@ -161,7 +166,8 @@ automatically." and no command writes into `wiki/`.
 This MVP is successful when:
 
 - `go test ./...` passes.
-- `nemo -eval-bundle` writes `scores.json` and `trace.md`.
+- `nemo -eval-bundle` writes `scores.json` and `trace.md` to the eval output
+  directory, and writes `scores.json` to the bundle root for apply gating.
 - the first real `llm-wiki` bundle receives deterministic scores.
 - failures are represented in `scores.json`, not hidden in prose.
 - `wiki/` remains unchanged by the harness.

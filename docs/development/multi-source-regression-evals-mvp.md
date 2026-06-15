@@ -8,7 +8,7 @@ checks across multiple eval cases.
 Move from one-off validation to repeatable regression checks:
 
 ```text
-evals/cases/*/bundle -> regression-summary.json + regression-summary.md
+pipeline/evals/cases/*/bundle -> regression-summary.json + regression-summary.md
 ```
 
 Earlier MVPs proved each stage on the `llm-wiki` case. MVP-10 checks whether
@@ -16,10 +16,10 @@ the review and evaluation rules stay stable across different source shapes.
 
 ## Case Layout
 
-Each case lives under `evals/cases/<case-name>/`:
+Each case lives under `pipeline/evals/cases/<case-name>/`:
 
 ```text
-evals/cases/<case-name>/
+pipeline/evals/cases/<case-name>/
   expected.json
   bundle/
     source.md
@@ -33,7 +33,7 @@ evals/cases/<case-name>/
 {
   "case": "technical-doc",
   "source": "fixture:technical-doc",
-  "bundle": "evals/cases/technical-doc/bundle",
+  "bundle": "pipeline/evals/cases/technical-doc/bundle",
   "minimum_scores": {
     "schema": "pass",
     "wiki_safety": "pass",
@@ -45,23 +45,23 @@ evals/cases/<case-name>/
 }
 ```
 
-MVP-10 uses fixture bundles rather than adding new `raw/` sources. This keeps
-`raw/` immutable while still exercising the deterministic harness over multiple
-artifact shapes.
+MVP-10 uses fixture bundles rather than adding new `pipeline/raw/` sources. This
+keeps `pipeline/raw/` immutable while still exercising the deterministic
+harness over multiple artifact shapes.
 
 ## Command
 
 ```sh
 go run ./cmd/nemo \
-  -eval-regression evals/cases \
-  -out-dir evals/runs/regression
+  -eval-regression pipeline/evals/cases \
+  -out-dir pipeline/evals/runs/regression
 ```
 
 ## Outputs
 
 ```text
-evals/runs/regression/regression-summary.json
-evals/runs/regression/regression-summary.md
+pipeline/evals/runs/regression/regression-summary.json
+pipeline/evals/runs/regression/regression-summary.md
 ```
 
 The summary records every case, actual scores, expected minimum scores, pass/fail
@@ -80,7 +80,7 @@ MVP-10 starts with three case shapes:
 This MVP is successful when:
 
 - `go test ./...` passes.
-- the regression runner evaluates every case under `evals/cases`.
+- the regression runner evaluates every case under `pipeline/evals/cases`.
 - case failures are represented in JSON, not hidden in prose.
 - the real command produces a passing summary for the initial cases.
 - no command writes to `wiki/`.

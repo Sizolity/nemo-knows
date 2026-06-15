@@ -5,9 +5,9 @@ It is project documentation, not a maintained knowledge-base page.
 
 ## One-Sentence Summary
 
-`nemo-knows` turns raw source files into a persistent, LLM-maintained Markdown
-wiki so knowledge compounds over time instead of being rediscovered on every
-question.
+`nemo-knows` turns curated source material into a persistent, LLM-maintained
+Markdown wiki so knowledge compounds over time instead of being rediscovered on
+every question.
 
 ## Why This Is Not Just RAG
 
@@ -18,7 +18,7 @@ the system repeatedly reconstructs the same context.
 The LLM wiki pattern makes a different tradeoff:
 
 ```text
-raw source -> reviewed draft -> maintained wiki page -> future query
+source material -> reviewed draft -> maintained wiki page -> future query
 ```
 
 The LLM reads a source once, writes or updates durable Markdown pages, adds
@@ -30,20 +30,24 @@ from that maintained layer instead of starting from raw sources every time.
 `nemo-knows` keeps three layers separate:
 
 ```text
-raw/      immutable source material
-drafts/   generated candidate pages for review
-wiki/     accepted LLM-maintained knowledge base
+pipeline/raw/          immutable test source material
+pipeline/drafts/       generated candidate pages for review
+pipeline/evals/runs/   deterministic evaluation outputs
+wiki/sources/          accepted production source pages
+wiki/                  accepted LLM-maintained knowledge base
 ```
 
-`raw/` is the source of truth and should not be modified by automation.
+`pipeline/raw/` is immutable development test source material and should not be
+modified by automation. Production wiki source pages live under
+`wiki/sources/`.
 
-`drafts/` is the engineering safety buffer. Local model output lands here first
-so humans or agents can inspect it before anything becomes maintained wiki
-content.
+`pipeline/drafts/` is the engineering safety buffer. Local model output lands
+here first so humans or agents can inspect it before anything becomes
+maintained wiki content.
 
-`wiki/` is the accepted knowledge layer. It contains source summaries, concept
-pages, topic pages, indexes, and logs that should stay internally linked and
-current.
+`wiki/` is the accepted knowledge layer. It contains source summaries, entity
+pages, concept pages, topic pages, indexes, and logs that should stay internally
+linked and current.
 
 `AGENTS.md` defines the maintenance contract for agents that edit the wiki.
 Project-level Cursor rules under `.cursor/rules/` define coding behavior for
@@ -53,13 +57,14 @@ agents working on this repository.
 
 ### Draft
 
-The Go command turns a raw source and a prompt template into draft files:
+The development pipeline turns a `pipeline/raw/` source and a prompt template
+into draft files:
 
 ```text
-raw/<source>.md + prompts/<template>.md
+pipeline/raw/<source>.md + prompts/<template>.md
   -> llama.cpp
-  -> drafts/<name>.raw.txt
-  -> drafts/<name>.md
+  -> pipeline/drafts/<name>.raw.txt
+  -> pipeline/drafts/<name>.md
 ```
 
 The raw draft preserves model/runtime output for debugging. The cleaned draft is
@@ -68,14 +73,14 @@ a candidate Markdown page, not automatically accepted wiki content.
 ### Local Ingest Bundle
 
 The local ingest MVP extends the draft workflow by generating a small bundle of
-review artifacts from one raw source:
+review artifacts from one `pipeline/raw/` source:
 
 ```text
-raw/<source>.md
-  -> drafts/<source>/source.raw.txt
-  -> drafts/<source>/source.md
-  -> drafts/<source>/ingest-plan.raw.txt
-  -> drafts/<source>/ingest-plan.md
+pipeline/raw/<source>.md
+  -> pipeline/drafts/<source>/source.raw.txt
+  -> pipeline/drafts/<source>/source.md
+  -> pipeline/drafts/<source>/ingest-plan.raw.txt
+  -> pipeline/drafts/<source>/ingest-plan.md
 ```
 
 The bundle is still outside the maintained wiki. Its purpose is to test whether
@@ -88,10 +93,10 @@ The reviewed ingest helper reads a local ingest bundle and produces an
 `apply-plan.md` review artifact:
 
 ```text
-drafts/<source>/source.md
-drafts/<source>/ingest-plan.md
+pipeline/drafts/<source>/source.md
+pipeline/drafts/<source>/ingest-plan.md
   -> deterministic validation
-  -> drafts/<source>/apply-plan.md
+  -> pipeline/drafts/<source>/apply-plan.md
 ```
 
 This step does not call the model and does not write to `wiki/`. It validates
@@ -104,9 +109,9 @@ Candidate draft generation turns reviewed concept and topic candidate paths into
 separate draft pages:
 
 ```text
-drafts/<source>/apply-plan.md
-drafts/<source>/source.md
-  -> drafts/<source>/candidates/wiki/concepts|topics/*.md
+pipeline/drafts/<source>/apply-plan.md
+pipeline/drafts/<source>/source.md
+  -> pipeline/drafts/<source>/candidates/wiki/entities|concepts|topics/*.md
 ```
 
 This step calls the model, but still does not write to `wiki/`. It gives
@@ -119,14 +124,14 @@ Candidate draft evaluation scores generated concept and topic drafts before
 approved apply can consume them:
 
 ```text
-drafts/<source>/candidates/wiki/concepts|topics/*.md
-  -> evals/runs/<run-id>/candidate-scores.json
-  -> evals/runs/<run-id>/candidate-trace.md
+pipeline/drafts/<source>/candidates/wiki/entities|concepts|topics/*.md
+  -> pipeline/evals/runs/<run-id>/candidate-scores.json
+  -> pipeline/evals/runs/<run-id>/candidate-trace.md
 ```
 
 The harness is deterministic. It checks frontmatter, source references, title
-and heading consistency, wikilink safety when links are present, draft length,
-and whether the draft is mostly copied from `source.md`.
+and heading consistency, semantic wikilink safety when links are present, draft
+length, and whether the draft is mostly copied from `source.md`.
 
 ### Candidate Review And Link Repair
 
@@ -134,7 +139,7 @@ Candidate review turns evaluation findings into a deterministic repair report:
 
 ```text
 candidate eval trace
-  -> evals/runs/<run-id>/candidate-review.md
+  -> pipeline/evals/runs/<run-id>/candidate-review.md
 ```
 
 This step is advisory. It does not call the model, rewrite candidate pages, or
@@ -147,9 +152,9 @@ durable source references.
 Regression evals run the deterministic harness over many fixture cases:
 
 ```text
-evals/cases/*/bundle
-  -> evals/runs/<run-id>/regression-summary.json
-  -> evals/runs/<run-id>/regression-summary.md
+pipeline/evals/cases/*/bundle
+  -> pipeline/evals/runs/<run-id>/regression-summary.json
+  -> pipeline/evals/runs/<run-id>/regression-summary.md
 ```
 
 This catches regressions in review and scoring logic across source shapes such
@@ -159,8 +164,8 @@ is trusted on more real ingests.
 ### Candidate Link Quality Gate
 
 Candidate generation is constrained by an Allowed Links list assembled from
-source-supported existing wiki pages and the concept/topic candidates in the
-reviewed apply plan:
+source-supported existing wiki pages and the entity/concept/topic candidates in
+the reviewed apply plan:
 
 ```text
 source.md + wiki/*.md + apply-plan candidate paths
@@ -169,13 +174,13 @@ source.md + wiki/*.md + apply-plan candidate paths
   -> candidate eval missing-target check
 ```
 
-This keeps model-invented links such as `[[RAG]]` or `[[Memex]]` from becoming
-broken wiki references unless those pages already exist or are explicitly part
-of the reviewed candidate set.
+This keeps model-invented semantic links such as `[[RAG]]` or `[[Memex]]` from
+becoming broken wiki references unless those pages already exist or are
+explicitly part of the reviewed candidate set.
 
 The gate does not require every candidate to contain a wikilink. A missing link
 is acceptable when the source does not support a strong cross-reference; weak
-navigation is worse than plain text.
+semantic linking is worse than plain text.
 
 The gate also distinguishes a valid target from a useful target. A wikilink to
 an existing page can still be marked `borderline` when the link target is not
@@ -184,16 +189,21 @@ keeps wikilinks aligned with the wiki's purpose: navigation should make the
 knowledge base more accurate and more connected, not merely satisfy a structural
 check.
 
+`wiki/index.md` is different: it is a navigation catalogue, so entries are
+standard Markdown links relative to `wiki/index.md`, for example
+`[sqlite-wal](sources/sqlite-wal.md)`. Body-page `[[wikilinks]]` remain
+semantic cross-references and are not used as the index entry format.
+
 ### Ingest Evaluation Harness
 
 The ingest evaluation harness scores generated and reviewed artifacts:
 
 ```text
-drafts/<source>/source.md
-drafts/<source>/ingest-plan.md
-drafts/<source>/apply-plan.md
-  -> evals/runs/<run-id>/scores.json
-  -> evals/runs/<run-id>/trace.md
+pipeline/drafts/<source>/source.md
+pipeline/drafts/<source>/ingest-plan.md
+pipeline/drafts/<source>/apply-plan.md
+  -> pipeline/evals/runs/<run-id>/scores.json
+  -> pipeline/evals/runs/<run-id>/trace.md
 ```
 
 This is the OpenAI-style eval layer around the Claude-style
@@ -205,26 +215,27 @@ changes comparable across repeated runs.
 The approved apply step is the first guarded write into `wiki/`:
 
 ```text
-drafts/<source>/apply-plan.md
-evals/runs/<run-id>/scores.json
+pipeline/drafts/<source>/apply-plan.md
+pipeline/evals/runs/<run-id>/scores.json
   -> explicit approval
-  -> wiki/sources|concepts|topics
+  -> wiki/sources|entities|concepts|topics
   -> wiki/index.md
   -> wiki/log.md
-  -> drafts/<source>/apply-report.md
+  -> pipeline/drafts/<source>/apply-report.md
 ```
 
 It keeps the project aligned with the original goal: the wiki must actually
 grow, but accepted wiki edits remain explicit and auditable. Source pages can be
-applied from `source.md`; concept and topic pages require matching reviewed
-drafts under `drafts/<source>/candidates/` before they can be written.
+applied from `source.md`; entity, concept, and topic pages require matching
+reviewed drafts under `pipeline/drafts/<source>/candidates/` before they can be
+written.
 
 For public web material, the CLI may explicitly persist a testing source under
-`raw/web/<slug>.md` before bundle generation. This is opt-in and create-only:
-automation must not overwrite existing raw files. Once persisted, generated
-source summaries and candidate pages cite the durable `raw/web/...` path instead
-of a temporary `drafts/...` input, preserving the same source-of-truth boundary as
-normal raw-file ingest.
+`pipeline/raw/web/<slug>.md` before bundle generation. This is opt-in and
+create-only: automation must not overwrite existing raw files. Once persisted,
+generated source summaries and candidate pages cite the durable
+`pipeline/raw/web/...` path instead of a temporary `pipeline/drafts/...` input,
+preserving the same source-of-truth boundary as normal test-source ingest.
 
 ### Ingest
 
@@ -243,8 +254,9 @@ useful comparison, explanation, or decision, it can be filed back as a topic pag
 Lint is a maintenance pass over `wiki/`. It looks for broken links, missing
 pages, contradictions, stale claims, and concepts that deserve their own page.
 The first automated lint harness is deterministic and read-only: it reports
-frontmatter issues, duplicate index entries, missing wikilink targets, orphan
-pages, and invalid log actions after approved apply.
+frontmatter issues, duplicate Markdown or legacy wikilink index entries,
+missing semantic wikilink targets, orphan pages, and invalid log actions after
+approved apply.
 
 ## Engineering Implications
 
