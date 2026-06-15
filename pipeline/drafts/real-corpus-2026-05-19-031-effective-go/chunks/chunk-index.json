@@ -1,0 +1,74 @@
+{
+  "source_path": "raw/web/corpus-2026-05-18/031-effective-go.md",
+  "chunks": [
+    {
+      "index": 1,
+      "heading_path": [
+        "Document"
+      ],
+      "start_line": 1,
+      "end_line": 26,
+      "chars": 570
+    },
+    {
+      "index": 2,
+      "heading_path": [
+        "Effective Go",
+        "Retrieved Text"
+      ],
+      "start_line": 27,
+      "end_line": 550,
+      "chars": 18181
+    },
+    {
+      "index": 3,
+      "heading_path": [
+        "Effective Go",
+        "Retrieved Text"
+      ],
+      "start_line": 552,
+      "end_line": 1042,
+      "chars": 17615
+    },
+    {
+      "index": 4,
+      "heading_path": [
+        "Effective Go",
+        "Retrieved Text"
+      ],
+      "start_line": 1044,
+      "end_line": 1546,
+      "chars": 18198
+    },
+    {
+      "index": 5,
+      "heading_path": [
+        "Effective Go",
+        "Retrieved Text"
+      ],
+      "start_line": 1548,
+      "end_line": 2017,
+      "chars": 18145
+    },
+    {
+      "index": 6,
+      "heading_path": [
+        "Effective Go",
+        "Retrieved Text"
+      ],
+      "start_line": 2019,
+      "end_line": 2488,
+      "chars": 18018
+    },
+    {
+      "index": 7,
+      "heading_path": [
+        "Effective Go",
+        "Retrieved Text"
+      ],
+      "start_line": 2490,
+      "end_line": 2730,
+      "chars": 8686
+    }
+  ]
+}

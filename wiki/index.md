@@ -1,23 +1,27 @@
 ---
 title: Index
 kind: index
-updated: 2026-05-26
+updated: 2026-06-15
 ---
 
 # Index
 
-The catalogue of tracked wiki structure and currently generated wiki pages,
-organised by category. Runtime pages under `sources/`, `entities/`,
-`concepts/`, `topics/`, and `assets/` are regenerated from deployment inputs
-and are not stored in Git.
+The catalogue of every page in the wiki, organised by category. This is
+the entry point for all operations: start here before any query, ingest,
+or lint pass.
+
+Runtime pages under `sources/`, `entities/`, `concepts/`, `topics/`, and
+`assets/` are regenerated from deployment inputs and are not stored in
+Git.
 
 When this file outgrows its useful size (rough threshold: it stops
-fitting comfortably in an LLM context window), split each category
-into its own `index-<category>.md` and have this file link to them.
+fitting comfortably in an LLM context window), split each category into
+its own `index-<category>.md` and have this file link to them.
 
 ## Sources
 
-_Pages summarising material from `raw/`. Each entry: `[[slug]]` — one-line description._
+_One page per ingested external document. Each entry: `[[slug]]` — one-line
+description._
 
 (none yet)
 

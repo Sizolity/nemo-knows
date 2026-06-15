@@ -1,0 +1,170 @@
+{
+  "source_path": "raw/web/corpus-2026-05-18/104-alice-s-adventures-in-wonderland.md",
+  "chunks": [
+    {
+      "index": 1,
+      "heading_path": [
+        "Document"
+      ],
+      "heading_paths": [
+        [
+          "Document"
+        ],
+        [
+          "Alice's Adventures in Wonderland"
+        ],
+        [
+          "Alice's Adventures in Wonderland",
+          "Fetch Metadata"
+        ]
+      ],
+      "start_line": 1,
+      "end_line": 26,
+      "chars": 793
+    },
+    {
+      "index": 2,
+      "heading_path": [
+        "Alice's Adventures in Wonderland",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Alice's Adventures in Wonderland",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 27,
+      "end_line": 371,
+      "chars": 18047
+    },
+    {
+      "index": 3,
+      "heading_path": [
+        "Alice's Adventures in Wonderland",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Alice's Adventures in Wonderland",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 373,
+      "end_line": 721,
+      "chars": 18039
+    },
+    {
+      "index": 4,
+      "heading_path": [
+        "Alice's Adventures in Wonderland",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Alice's Adventures in Wonderland",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 723,
+      "end_line": 1101,
+      "chars": 17990
+    },
+    {
+      "index": 5,
+      "heading_path": [
+        "Alice's Adventures in Wonderland",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Alice's Adventures in Wonderland",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 1103,
+      "end_line": 1487,
+      "chars": 18054
+    },
+    {
+      "index": 6,
+      "heading_path": [
+        "Alice's Adventures in Wonderland",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Alice's Adventures in Wonderland",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 1489,
+      "end_line": 1925,
+      "chars": 17934
+    },
+    {
+      "index": 7,
+      "heading_path": [
+        "Alice's Adventures in Wonderland",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Alice's Adventures in Wonderland",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 1927,
+      "end_line": 2320,
+      "chars": 18059
+    },
+    {
+      "index": 8,
+      "heading_path": [
+        "Alice's Adventures in Wonderland",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Alice's Adventures in Wonderland",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 2322,
+      "end_line": 2751,
+      "chars": 18202
+    },
+    {
+      "index": 9,
+      "heading_path": [
+        "Alice's Adventures in Wonderland",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Alice's Adventures in Wonderland",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 2753,
+      "end_line": 3204,
+      "chars": 18316
+    },
+    {
+      "index": 10,
+      "heading_path": [
+        "Alice's Adventures in Wonderland",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Alice's Adventures in Wonderland",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 3206,
+      "end_line": 3342,
+      "chars": 6506
+    }
+  ]
+}

@@ -1,0 +1,275 @@
+{
+  "source_path": "raw/web/corpus-2026-05-18/059-url-standard.md",
+  "chunks": [
+    {
+      "index": 1,
+      "heading_path": [
+        "Document"
+      ],
+      "heading_paths": [
+        [
+          "Document"
+        ],
+        [
+          "URL Standard"
+        ],
+        [
+          "URL Standard",
+          "Fetch Metadata"
+        ],
+        [
+          "URL Standard",
+          "Retrieved Text"
+        ],
+        [
+          "1. Infrastructure"
+        ],
+        [
+          "1. Infrastructure",
+          "1.1. Writing"
+        ],
+        [
+          "1. Infrastructure",
+          "1.2. Parsers"
+        ],
+        [
+          "1. Infrastructure",
+          "1.3. Percent-encoded bytes"
+        ],
+        [
+          "2. Security considerations"
+        ]
+      ],
+      "start_line": 1,
+      "end_line": 594,
+      "chars": 17860
+    },
+    {
+      "index": 2,
+      "heading_path": [
+        "3. Hosts (domains and IP addresses)"
+      ],
+      "heading_paths": [
+        [
+          "3. Hosts (domains and IP addresses)"
+        ],
+        [
+          "3. Hosts (domains and IP addresses)",
+          "3.1. Host representation"
+        ],
+        [
+          "3. Hosts (domains and IP addresses)",
+          "3.2. Host miscellaneous"
+        ],
+        [
+          "3. Hosts (domains and IP addresses)",
+          "3.3. IDNA"
+        ],
+        [
+          "3. Hosts (domains and IP addresses)",
+          "3.4. Host writing"
+        ],
+        [
+          "3. Hosts (domains and IP addresses)",
+          "3.5. Host parsing"
+        ]
+      ],
+      "start_line": 595,
+      "end_line": 989,
+      "chars": 16212
+    },
+    {
+      "index": 3,
+      "heading_path": [
+        "3. Hosts (domains and IP addresses)",
+        "3.6. Host serializing"
+      ],
+      "heading_paths": [
+        [
+          "3. Hosts (domains and IP addresses)",
+          "3.6. Host serializing"
+        ],
+        [
+          "3. Hosts (domains and IP addresses)",
+          "3.7. Host equivalence"
+        ],
+        [
+          "4. URLs"
+        ],
+        [
+          "4. URLs",
+          "4.1. URL representation"
+        ],
+        [
+          "4. URLs",
+          "4.2. URL miscellaneous"
+        ],
+        [
+          "4. URLs",
+          "4.3. URL writing"
+        ]
+      ],
+      "start_line": 990,
+      "end_line": 1384,
+      "chars": 14766
+    },
+    {
+      "index": 4,
+      "heading_path": [
+        "4. URLs",
+        "4.4. URL parsing"
+      ],
+      "heading_paths": [
+        [
+          "4. URLs",
+          "4.4. URL parsing"
+        ],
+        [
+          "c is the EOF code point, U+002F (/), U+003F (?), or"
+        ],
+        [
+          "url is special and c is U+005C (\\)"
+        ],
+        [
+          "url is special and c is U+005C (\\); or"
+        ],
+        [
+          "state override is given,"
+        ],
+        [
+          "c is the EOF code point or U+002F (/)"
+        ],
+        [
+          "state override is not given and c is U+003F (?) or"
+        ],
+        [
+          "url is not special"
+        ],
+        [
+          "url’s scheme is \"ws\" or \"wss\""
+        ],
+        [
+          "state override is not given and c is U+0023 (#)"
+        ]
+      ],
+      "start_line": 1385,
+      "end_line": 1848,
+      "chars": 16700
+    },
+    {
+      "index": 5,
+      "heading_path": [
+        "c is the EOF code point"
+      ],
+      "heading_paths": [
+        [
+          "c is the EOF code point"
+        ],
+        [
+          "c is the EOF code point",
+          "4.5. URL serializing"
+        ],
+        [
+          "c is the EOF code point",
+          "4.6. URL equivalence"
+        ],
+        [
+          "c is the EOF code point",
+          "4.7. Origin"
+        ],
+        [
+          "c is the EOF code point",
+          "4.8. URL rendering"
+        ],
+        [
+          "c is the EOF code point",
+          "4.8. URL rendering",
+          "4.8.1. Simplify non-human-readable or irrelevant components"
+        ],
+        [
+          "c is the EOF code point",
+          "4.8. URL rendering",
+          "4.8.2. Elision"
+        ],
+        [
+          "c is the EOF code point",
+          "4.8. URL rendering",
+          "4.8.3. Internationalization and special characters"
+        ],
+        [
+          "5. application/x-www-form-urlencoded"
+        ],
+        [
+          "5. application/x-www-form-urlencoded",
+          "5.1. application/x-www-form-urlencoded parsing"
+        ],
+        [
+          "5. application/x-www-form-urlencoded",
+          "5.2. application/x-www-form-urlencoded serializing"
+        ],
+        [
+          "5. application/x-www-form-urlencoded",
+          "5.3. Hooks"
+        ],
+        [
+          "6. API"
+        ]
+      ],
+      "start_line": 1849,
+      "end_line": 2133,
+      "chars": 11734
+    },
+    {
+      "index": 6,
+      "heading_path": [
+        "6. API",
+        "6.1. URL class"
+      ],
+      "heading_paths": [
+        [
+          "6. API",
+          "6.1. URL class"
+        ],
+        [
+          "6. API",
+          "6.2. URLSearchParams class"
+        ]
+      ],
+      "start_line": 2134,
+      "end_line": 2479,
+      "chars": 12684
+    },
+    {
+      "index": 7,
+      "heading_path": [
+        "6. API",
+        "6.3. URL APIs elsewhere"
+      ],
+      "heading_paths": [
+        [
+          "6. API",
+          "6.3. URL APIs elsewhere"
+        ]
+      ],
+      "start_line": 2480,
+      "end_line": 3075,
+      "chars": 18160
+    },
+    {
+      "index": 8,
+      "heading_path": [
+        "6. API",
+        "6.3. URL APIs elsewhere"
+      ],
+      "heading_paths": [
+        [
+          "6. API",
+          "6.3. URL APIs elsewhere"
+        ]
+      ],
+      "start_line": 3077,
+      "end_line": 3669,
+      "chars": 15059
+    }
+  ]
+}

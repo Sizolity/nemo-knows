@@ -14,26 +14,24 @@ Thumbs.db
 .env
 .env.local
 
-# Python / Node / common scratch (in case CLI tooling is added later)
+# Python / Node / common scratch
 __pycache__/
 *.pyc
 node_modules/
 .cache/
 
-# Local-only working files (ignored by convention)
-scratch/
-tmp/
-experiments/
+# Local-only working files
 .bin/
 .cursor
+.agents/
+.codex/
 
 # Local tar snapshots and regenerated eval outputs
-backups/
-evals/runs/
+pipeline/evals/runs/
 
 # Full llama.cpp traces next to cleaned bundle/candidate drafts (regenerate locally)
-drafts/**/*.raw.txt
-drafts/**/*.fallback.raw.txt
+pipeline/drafts/**/*.raw.txt
+pipeline/drafts/**/*.fallback.raw.txt
 
 # Local web console runtime log
 web.log
@@ -42,14 +40,22 @@ web.log
 .deploy-state/
 .releases/
 
+# Local test scratch space
+tmp/
+
 # Runtime-regenerated wiki pages. Keep only the required wiki skeleton in Git:
-# wiki/index.md, wiki/log.md, and directory placeholders.
+# wiki/index.md, wiki/log.md, directory placeholders, and explicitly promoted
+# source pages.
 wiki/sources/*
 wiki/entities/*
 wiki/concepts/*
 wiki/topics/*
 wiki/assets/*
 !wiki/sources/.gitkeep
+!wiki/sources/llm-wiki.md
+!wiki/sources/git-branching.md
+!wiki/sources/qwen-llama-cpp.md
+!wiki/sources/sqlite-wal.md
 !wiki/entities/.gitkeep
 !wiki/concepts/.gitkeep
 !wiki/topics/.gitkeep

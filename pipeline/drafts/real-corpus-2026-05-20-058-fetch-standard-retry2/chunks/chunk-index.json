@@ -1,0 +1,631 @@
+{
+  "source_path": "raw/web/corpus-2026-05-18/058-fetch-standard.md",
+  "chunks": [
+    {
+      "index": 1,
+      "heading_path": [
+        "Document"
+      ],
+      "heading_paths": [
+        [
+          "Document"
+        ],
+        [
+          "Fetch Standard"
+        ],
+        [
+          "Fetch Standard",
+          "Fetch Metadata"
+        ],
+        [
+          "Fetch Standard",
+          "Retrieved Text"
+        ],
+        [
+          "1. Preface"
+        ],
+        [
+          "2. Infrastructure"
+        ],
+        [
+          "2. Infrastructure",
+          "2.1. URL"
+        ],
+        [
+          "2. Infrastructure",
+          "2.2. HTTP"
+        ],
+        [
+          "2. Infrastructure",
+          "2.2. HTTP",
+          "2.2.1. Methods"
+        ]
+      ],
+      "start_line": 1,
+      "end_line": 447,
+      "chars": 13411
+    },
+    {
+      "index": 2,
+      "heading_path": [
+        "2. Infrastructure",
+        "2.2. HTTP",
+        "2.2.2. Headers"
+      ],
+      "heading_paths": [
+        [
+          "2. Infrastructure",
+          "2.2. HTTP",
+          "2.2.2. Headers"
+        ],
+        [
+          "3. Return true."
+        ],
+        [
+          "3. Return true.",
+          "2.2.3. Statuses"
+        ]
+      ],
+      "start_line": 448,
+      "end_line": 947,
+      "chars": 17932
+    },
+    {
+      "index": 3,
+      "heading_path": [
+        "3. Return true.",
+        "2.2.3. Statuses",
+        "2.2.4. Bodies"
+      ],
+      "heading_paths": [
+        [
+          "3. Return true.",
+          "2.2.3. Statuses",
+          "2.2.4. Bodies"
+        ],
+        [
+          "2. Read a chunk from reader given readRequest."
+        ]
+      ],
+      "start_line": 948,
+      "end_line": 1044,
+      "chars": 3905
+    },
+    {
+      "index": 4,
+      "heading_path": [
+        "2. Read a chunk from reader given readRequest.",
+        "2.2.5. Requests"
+      ],
+      "heading_paths": [
+        [
+          "2. Read a chunk from reader given readRequest.",
+          "2.2.5. Requests"
+        ]
+      ],
+      "start_line": 1045,
+      "end_line": 1499,
+      "chars": 18249
+    },
+    {
+      "index": 5,
+      "heading_path": [
+        "2. Read a chunk from reader given readRequest.",
+        "2.2.5. Requests"
+      ],
+      "heading_paths": [
+        [
+          "2. Read a chunk from reader given readRequest.",
+          "2.2.5. Requests"
+        ]
+      ],
+      "start_line": 1501,
+      "end_line": 1595,
+      "chars": 4166
+    },
+    {
+      "index": 6,
+      "heading_path": [
+        "2. Read a chunk from reader given readRequest.",
+        "2.2.5. Requests",
+        "2.2.6. Responses"
+      ],
+      "heading_paths": [
+        [
+          "2. Read a chunk from reader given readRequest.",
+          "2.2.5. Requests",
+          "2.2.6. Responses"
+        ],
+        [
+          "2. Read a chunk from reader given readRequest.",
+          "2.2.5. Requests",
+          "2.2.7. Miscellaneous"
+        ],
+        [
+          "2. Read a chunk from reader given readRequest.",
+          "2.3. Authentication entries"
+        ],
+        [
+          "2. Read a chunk from reader given readRequest.",
+          "2.4. Fetch groups"
+        ],
+        [
+          "2. Read a chunk from reader given readRequest.",
+          "2.5. Resolving domains"
+        ]
+      ],
+      "start_line": 1597,
+      "end_line": 1906,
+      "chars": 12339
+    },
+    {
+      "index": 7,
+      "heading_path": [
+        "2. Read a chunk from reader given readRequest.",
+        "2.6. Connections"
+      ],
+      "heading_paths": [
+        [
+          "2. Read a chunk from reader given readRequest.",
+          "2.6. Connections"
+        ],
+        [
+          "2. Read a chunk from reader given readRequest.",
+          "2.7. Network partition keys"
+        ],
+        [
+          "2. Read a chunk from reader given readRequest.",
+          "2.8. HTTP cache partitions"
+        ],
+        [
+          "2. Read a chunk from reader given readRequest.",
+          "2.9. Port blocking"
+        ],
+        [
+          "2. Read a chunk from reader given readRequest.",
+          "2.10. Should response to request be blocked due to its MIME type?"
+        ],
+        [
+          "3. HTTP extensions"
+        ],
+        [
+          "3. HTTP extensions",
+          "3.1. Cookies"
+        ],
+        [
+          "3. HTTP extensions",
+          "3.1. Cookies",
+          "3.1.1. `Cookie` header"
+        ],
+        [
+          "3. HTTP extensions",
+          "3.1. Cookies",
+          "3.1.2. `Set-Cookie` header"
+        ],
+        [
+          "3. HTTP extensions",
+          "3.1. Cookies",
+          "3.1.3. Cookie infrastructure"
+        ]
+      ],
+      "start_line": 1907,
+      "end_line": 2329,
+      "chars": 16347
+    },
+    {
+      "index": 8,
+      "heading_path": [
+        "3. HTTP extensions",
+        "3.2. `Origin` header"
+      ],
+      "heading_paths": [
+        [
+          "3. HTTP extensions",
+          "3.2. `Origin` header"
+        ],
+        [
+          "2. Append (`Origin`, serializedOrigin) to request’s header list."
+        ],
+        [
+          "2. Append (`Origin`, serializedOrigin) to request’s header list.",
+          "3.3. CORS protocol"
+        ],
+        [
+          "2. Append (`Origin`, serializedOrigin) to request’s header list.",
+          "3.3. CORS protocol",
+          "3.3.1. General"
+        ],
+        [
+          "2. Append (`Origin`, serializedOrigin) to request’s header list.",
+          "3.3. CORS protocol",
+          "3.3.2. HTTP requests"
+        ],
+        [
+          "2. Append (`Origin`, serializedOrigin) to request’s header list.",
+          "3.3. CORS protocol",
+          "3.3.3. HTTP responses"
+        ],
+        [
+          "2. Append (`Origin`, serializedOrigin) to request’s header list.",
+          "3.3. CORS protocol",
+          "3.3.4. HTTP new-header syntax"
+        ],
+        [
+          "2. Append (`Origin`, serializedOrigin) to request’s header list.",
+          "3.3. CORS protocol",
+          "3.3.5. CORS protocol and credentials"
+        ],
+        [
+          "2. Append (`Origin`, serializedOrigin) to request’s header list.",
+          "3.3. CORS protocol",
+          "3.3.6. Examples"
+        ],
+        [
+          "2. Append (`Origin`, serializedOrigin) to request’s header list.",
+          "3.3. CORS protocol",
+          "3.3.7. CORS protocol exceptions"
+        ],
+        [
+          "2. Append (`Origin`, serializedOrigin) to request’s header list.",
+          "3.4. `Content-Length` header"
+        ]
+      ],
+      "start_line": 2330,
+      "end_line": 2731,
+      "chars": 16322
+    },
+    {
+      "index": 9,
+      "heading_path": [
+        "2. Append (`Origin`, serializedOrigin) to request’s header list.",
+        "3.5. `Content-Type` header"
+      ],
+      "heading_paths": [
+        [
+          "2. Append (`Origin`, serializedOrigin) to request’s header list.",
+          "3.5. `Content-Type` header"
+        ],
+        [
+          "2. Append (`Origin`, serializedOrigin) to request’s header list.",
+          "3.6. `X-Content-Type-Options` header"
+        ],
+        [
+          "2. Append (`Origin`, serializedOrigin) to request’s header list.",
+          "3.6. `X-Content-Type-Options` header",
+          "3.6.1. Should response to request be blocked due to nosniff?"
+        ],
+        [
+          "2. Append (`Origin`, serializedOrigin) to request’s header list.",
+          "3.7. `Cross-Origin-Resource-Policy` header"
+        ],
+        [
+          "5. Switch on policy:"
+        ],
+        [
+          "5. Switch on policy:",
+          "3.8. `Sec-Purpose` header"
+        ],
+        [
+          "4. Fetching"
+        ]
+      ],
+      "start_line": 2732,
+      "end_line": 3138,
+      "chars": 16171
+    },
+    {
+      "index": 10,
+      "heading_path": [
+        "4. Fetching",
+        "4.1. Main fetch"
+      ],
+      "heading_paths": [
+        [
+          "4. Fetching",
+          "4.1. Main fetch"
+        ],
+        [
+          "4. Fetching",
+          "4.2. Override fetch"
+        ],
+        [
+          "5. Return response."
+        ]
+      ],
+      "start_line": 3139,
+      "end_line": 3478,
+      "chars": 14587
+    },
+    {
+      "index": 11,
+      "heading_path": [
+        "5. Return response.",
+        "4.3. Scheme fetch"
+      ],
+      "heading_paths": [
+        [
+          "5. Return response.",
+          "4.3. Scheme fetch"
+        ],
+        [
+          "4. Return a network error."
+        ],
+        [
+          "4. Return a network error.",
+          "4.4. HTTP fetch"
+        ],
+        [
+          "response’s type is \"error\""
+        ],
+        [
+          "request’s mode is \"same-origin\" and response’s type"
+        ],
+        [
+          "request’s mode is not \"no-cors\" and response’s type"
+        ],
+        [
+          "request’s redirect mode is not \"manual\" and"
+        ],
+        [
+          "request’s redirect mode is not \"follow\" and"
+        ],
+        [
+          "1. Set response to a network error."
+        ],
+        [
+          "1. Set response to a network error.",
+          "4.5. HTTP-redirect fetch"
+        ]
+      ],
+      "start_line": 3479,
+      "end_line": 3797,
+      "chars": 13233
+    },
+    {
+      "index": 12,
+      "heading_path": [
+        "1. Set response to a network error.",
+        "4.6. HTTP-network-or-cache fetch"
+      ],
+      "heading_paths": [
+        [
+          "1. Set response to a network error.",
+          "4.6. HTTP-network-or-cache fetch"
+        ]
+      ],
+      "start_line": 3798,
+      "end_line": 4083,
+      "chars": 12844
+    },
+    {
+      "index": 13,
+      "heading_path": [
+        "1. Set response to a network error.",
+        "4.7. HTTP-network fetch"
+      ],
+      "heading_paths": [
+        [
+          "1. Set response to a network error.",
+          "4.7. HTTP-network fetch"
+        ],
+        [
+          "1. Set response to a network error.",
+          "4.8. CORS-preflight fetch"
+        ],
+        [
+          "1. Set response to a network error.",
+          "4.9. CORS-preflight cache"
+        ],
+        [
+          "2. Append entry to the user agent’s CORS-preflight cache."
+        ],
+        [
+          "2. Append entry to the user agent’s CORS-preflight cache.",
+          "4.10. CORS check"
+        ],
+        [
+          "2. Append entry to the user agent’s CORS-preflight cache.",
+          "4.11. TAO check"
+        ]
+      ],
+      "start_line": 4084,
+      "end_line": 4502,
+      "chars": 17443
+    },
+    {
+      "index": 14,
+      "heading_path": [
+        "2. Append entry to the user agent’s CORS-preflight cache.",
+        "4.12. Deferred fetching"
+      ],
+      "heading_paths": [
+        [
+          "2. Append entry to the user agent’s CORS-preflight cache.",
+          "4.12. Deferred fetching"
+        ],
+        [
+          "2. Append entry to the user agent’s CORS-preflight cache.",
+          "4.12. Deferred fetching",
+          "4.12.1. Deferred fetching quota"
+        ],
+        [
+          "5. Fetch API"
+        ]
+      ],
+      "start_line": 4503,
+      "end_line": 4863,
+      "chars": 15694
+    },
+    {
+      "index": 15,
+      "heading_path": [
+        "5. Fetch API",
+        "5.1. Headers class"
+      ],
+      "heading_paths": [
+        [
+          "5. Fetch API",
+          "5.1. Headers class"
+        ],
+        [
+          "5. Fetch API",
+          "5.2. BodyInit unions"
+        ],
+        [
+          "5. Fetch API",
+          "5.3. Body mixin"
+        ],
+        [
+          "3. Throw a TypeError."
+        ]
+      ],
+      "start_line": 4864,
+      "end_line": 5267,
+      "chars": 14484
+    },
+    {
+      "index": 16,
+      "heading_path": [
+        "3. Throw a TypeError.",
+        "5.4. Request class"
+      ],
+      "heading_paths": [
+        [
+          "3. Throw a TypeError.",
+          "5.4. Request class"
+        ],
+        [
+          "parsedReferrer’s scheme is \"about\" and path is the"
+        ],
+        [
+          "parsedReferrer’s origin is not same origin with"
+        ]
+      ],
+      "start_line": 5268,
+      "end_line": 5768,
+      "chars": 17691
+    },
+    {
+      "index": 17,
+      "heading_path": [
+        "parsedReferrer’s origin is not same origin with",
+        "5.5. Response class"
+      ],
+      "heading_paths": [
+        [
+          "parsedReferrer’s origin is not same origin with",
+          "5.5. Response class"
+        ],
+        [
+          "parsedReferrer’s origin is not same origin with",
+          "5.6. Fetch methods"
+        ],
+        [
+          "parsedReferrer’s origin is not same origin with",
+          "5.7. Garbage collection"
+        ]
+      ],
+      "start_line": 5769,
+      "end_line": 6167,
+      "chars": 14689
+    },
+    {
+      "index": 18,
+      "heading_path": [
+        "6. data: URLs"
+      ],
+      "heading_paths": [
+        [
+          "6. data: URLs"
+        ]
+      ],
+      "start_line": 6168,
+      "end_line": 6511,
+      "chars": 15477
+    },
+    {
+      "index": 19,
+      "heading_path": [
+        "6. data: URLs"
+      ],
+      "heading_paths": [
+        [
+          "6. data: URLs"
+        ]
+      ],
+      "start_line": 6513,
+      "end_line": 6579,
+      "chars": 3998
+    },
+    {
+      "index": 20,
+      "heading_path": [
+        "6. data: URLs"
+      ],
+      "heading_paths": [
+        [
+          "6. data: URLs"
+        ]
+      ],
+      "start_line": 6581,
+      "end_line": 7175,
+      "chars": 18049
+    },
+    {
+      "index": 21,
+      "heading_path": [
+        "6. data: URLs"
+      ],
+      "heading_paths": [
+        [
+          "6. data: URLs"
+        ]
+      ],
+      "start_line": 6581,
+      "end_line": 7175,
+      "chars": 1789
+    },
+    {
+      "index": 22,
+      "heading_path": [
+        "6. data: URLs"
+      ],
+      "heading_paths": [
+        [
+          "6. data: URLs"
+        ]
+      ],
+      "start_line": 7177,
+      "end_line": 7884,
+      "chars": 17910
+    },
+    {
+      "index": 23,
+      "heading_path": [
+        "6. data: URLs"
+      ],
+      "heading_paths": [
+        [
+          "6. data: URLs"
+        ]
+      ],
+      "start_line": 7886,
+      "end_line": 8596,
+      "chars": 18432
+    },
+    {
+      "index": 24,
+      "heading_path": [
+        "6. data: URLs"
+      ],
+      "heading_paths": [
+        [
+          "6. data: URLs"
+        ]
+      ],
+      "start_line": 8598,
+      "end_line": 9068,
+      "chars": 11998
+    }
+  ]
+}

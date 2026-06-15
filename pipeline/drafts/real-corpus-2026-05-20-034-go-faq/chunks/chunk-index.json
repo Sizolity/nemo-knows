@@ -1,0 +1,122 @@
+{
+  "source_path": "raw/web/corpus-2026-05-18/034-go-faq.md",
+  "chunks": [
+    {
+      "index": 1,
+      "heading_path": [
+        "Document"
+      ],
+      "heading_paths": [
+        [
+          "Document"
+        ],
+        [
+          "Go FAQ"
+        ],
+        [
+          "Go FAQ",
+          "Fetch Metadata"
+        ]
+      ],
+      "start_line": 1,
+      "end_line": 26,
+      "chars": 561
+    },
+    {
+      "index": 2,
+      "heading_path": [
+        "Go FAQ",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Go FAQ",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 27,
+      "end_line": 440,
+      "chars": 18082
+    },
+    {
+      "index": 3,
+      "heading_path": [
+        "Go FAQ",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Go FAQ",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 442,
+      "end_line": 856,
+      "chars": 18164
+    },
+    {
+      "index": 4,
+      "heading_path": [
+        "Go FAQ",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Go FAQ",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 858,
+      "end_line": 1243,
+      "chars": 17810
+    },
+    {
+      "index": 5,
+      "heading_path": [
+        "Go FAQ",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Go FAQ",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 1245,
+      "end_line": 1655,
+      "chars": 17677
+    },
+    {
+      "index": 6,
+      "heading_path": [
+        "Go FAQ",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Go FAQ",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 1657,
+      "end_line": 2038,
+      "chars": 18162
+    },
+    {
+      "index": 7,
+      "heading_path": [
+        "Go FAQ",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Go FAQ",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 2040,
+      "end_line": 2071,
+      "chars": 803
+    }
+  ]
+}

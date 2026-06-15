@@ -1,0 +1,276 @@
+{
+  "source_path": "raw/web/corpus-2026-05-18/032-go-modules-reference.md",
+  "chunks": [
+    {
+      "index": 1,
+      "heading_path": [
+        "Document"
+      ],
+      "heading_paths": [
+        [
+          "Document"
+        ],
+        [
+          "Go Modules Reference"
+        ],
+        [
+          "Go Modules Reference",
+          "Fetch Metadata"
+        ]
+      ],
+      "start_line": 1,
+      "end_line": 26,
+      "chars": 572
+    },
+    {
+      "index": 2,
+      "heading_path": [
+        "Go Modules Reference",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Go Modules Reference",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 27,
+      "end_line": 414,
+      "chars": 17970
+    },
+    {
+      "index": 3,
+      "heading_path": [
+        "Go Modules Reference",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Go Modules Reference",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 416,
+      "end_line": 859,
+      "chars": 18174
+    },
+    {
+      "index": 4,
+      "heading_path": [
+        "Go Modules Reference",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Go Modules Reference",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 861,
+      "end_line": 1255,
+      "chars": 17914
+    },
+    {
+      "index": 5,
+      "heading_path": [
+        "Go Modules Reference",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Go Modules Reference",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 1257,
+      "end_line": 1664,
+      "chars": 18163
+    },
+    {
+      "index": 6,
+      "heading_path": [
+        "Go Modules Reference",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Go Modules Reference",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 1666,
+      "end_line": 1685,
+      "chars": 936
+    },
+    {
+      "index": 7,
+      "heading_path": [
+        "Upgrade a specific module."
+      ],
+      "heading_paths": [
+        [
+          "Upgrade a specific module."
+        ],
+        [
+          "Upgrade modules that provide packages imported by packages in the main module."
+        ],
+        [
+          "Upgrade or downgrade to a specific version of a module."
+        ],
+        [
+          "Update to the commit on the module's master branch."
+        ],
+        [
+          "Remove a dependency on a module and downgrade modules that require it"
+        ],
+        [
+          "to versions that don't require it."
+        ],
+        [
+          "Upgrade the minimum required Go version for the main module."
+        ],
+        [
+          "Upgrade the suggested Go toolchain, leaving the minimum Go version alone."
+        ],
+        [
+          "Upgrade to the latest patch release of the suggested Go toolchain."
+        ],
+        [
+          "Install the latest version of a program,"
+        ],
+        [
+          "ignoring go.mod in the current directory (if any)."
+        ],
+        [
+          "Install a specific version of a program."
+        ],
+        [
+          "Install a program at the version selected by the module in the current directo"
+        ],
+        [
+          "Install all programs in a directory."
+        ],
+        [
+          "Add a replace directive."
+        ],
+        [
+          "Remove a replace directive."
+        ],
+        [
+          "Set the go version, add a requirement, and print the file"
+        ],
+        [
+          "instead of writing it to disk."
+        ],
+        [
+          "Format the go.mod file."
+        ],
+        [
+          "Format and print a different .mod file."
+        ]
+      ],
+      "start_line": 1686,
+      "end_line": 2071,
+      "chars": 16616
+    },
+    {
+      "index": 8,
+      "heading_path": [
+        "Print a JSON representation of the go.mod file."
+      ],
+      "heading_paths": [
+        [
+          "Print a JSON representation of the go.mod file."
+        ],
+        [
+          "golang.org/x/text/language"
+        ],
+        [
+          "golang.org/x/text/encoding"
+        ],
+        [
+          "Print Go version used to build go."
+        ],
+        [
+          "Print Go version used to build a specific executable."
+        ],
+        [
+          "Print Go version and module versions used to build a specific executable."
+        ]
+      ],
+      "start_line": 2072,
+      "end_line": 2430,
+      "chars": 14624
+    },
+    {
+      "index": 9,
+      "heading_path": [
+        "Print Go version and module versions used to build executables in a directory."
+      ],
+      "heading_paths": [
+        [
+          "Print Go version and module versions used to build executables in a directory."
+        ]
+      ],
+      "start_line": 2431,
+      "end_line": 2834,
+      "chars": 17755
+    },
+    {
+      "index": 10,
+      "heading_path": [
+        "Print Go version and module versions used to build executables in a directory."
+      ],
+      "heading_paths": [
+        [
+          "Print Go version and module versions used to build executables in a directory."
+        ]
+      ],
+      "start_line": 2836,
+      "end_line": 3195,
+      "chars": 17898
+    },
+    {
+      "index": 11,
+      "heading_path": [
+        "Print Go version and module versions used to build executables in a directory."
+      ],
+      "heading_paths": [
+        [
+          "Print Go version and module versions used to build executables in a directory."
+        ]
+      ],
+      "start_line": 3197,
+      "end_line": 3565,
+      "chars": 18165
+    },
+    {
+      "index": 12,
+      "heading_path": [
+        "Print Go version and module versions used to build executables in a directory."
+      ],
+      "heading_paths": [
+        [
+          "Print Go version and module versions used to build executables in a directory."
+        ]
+      ],
+      "start_line": 3567,
+      "end_line": 3917,
+      "chars": 18168
+    },
+    {
+      "index": 13,
+      "heading_path": [
+        "Print Go version and module versions used to build executables in a directory."
+      ],
+      "heading_paths": [
+        [
+          "Print Go version and module versions used to build executables in a directory."
+        ]
+      ],
+      "start_line": 3919,
+      "end_line": 4266,
+      "chars": 15088
+    }
+  ]
+}

@@ -1,0 +1,229 @@
+---
+title: BERT
+kind: source
+created: 2026-05-18
+updated: 2026-05-18
+sources:
+  - raw/web/curated-web-corpus-2026-05-18.md
+  - https://arxiv.org/abs/1810.04805
+tags: [ai-ml, web-corpus]
+confidence: medium
+---
+
+# BERT
+
+## Fetch Metadata
+
+- Corpus item: 82
+- Category: AI/ML
+- Source URL: https://arxiv.org/abs/1810.04805
+- Final URL: https://arxiv.org/abs/1810.04805
+- Retrieved: 2026-05-18
+- Content-Type: text/html; charset=utf-8
+- Fetch status: ok
+- Test value: Landmark NLP pretraining paper.
+- Fetched page title: [1810.04805] BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding
+
+## Retrieved Text
+
+Skip to main content
+Cornell University
+Learn about arXiv becoming an independent nonprofit.
+We gratefully acknowledge support from the Simons Foundation, member
+institutions, and all contributors. Donate
+arxiv logo > cs > arXiv:1810.04805
+____________________
+
+Help | Advanced Search
+[All fields________]
+(BUTTON) Search
+arXiv logo
+Cornell University Logo
+(BUTTON) open search
+____________________ (BUTTON) GO
+(BUTTON) open navigation menu
+
+quick links
+
+* Login
+* Help Pages
+* About
+
+Computer Science > Computation and Language
+
+arXiv:1810.04805 (cs)
+[Submitted on 11 Oct 2018 (v1), last revised 24 May 2019 (this version,
+v2)]
+
+Title:BERT: Pre-training of Deep Bidirectional Transformers for Language
+Understanding
+
+Authors:Jacob Devlin, Ming-Wei Chang, Kenton Lee, Kristina Toutanova
+View a PDF of the paper titled BERT: Pre-training of Deep Bidirectional
+Transformers for Language Understanding, by Jacob Devlin and 3 other
+authors
+View PDF HTML (experimental)
+
+Abstract:We introduce a new language representation model called
+BERT, which stands for Bidirectional Encoder Representations from
+Transformers. Unlike recent language representation models, BERT is
+designed to pre-train deep bidirectional representations from
+unlabeled text by jointly conditioning on both left and right
+context in all layers. As a result, the pre-trained BERT model can
+be fine-tuned with just one additional output layer to create
+state-of-the-art models for a wide range of tasks, such as question
+answering and language inference, without substantial task-specific
+architecture modifications.
+BERT is conceptually simple and empirically powerful. It obtains new
+state-of-the-art results on eleven natural language processing
+tasks, including pushing the GLUE score to 80.5% (7.7% point
+absolute improvement), MultiNLI accuracy to 86.7% (4.6% absolute
+improvement), SQuAD v1.1 question answering Test F1 to 93.2 (1.5
+point absolute improvement) and SQuAD v2.0 Test F1 to 83.1 (5.1
+point absolute improvement).
+
+Subjects: Computation and Language (cs.CL)
+Cite as: arXiv:1810.04805 [cs.CL]
+(or arXiv:1810.04805v2 [cs.CL] for this version)
+https://doi.org/10.48550/arXiv.1810.04805
+(BUTTON) Focus to learn more
+arXiv-issued DOI via DataCite
+
+Submission history
+
+From: Ming-Wei Chang [view email]
+[v1] Thu, 11 Oct 2018 00:50:01 UTC (227 KB)
+[v2] Fri, 24 May 2019 20:37:26 UTC (309 KB)
+Full-text links:
+
+Access Paper:
+
+View a PDF of the paper titled BERT: Pre-training of Deep
+Bidirectional Transformers for Language Understanding, by Jacob
+Devlin and 3 other authors
+* View PDF
+* HTML (experimental)
+* TeX Source
+
+view license
+Current browse context:
+cs.CL
+< prev | next >
+new | recent | 2018-10
+Change to browse by:
+cs
+
+References & Citations
+
+* NASA ADS
+* Google Scholar
+* Semantic Scholar
+
+109 blog links
+
+(what is this?)
+
+DBLP - CS Bibliography
+
+listing | bibtex
+Jacob Devlin
+Ming-Wei Chang
+Kenton Lee
+Kristina Toutanova
+export BibTeX citation Loading...
+
+BibTeX formatted citation
+
+×
+
+loading...__________________________________________________
+____________________________________________________________
+____________________________________________________________
+____________________________________________________________
+Data provided by:
+
+Bookmark
+
+BibSonomy logo Reddit logo
+(*) Bibliographic Tools
+
+Bibliographic and Citation Tools
+
+[ ] Bibliographic Explorer Toggle
+Bibliographic Explorer (What is the Explorer?)
+[ ] Connected Papers Toggle
+Connected Papers (What is Connected Papers?)
+[ ] Litmaps Toggle
+Litmaps (What is Litmaps?)
+[ ] scite.ai Toggle
+scite Smart Citations (What are Smart Citations?)
+( ) Code, Data, Media
+
+Code, Data and Media Associated with this Article
+
+[ ] alphaXiv Toggle
+alphaXiv (What is alphaXiv?)
+[ ] Links to Code Toggle
+CatalyzeX Code Finder for Papers (What is CatalyzeX?)
+[ ] DagsHub Toggle
+DagsHub (What is DagsHub?)
+[ ] GotitPub Toggle
+Gotit.pub (What is GotitPub?)
+[ ] Huggingface Toggle
+Hugging Face (What is Huggingface?)
+[ ] Links to Code Toggle
+Papers with Code (What is Papers with Code?)
+[ ] ScienceCast Toggle
+ScienceCast (What is ScienceCast?)
+( ) Demos
+
+Demos
+
+[ ] Replicate Toggle
+Replicate (What is Replicate?)
+[ ] Spaces Toggle
+Hugging Face Spaces (What is Spaces?)
+[ ] Spaces Toggle
+TXYZ.AI (What is TXYZ.AI?)
+( ) Related Papers
+
+Recommenders and Search Tools
+
+[ ] Link to Influence Flower
+Influence Flower (What are Influence Flowers?)
+[ ] Core recommender toggle
+CORE Recommender (What is CORE?)
+* Author
+* Venue
+* Institution
+* Topic
+
+( ) About arXivLabs
+
+arXivLabs: experimental projects with community collaborators
+
+arXivLabs is a framework that allows collaborators to develop and share
+new arXiv features directly on our website.
+
+Both individuals and organizations that work with arXivLabs have
+embraced and accepted our values of openness, community, excellence,
+and user data privacy. arXiv is committed to these values and only
+works with partners that adhere to them.
+
+Have an idea for a project that will add value for arXiv's community?
+Learn more about arXivLabs.
+
+Which authors of this paper are endorsers? | Disable MathJax (What is
+MathJax?)
+
+* About
+* Help
+
+* Click here to contact arXiv Contact
+* Click here to subscribe Subscribe
+
+* Copyright
+* Privacy Policy
+
+* Web Accessibility Assistance
+* arXiv Operational Status

@@ -1,0 +1,296 @@
+{
+  "source_path": "raw/web/corpus-2026-05-18/053-commonmark-specification.md",
+  "chunks": [
+    {
+      "index": 1,
+      "heading_path": [
+        "Document"
+      ],
+      "heading_paths": [
+        [
+          "Document"
+        ],
+        [
+          "CommonMark Specification"
+        ],
+        [
+          "CommonMark Specification",
+          "Fetch Metadata"
+        ],
+        [
+          "CommonMark Specification",
+          "Retrieved Text"
+        ],
+        [
+          "2. List item two continued with an open block."
+        ],
+        [
+          "1. This list is nested and does not require explicit item continuation."
+        ],
+        [
+          "2. List item b."
+        ]
+      ],
+      "start_line": 1,
+      "end_line": 516,
+      "chars": 14000
+    },
+    {
+      "index": 2,
+      "heading_path": [
+        "not a heading"
+      ],
+      "heading_paths": [
+        [
+          "not a heading"
+        ],
+        [
+          "foo"
+        ],
+        [
+          "foo",
+          "foo"
+        ],
+        [
+          "foo",
+          "foo",
+          "foo"
+        ],
+        [
+          "foo",
+          "foo",
+          "foo",
+          "foo"
+        ],
+        [
+          "foo",
+          "foo",
+          "foo",
+          "foo",
+          "foo"
+        ],
+        [
+          "foo",
+          "foo",
+          "foo",
+          "foo",
+          "foo",
+          "foo"
+        ],
+        [
+          "foo *bar* \\*baz\\*"
+        ],
+        [
+          "bar"
+        ],
+        [
+          "bar\u003c/p\u003e"
+        ],
+        [
+          "bar\u003c/p\u003e",
+          "foo"
+        ],
+        [
+          "bar\u003c/p\u003e",
+          "foo",
+          "bar"
+        ],
+        [
+          "foo",
+          "foo",
+          "foo ### b"
+        ],
+        [
+          "foo",
+          "foo \\"
+        ],
+        [
+          "foo",
+          "foo #\\"
+        ],
+        [
+          "foo \\"
+        ],
+        [
+          "foo \\",
+          "foo"
+        ],
+        [
+          "baz"
+        ]
+      ],
+      "start_line": 517,
+      "end_line": 1160,
+      "chars": 11807
+    },
+    {
+      "index": 3,
+      "heading_path": [
+        "baz",
+        ""
+      ],
+      "heading_paths": [
+        [
+          "baz",
+          ""
+        ],
+        [
+          "Heading"
+        ]
+      ],
+      "start_line": 1161,
+      "end_line": 1978,
+      "chars": 12976
+    },
+    {
+      "index": 4,
+      "heading_path": [
+        "baz"
+      ],
+      "heading_paths": [
+        [
+          "baz"
+        ]
+      ],
+      "start_line": 1979,
+      "end_line": 2982,
+      "chars": 17907
+    },
+    {
+      "index": 5,
+      "heading_path": [
+        "[Foo]"
+      ],
+      "heading_paths": [
+        [
+          "[Foo]"
+        ]
+      ],
+      "start_line": 2983,
+      "end_line": 3140,
+      "chars": 2412
+    },
+    {
+      "index": 6,
+      "heading_path": [
+        "aaa"
+      ],
+      "heading_paths": [
+        [
+          "aaa"
+        ]
+      ],
+      "start_line": 3141,
+      "end_line": 4228,
+      "chars": 18471
+    },
+    {
+      "index": 7,
+      "heading_path": [
+        "aaa"
+      ],
+      "heading_paths": [
+        [
+          "aaa"
+        ]
+      ],
+      "start_line": 4230,
+      "end_line": 4754,
+      "chars": 11858
+    },
+    {
+      "index": 8,
+      "heading_path": [
+        "2. b"
+      ],
+      "heading_paths": [
+        [
+          "2. b"
+        ],
+        [
+          "3. c"
+        ]
+      ],
+      "start_line": 4756,
+      "end_line": 4798,
+      "chars": 527
+    },
+    {
+      "index": 9,
+      "heading_path": [
+        "3. c"
+      ],
+      "heading_paths": [
+        [
+          "3. c"
+        ]
+      ],
+      "start_line": 4799,
+      "end_line": 5730,
+      "chars": 18527
+    },
+    {
+      "index": 10,
+      "heading_path": [
+        "3. c"
+      ],
+      "heading_paths": [
+        [
+          "3. c"
+        ]
+      ],
+      "start_line": 5732,
+      "end_line": 6635,
+      "chars": 18621
+    },
+    {
+      "index": 11,
+      "heading_path": [
+        "3. c"
+      ],
+      "heading_paths": [
+        [
+          "3. c"
+        ]
+      ],
+      "start_line": 6637,
+      "end_line": 7513,
+      "chars": 18572
+    },
+    {
+      "index": 12,
+      "heading_path": [
+        "3. c"
+      ],
+      "heading_paths": [
+        [
+          "3. c"
+        ]
+      ],
+      "start_line": 7515,
+      "end_line": 7801,
+      "chars": 4705
+    },
+    {
+      "index": 13,
+      "heading_path": [
+        "3. c",
+        "foo\\"
+      ],
+      "heading_paths": [
+        [
+          "3. c",
+          "foo\\"
+        ],
+        [
+          "3. c",
+          "foo\\",
+          "foo"
+        ]
+      ],
+      "start_line": 7802,
+      "end_line": 8133,
+      "chars": 10976
+    }
+  ]
+}

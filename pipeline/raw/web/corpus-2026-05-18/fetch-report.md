@@ -1,0 +1,151 @@
+# Corpus Fetch Report
+
+- Retrieved: 2026-05-18
+- Items: 120
+
+- 1. Pro Git Book: ok; written; content-type=text/html; charset=utf-8
+- 2. Branches in a Nutshell: ok; skipped-existing; content-type=text/html; charset=utf-8
+- 3. Basic Branching and Merging: ok; skipped-existing; content-type=text/html; charset=utf-8
+- 4. Rebasing: ok; skipped-existing; content-type=text/html; charset=utf-8
+- 5. Remote Branches: ok; skipped-existing; content-type=text/html; charset=utf-8
+- 6. Git Hooks: ok; skipped-existing; content-type=text/html; charset=utf-8
+- 7. Git Internals - Plumbing and Porcelain: ok; skipped-existing; content-type=text/html; charset=utf-8
+- 8. Git Objects: ok; skipped-existing; content-type=text/html; charset=utf-8
+- 9. Git References: ok; skipped-existing; content-type=text/html; charset=utf-8
+- 10. githooks Reference: ok; skipped-existing; content-type=text/html; charset=utf-8
+- 11. Write-Ahead Logging: ok; written; content-type=text/html; charset=utf-8
+- 12. File Locking and Concurrency: ok; written; content-type=text/html; charset=utf-8
+- 13. Query Planning: ok; skipped-existing; content-type=text/html; charset=utf-8
+- 14. Query Optimizer Overview: ok; skipped-existing; content-type=text/html; charset=utf-8
+- 15. Virtual Tables: ok; skipped-existing; content-type=text/html; charset=utf-8
+- 16. FTS5 Extension: ok; skipped-existing; content-type=text/html; charset=utf-8
+- 17. JSON Functions and Operators: ok; skipped-existing; content-type=text/html; charset=utf-8
+- 18. Transactions: ok; skipped-existing; content-type=text/html; charset=utf-8
+- 19. Isolation in SQLite: ok; skipped-existing; content-type=text/html; charset=utf-8
+- 20. Database File Format: ok; skipped-existing; content-type=text/html; charset=utf-8
+- 21. Python Tutorial: ok; written; content-type=text/html
+- 22. Data Structures: ok; skipped-existing; content-type=text/html
+- 23. Modules: ok; written; content-type=text/html
+- 24. Errors and Exceptions: ok; written; content-type=text/html
+- 25. Classes: ok; skipped-existing; content-type=text/html
+- 26. asyncio: ok; skipped-existing; content-type=text/html
+- 27. typing: ok; written; content-type=text/html
+- 28. pathlib: ok; skipped-existing; content-type=text/html
+- 29. packaging tutorial: ok; written; content-type=text/html; charset=utf-8
+- 30. pyproject.toml Specification: ok; written; content-type=text/html; charset=utf-8
+- 31. Effective Go: ok; written; content-type=text/html; charset=utf-8
+- 32. Go Modules Reference: ok; written; content-type=text/html; charset=utf-8
+- 33. Go Memory Model: ok; written; content-type=text/html; charset=utf-8
+- 34. Go FAQ: ok; written; content-type=text/html; charset=utf-8
+- 35. Go Code Review Comments: ok; written; content-type=text/html; charset=utf-8
+- 36. Go Generics Tutorial: ok; written; content-type=text/html; charset=utf-8
+- 37. Rust Book: ok; skipped-existing; content-type=text/html
+- 38. Ownership: ok; written; content-type=text/html
+- 39. Error Handling: ok; written; content-type=text/html
+- 40. Fearless Concurrency: ok; written; content-type=text/html
+- 41. Cargo Book: ok; written; content-type=text/html
+- 42. Rust API Guidelines: ok; written; content-type=text/html; charset=utf-8
+- 43. Kubernetes Concepts: ok; skipped-existing; content-type=text/html; charset=UTF-8
+- 44. Pods: ok; skipped-existing; content-type=text/html; charset=UTF-8
+- 45. Deployments: ok; skipped-existing; content-type=text/html; charset=UTF-8
+- 46. Services: skipped existing
+- 47. ConfigMaps: ok; written; content-type=text/html; charset=UTF-8
+- 48. Secrets: ok; written; content-type=text/html; charset=UTF-8
+- 49. Ingress: ok; written; content-type=text/html; charset=UTF-8
+- 50. Persistent Volumes: ok; written; content-type=text/html; charset=UTF-8
+- 51. StatefulSets: ok; written; content-type=text/html; charset=UTF-8
+- 52. Horizontal Pod Autoscaling: ok; skipped-existing; content-type=text/html; charset=UTF-8
+- 53. CommonMark Specification: ok; written; content-type=text/html; charset=utf-8
+- 54. GitHub Flavored Markdown Spec: ok; skipped-existing; content-type=text/html; charset=utf-8
+- 55. Original Markdown Syntax: ok; written; content-type=text/html; charset=UTF-8
+- 56. RFC 7764 Markdown Guidance: ok; written; content-type=text/html; charset=UTF-8
+- 57. WHATWG HTML Standard: ok; written; content-type=text/html; charset=utf-8
+- 58. Fetch Standard: ok; written; content-type=text/html; charset=utf-8
+- 59. URL Standard: ok; written; content-type=text/html; charset=utf-8
+- 60. DOM Standard: ok; written; content-type=text/html; charset=utf-8
+- 61. Service Workers: ok; written; content-type=text/html; charset=utf-8
+- 62. Indexed Database API: ok; skipped-existing; content-type=text/html; charset=utf-8
+- 63. WCAG 2.2: ok; written; content-type=text/html; charset=utf-8
+- 64. Web Content Accessibility Guidelines 3.0: ok; written; content-type=text/html; charset=utf-8
+- 65. OWASP Top 10: ok; written; content-type=text/html; charset=utf-8
+- 66. OWASP ASVS: ok; written; content-type=text/html; charset=utf-8
+- 67. OWASP Cheat Sheet Series: ok; skipped-existing; content-type=text/html; charset=utf-8
+- 68. NIST Cybersecurity Framework 2.0: ok; written; content-type=text/html; charset=UTF-8
+- 69. NIST SP 800-53 Rev. 5: ok; written; content-type=text/html; charset=utf-8
+- 70. CISA Zero Trust Maturity Model: ok; written; content-type=text/html; charset=UTF-8
+- 71. Mozilla Web Security Guidelines: ok; written; content-type=text/html; charset=utf-8
+- 72. Let's Encrypt Rate Limits: ok; written; content-type=text/html; charset=UTF-8
+- 73. Data.gov Catalog API: ok; skipped-existing; content-type=text/html; charset=utf-8
+- 74. DCAT-US 3.0: ok; skipped-existing; content-type=text/html; charset=utf-8
+- 75. Project Open Data Metadata Schema v1.1: ok; skipped-existing; content-type=text/html; charset=utf-8
+- 76. Data.gov Open Data How-To: ok; skipped-existing; content-type=text/html; charset=utf-8
+- 77. W3C Data Catalog Vocabulary: ok; written; content-type=text/html; charset=utf-8
+- 78. FAIR Principles: ok; written; content-type=text/html; charset=UTF-8
+- 79. Open Definition: ok; written; content-type=text/html; charset=utf-8
+- 80. Creative Commons Licenses: ok; written; content-type=text/html; charset=UTF-8
+- 81. Attention Is All You Need: ok; written; content-type=text/html; charset=utf-8
+- 82. BERT: ok; written; content-type=text/html; charset=utf-8
+- 83. GPT-3 Language Models are Few-Shot Learners: ok; written; content-type=text/html; charset=utf-8
+- 84. Retrieval-Augmented Generation: ok; written; content-type=text/html; charset=utf-8
+- 85. LoRA: ok; written; content-type=text/html; charset=utf-8
+- 86. Chain-of-Thought Prompting: ok; written; content-type=text/html; charset=utf-8
+- 87. Constitutional AI: ok; skipped-existing; content-type=text/html; charset=utf-8
+- 88. Direct Preference Optimization: ok; written; content-type=text/html; charset=utf-8
+- 89. Llama 2: ok; written; content-type=text/html; charset=utf-8
+- 90. Mistral 7B: ok; written; content-type=text/html; charset=utf-8
+- 91. Qwen2 Technical Report: ok; written; content-type=text/html; charset=utf-8
+- 92. Llama 3 Herd of Models: ok; written; content-type=text/html; charset=utf-8
+- 93. Raft Paper: ok; written; content-type=application/pdf
+- 94. Dynamo Paper: ok; skipped-existing; content-type=application/pdf
+- 95. Spanner Paper: ok; skipped-existing; content-type=text/html; charset=utf-8
+- 96. MapReduce Paper: ok; skipped-existing; content-type=text/html; charset=utf-8
+- 97. Borg Paper: ok; skipped-existing; content-type=text/html; charset=utf-8
+- 98. Site Reliability Engineering Book: skipped existing
+- 99. The Twelve-Factor App: ok; written; content-type=text/html;charset=utf-8
+- 100. Martin Fowler - Microservices: ok; written; content-type=text/html
+- 101. Pride and Prejudice: ok; skipped-existing; content-type=text/html;charset=utf-8
+- 102. Moby-Dick: ok; skipped-existing; content-type=text/html;charset=utf-8
+- 103. Frankenstein: ok; skipped-existing; content-type=text/html;charset=utf-8
+- 104. Alice's Adventures in Wonderland: ok; skipped-existing; content-type=text/html;charset=utf-8
+- 105. The Adventures of Sherlock Holmes: ok; skipped-existing; content-type=text/html;charset=utf-8
+- 106. The Time Machine: ok; skipped-existing; content-type=text/html;charset=utf-8
+- 107. Dracula: ok; skipped-existing; content-type=text/html;charset=utf-8
+- 108. A Tale of Two Cities: skipped existing
+- 109. The Republic: ok; skipped-existing; content-type=text/html;charset=utf-8
+- 110. The Art of War: ok; skipped-existing; content-type=text/html;charset=utf-8
+- 111. GDPR Text: ok; written; content-type=text/html; charset=UTF-8
+- 112. EU AI Act Overview: ok; written; content-type=text/html; charset=UTF-8
+- 113. OECD AI Principles: ok; skipped-existing; content-type=text/html; charset=utf-8
+- 114. NIST AI Risk Management Framework: ok; skipped-existing; content-type=text/html; charset=UTF-8
+- 115. White House Blueprint for an AI Bill of Rights: HTTPError: HTTP Error 404: Not Found; written; content-type=unknown
+- 116. ISO/IEC 42001 Overview: ok; written; content-type=text/html;charset=UTF-8
+- 117. UNESCO Recommendation on AI Ethics: ok; skipped-existing; content-type=text/html; charset=UTF-8
+- 118. WHO Ethics and Governance of AI for Health: ok; skipped-existing; content-type=text/html; charset=utf-8
+- 119. NASA Open Data Portal: URLError: <urlopen error [SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1029)>; skipped-existing; content-type=unknown
+- 120. World Bank Open Data: skipped existing
+
+## Summary
+- fetch-errors: 2
+- ok: 114
+- skipped-existing: 56
+- truncated: 0
+- written: 64
+
+## Supplemental Fixes
+
+After the first pass, several weak entries were patched with alternate acquisition paths while preserving the original corpus URL in frontmatter:
+
+- 093 Raft Paper: kept PDF asset and added converted text.
+- 094 Dynamo Paper: kept PDF asset and added converted text.
+- 102 Moby-Dick: replaced failed ebook landing-page fetch with Project Gutenberg plain-text file.
+- 104 Alice's Adventures in Wonderland: replaced failed ebook landing-page fetch with Project Gutenberg plain-text file.
+- 115 White House Blueprint for an AI Bill of Rights: replaced 404 current URL with the frozen Biden White House archive page.
+- 120 World Bank Open Data: replaced failed homepage fetch with World Bank get-started/about page content.
+
+Post-fix quality check:
+
+- source Markdown files: 120
+- binary assets: 2
+- empty or unavailable text markers: 0
+- shortest retrieved text body: 744 characters
+

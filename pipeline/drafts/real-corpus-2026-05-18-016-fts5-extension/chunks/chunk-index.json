@@ -1,0 +1,107 @@
+{
+  "source_path": "raw/web/corpus-2026-05-18/016-fts5-extension.md",
+  "chunks": [
+    {
+      "index": 1,
+      "heading_path": [
+        "Document"
+      ],
+      "start_line": 1,
+      "end_line": 455,
+      "chars": 17730
+    },
+    {
+      "index": 2,
+      "heading_path": [
+        "3. Full-text Query Syntax",
+        "3.7. FTS5 Boolean Operators"
+      ],
+      "start_line": 456,
+      "end_line": 840,
+      "chars": 17959
+    },
+    {
+      "index": 3,
+      "heading_path": [
+        "4. FTS5 Table Creation and Initialization",
+        "4.4. External Content and Contentless Tables",
+        "4.4.3. External Content Tables"
+      ],
+      "start_line": 841,
+      "end_line": 1217,
+      "chars": 17841
+    },
+    {
+      "index": 4,
+      "heading_path": [
+        "5. Auxiliary Functions"
+      ],
+      "start_line": 1218,
+      "end_line": 1581,
+      "chars": 17020
+    },
+    {
+      "index": 5,
+      "heading_path": [
+        "6. Special INSERT Commands",
+        "6.5. The 'deletemerge' Configuration Option"
+      ],
+      "start_line": 1582,
+      "end_line": 1906,
+      "chars": 13556
+    },
+    {
+      "index": 6,
+      "heading_path": [
+        "7. Extending FTS5",
+        "7.1. Custom Tokenizers"
+      ],
+      "start_line": 1907,
+      "end_line": 2233,
+      "chars": 14599
+    },
+    {
+      "index": 7,
+      "heading_path": [
+        "7. Extending FTS5",
+        "7.2. Custom Auxiliary Functions",
+        "7.2.1. Custom Auxiliary Functions API Overview"
+      ],
+      "start_line": 2234,
+      "end_line": 2392,
+      "chars": 7349
+    },
+    {
+      "index": 8,
+      "heading_path": [
+        "7. Extending FTS5",
+        "7.2. Custom Auxiliary Functions",
+        "7.2.2. Custom Auxiliary Functions API Reference"
+      ],
+      "start_line": 2393,
+      "end_line": 2764,
+      "chars": 15866
+    },
+    {
+      "index": 9,
+      "heading_path": [
+        "8. The fts5vocab Virtual Table Module"
+      ],
+      "start_line": 2765,
+      "end_line": 3166,
+      "chars": 17938
+    },
+    {
+      "index": 10,
+      "heading_path": [
+        "9. FTS5 Data Structures",
+        "9.2. The FTS Index (%_idx and %_data tables)",
+        "9.2.4. Segment B-Tree Format",
+        "9.2.4.2. Pagination"
+      ],
+      "start_line": 3167,
+      "end_line": 3516,
+      "chars": 15459
+    }
+  ]
+}

@@ -1,0 +1,86 @@
+{
+  "source_path": "raw/web/corpus-2026-05-18/027-typing.md",
+  "chunks": [
+    {
+      "index": 1,
+      "heading_path": [
+        "Document"
+      ],
+      "start_line": 1,
+      "end_line": 482,
+      "chars": 14855
+    },
+    {
+      "index": 2,
+      "heading_path": [
+        "of ``type[BasicUser | ProUser]``"
+      ],
+      "start_line": 483,
+      "end_line": 1042,
+      "chars": 16598
+    },
+    {
+      "index": 3,
+      "heading_path": [
+        "not a variable assignment to a string."
+      ],
+      "start_line": 1043,
+      "end_line": 1585,
+      "chars": 17150
+    },
+    {
+      "index": 4,
+      "heading_path": [
+        "Type of ``val`` remains as ``list[object]``."
+      ],
+      "start_line": 1586,
+      "end_line": 1924,
+      "chars": 10947
+    },
+    {
+      "index": 5,
+      "heading_path": [
+        "(at least one element is required)"
+      ],
+      "start_line": 1925,
+      "end_line": 2531,
+      "chars": 17851
+    },
+    {
+      "index": 6,
+      "heading_path": [
+        "OK, functional syntax"
+      ],
+      "start_line": 2532,
+      "end_line": 2823,
+      "chars": 8237
+    },
+    {
+      "index": 7,
+      "heading_path": [
+        "Test whether the type checker correctly understands our function"
+      ],
+      "start_line": 2824,
+      "end_line": 3346,
+      "chars": 16319
+    },
+    {
+      "index": 8,
+      "heading_path": [
+        "not a typed dict itself"
+      ],
+      "start_line": 3347,
+      "end_line": 3945,
+      "chars": 17992
+    },
+    {
+      "index": 9,
+      "heading_path": [
+        "Other special directives"
+      ],
+      "start_line": 3946,
+      "end_line": 4006,
+      "chars": 1340
+    }
+  ]
+}

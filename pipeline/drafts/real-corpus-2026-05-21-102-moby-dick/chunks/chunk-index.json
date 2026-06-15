@@ -1,0 +1,858 @@
+{
+  "source_path": "raw/web/corpus-2026-05-18/102-moby-dick.md",
+  "chunks": [
+    {
+      "index": 1,
+      "heading_path": [
+        "Document"
+      ],
+      "heading_paths": [
+        [
+          "Document"
+        ],
+        [
+          "Moby-Dick"
+        ],
+        [
+          "Moby-Dick",
+          "Fetch Metadata"
+        ]
+      ],
+      "start_line": 1,
+      "end_line": 26,
+      "chars": 769
+    },
+    {
+      "index": 2,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 27,
+      "end_line": 601,
+      "chars": 18286
+    },
+    {
+      "index": 3,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 603,
+      "end_line": 912,
+      "chars": 17450
+    },
+    {
+      "index": 4,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 914,
+      "end_line": 1206,
+      "chars": 17827
+    },
+    {
+      "index": 5,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 1208,
+      "end_line": 1524,
+      "chars": 17741
+    },
+    {
+      "index": 6,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 1526,
+      "end_line": 1809,
+      "chars": 17444
+    },
+    {
+      "index": 7,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 1811,
+      "end_line": 2113,
+      "chars": 17589
+    },
+    {
+      "index": 8,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 2115,
+      "end_line": 2405,
+      "chars": 17733
+    },
+    {
+      "index": 9,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 2407,
+      "end_line": 2676,
+      "chars": 16861
+    },
+    {
+      "index": 10,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 2678,
+      "end_line": 2962,
+      "chars": 17061
+    },
+    {
+      "index": 11,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 2964,
+      "end_line": 3263,
+      "chars": 18079
+    },
+    {
+      "index": 12,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 3265,
+      "end_line": 3599,
+      "chars": 17830
+    },
+    {
+      "index": 13,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 3601,
+      "end_line": 3909,
+      "chars": 17645
+    },
+    {
+      "index": 14,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 3911,
+      "end_line": 4255,
+      "chars": 17506
+    },
+    {
+      "index": 15,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 4257,
+      "end_line": 4602,
+      "chars": 17922
+    },
+    {
+      "index": 16,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 4604,
+      "end_line": 4882,
+      "chars": 15509
+    },
+    {
+      "index": 17,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 4884,
+      "end_line": 5156,
+      "chars": 17181
+    },
+    {
+      "index": 18,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 5158,
+      "end_line": 5419,
+      "chars": 15977
+    },
+    {
+      "index": 19,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 5421,
+      "end_line": 5704,
+      "chars": 17227
+    },
+    {
+      "index": 20,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 5706,
+      "end_line": 5996,
+      "chars": 17870
+    },
+    {
+      "index": 21,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 5998,
+      "end_line": 6269,
+      "chars": 17179
+    },
+    {
+      "index": 22,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 6271,
+      "end_line": 6563,
+      "chars": 17883
+    },
+    {
+      "index": 23,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 6565,
+      "end_line": 6878,
+      "chars": 17325
+    },
+    {
+      "index": 24,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 6880,
+      "end_line": 7227,
+      "chars": 17639
+    },
+    {
+      "index": 25,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 7229,
+      "end_line": 7517,
+      "chars": 17887
+    },
+    {
+      "index": 26,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 7519,
+      "end_line": 7812,
+      "chars": 17881
+    },
+    {
+      "index": 27,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 7814,
+      "end_line": 8113,
+      "chars": 17399
+    },
+    {
+      "index": 28,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 8115,
+      "end_line": 8391,
+      "chars": 17358
+    },
+    {
+      "index": 29,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 8393,
+      "end_line": 8702,
+      "chars": 17840
+    },
+    {
+      "index": 30,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 8704,
+      "end_line": 9011,
+      "chars": 17882
+    },
+    {
+      "index": 31,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 9013,
+      "end_line": 9307,
+      "chars": 17472
+    },
+    {
+      "index": 32,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 9309,
+      "end_line": 9604,
+      "chars": 17991
+    },
+    {
+      "index": 33,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 9606,
+      "end_line": 9898,
+      "chars": 17655
+    },
+    {
+      "index": 34,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 9900,
+      "end_line": 10226,
+      "chars": 18121
+    },
+    {
+      "index": 35,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 10228,
+      "end_line": 10531,
+      "chars": 17072
+    },
+    {
+      "index": 36,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 10533,
+      "end_line": 10835,
+      "chars": 17945
+    },
+    {
+      "index": 37,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 10837,
+      "end_line": 11142,
+      "chars": 18000
+    },
+    {
+      "index": 38,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 11144,
+      "end_line": 11442,
+      "chars": 17307
+    },
+    {
+      "index": 39,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 11444,
+      "end_line": 11779,
+      "chars": 17895
+    },
+    {
+      "index": 40,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 11781,
+      "end_line": 12069,
+      "chars": 17971
+    },
+    {
+      "index": 41,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 12071,
+      "end_line": 12385,
+      "chars": 17800
+    },
+    {
+      "index": 42,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 12387,
+      "end_line": 12699,
+      "chars": 17540
+    },
+    {
+      "index": 43,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 12701,
+      "end_line": 13011,
+      "chars": 17161
+    },
+    {
+      "index": 44,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 13013,
+      "end_line": 13298,
+      "chars": 17272
+    },
+    {
+      "index": 45,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 13300,
+      "end_line": 13606,
+      "chars": 18092
+    },
+    {
+      "index": 46,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 13608,
+      "end_line": 13910,
+      "chars": 17835
+    },
+    {
+      "index": 47,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 13912,
+      "end_line": 14209,
+      "chars": 18072
+    },
+    {
+      "index": 48,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 14211,
+      "end_line": 14504,
+      "chars": 17797
+    },
+    {
+      "index": 49,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 14506,
+      "end_line": 14791,
+      "chars": 17492
+    },
+    {
+      "index": 50,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 14793,
+      "end_line": 15072,
+      "chars": 17562
+    },
+    {
+      "index": 51,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 15074,
+      "end_line": 15370,
+      "chars": 17270
+    },
+    {
+      "index": 52,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 15372,
+      "end_line": 15723,
+      "chars": 17871
+    },
+    {
+      "index": 53,
+      "heading_path": [
+        "Moby-Dick",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Moby-Dick",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 15725,
+      "end_line": 15995,
+      "chars": 16269
+    }
+  ]
+}

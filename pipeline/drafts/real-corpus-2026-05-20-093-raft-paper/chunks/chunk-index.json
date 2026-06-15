@@ -1,0 +1,137 @@
+{
+  "source_path": "raw/web/corpus-2026-05-18/093-raft-paper.md",
+  "chunks": [
+    {
+      "index": 1,
+      "heading_path": [
+        "Document"
+      ],
+      "heading_paths": [
+        [
+          "Document"
+        ],
+        [
+          "Raft Paper"
+        ],
+        [
+          "Raft Paper",
+          "Fetch Metadata"
+        ]
+      ],
+      "start_line": 1,
+      "end_line": 27,
+      "chars": 768
+    },
+    {
+      "index": 2,
+      "heading_path": [
+        "Raft Paper",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Raft Paper",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 28,
+      "end_line": 87,
+      "chars": 17856
+    },
+    {
+      "index": 3,
+      "heading_path": [
+        "Raft Paper",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Raft Paper",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 89,
+      "end_line": 162,
+      "chars": 16208
+    },
+    {
+      "index": 4,
+      "heading_path": [
+        "Raft Paper",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Raft Paper",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 164,
+      "end_line": 182,
+      "chars": 16516
+    },
+    {
+      "index": 5,
+      "heading_path": [
+        "Raft Paper",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Raft Paper",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 184,
+      "end_line": 233,
+      "chars": 17542
+    },
+    {
+      "index": 6,
+      "heading_path": [
+        "Raft Paper",
+        "Retrieved Text"
+      ],
+      "heading_paths": [
+        [
+          "Raft Paper",
+          "Retrieved Text"
+        ]
+      ],
+      "start_line": 235,
+      "end_line": 249,
+      "chars": 1227
+    },
+    {
+      "index": 7,
+      "heading_path": [
+        "0 10 20 30 40 50 60"
+      ],
+      "heading_paths": [
+        [
+          "0 10 20 30 40 50 60"
+        ],
+        [
+          "100 1000 10000 100000"
+        ]
+      ],
+      "start_line": 251,
+      "end_line": 371,
+      "chars": 6433
+    },
+    {
+      "index": 8,
+      "heading_path": [
+        "0 100 200 300 400 500 600"
+      ],
+      "heading_paths": [
+        [
+          "0 100 200 300 400 500 600"
+        ]
+      ],
+      "start_line": 372,
+      "end_line": 428,
+      "chars": 17187
+    }
+  ]
+}
