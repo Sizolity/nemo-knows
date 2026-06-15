@@ -1,3 +1,11 @@
+---
+title: SQLite Write-Ahead Logging Notes
+kind: source
+sources:
+  - pipeline/raw/web/sqlite-wal.md
+confidence: medium
+---
+
 # SQLite Write-Ahead Logging Notes
 
 Source URL: https://www.sqlite.org/wal.html
