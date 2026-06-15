@@ -99,10 +99,14 @@ page's claims are after the latest ingest — drop it to `medium` or `low`
 when sources disagree or when you're inferring beyond what the sources
 say.
 
-**Links.** Use Obsidian-style `[[wikilinks]]` for cross-references inside
-the wiki. Use standard Markdown links with relative paths for references
-outside the wiki. Inline citations look like `(see [[ada-lovelace]])` or
-`(source: wiki/sources/some-source.md §3)`.
+**Links.** `index.md` is a navigation catalogue and uses standard Markdown
+links with paths relative to `index.md`, such as
+`[sqlite-wal](sources/sqlite-wal.md)`. Body pages may use Obsidian-style
+`[[wikilinks]]` as semantic cross-references between wiki concepts; those
+wikilinks identify related page slugs and are not the index navigation format.
+Use standard Markdown links with relative paths for non-semantic navigation
+or references outside the wiki. Inline citations look like
+`(see [[ada-lovelace]])` or `(source: wiki/sources/some-source.md §3)`.
 
 **Length.** Prefer many short, focused pages over one long page. If a
 page exceeds ~600 lines or starts covering more than one subject, split
@@ -161,9 +165,10 @@ chat):
 
 1. **Find contradictions.** Read pairs of pages with overlapping
    `sources` and surface any factual disagreements.
-2. **Find orphans.** List pages with no inbound `[[wikilinks]]`.
-3. **Find stubs.** List pages mentioned in `[[wikilinks]]` but missing
-   files.
+2. **Find orphans.** List pages with no inbound semantic `[[wikilinks]]`
+   and no `index.md` Markdown catalogue entry.
+3. **Find stubs.** List pages mentioned in semantic `[[wikilinks]]` but
+   missing files.
 4. **Find stale claims.** Read pages whose `updated` is older than any
    source they cite; flag for re-review.
 5. **Find missing concepts.** Identify terms that recur across many

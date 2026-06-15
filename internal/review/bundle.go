@@ -13,7 +13,7 @@ import (
 
 var (
 	candidateWikiPathRE = regexp.MustCompile(`wiki/[A-Za-z0-9/_-]+\.md`)
-	allowedWikiPathRE   = regexp.MustCompile(`^wiki/(sources|concepts|topics)/[a-z0-9][a-z0-9-]*\.md$`)
+	allowedWikiPathRE   = regexp.MustCompile(`^wiki/(sources|entities|concepts|topics)/[a-z0-9][a-z0-9-]*\.md$`)
 )
 
 type candidateChange struct {
@@ -158,7 +158,7 @@ func extractCandidatePaths(markdown string) ([]string, error) {
 	paths := make([]string, 0, len(matches))
 	for _, match := range matches {
 		if !allowedWikiPathRE.MatchString(match) {
-			return nil, fmt.Errorf("candidate wiki path %q must be under wiki/sources/, wiki/concepts/, or wiki/topics/ with lowercase hyphenated filename", match)
+			return nil, fmt.Errorf("candidate wiki path %q must be under wiki/sources/, wiki/entities/, wiki/concepts/, or wiki/topics/ with lowercase hyphenated filename", match)
 		}
 		if seen[match] {
 			continue
@@ -211,7 +211,7 @@ func classifyCandidates(root string, candidates []string) []candidateChange {
 
 func existingWikiPaths(root string) map[string]bool {
 	paths := map[string]bool{}
-	for _, dir := range []string{"sources", "concepts", "topics"} {
+	for _, dir := range []string{"sources", "entities", "concepts", "topics"} {
 		base := filepath.Join(root, "wiki", dir)
 		entries, err := os.ReadDir(base)
 		if err != nil {

@@ -12,7 +12,7 @@ import (
 
 func TestReportModeDoesNotModifyWiki(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, root, "wiki/index.md", indexWithConcepts("- [[stale]] — Stale.\n"))
+	writeFile(t, root, "wiki/index.md", indexWithConcepts("- [stale](concepts/stale.md) — Stale.\n"))
 	writeFile(t, root, "wiki/log.md", logContent())
 	writeFile(t, root, "wiki/concepts/known.md", conceptPage("Known"))
 	writeFile(t, root, "raw/stale.md", "[[known]] should not be scanned from raw.\n")
@@ -54,9 +54,9 @@ func TestReportModeDoesNotModifyWiki(t *testing.T) {
 func TestSafeModeSyncsIndexLogsAndIsIdempotent(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, root, "wiki/index.md", indexWithConcepts(strings.Join([]string{
-		"- [[known]] — Known.",
-		"- [[known]] — Duplicate.",
-		"- [[stale]] — Stale.",
+		"- [[known]] — Legacy entry.",
+		"- [known](concepts/known.md) — Duplicate.",
+		"- [stale](concepts/stale.md) — Stale.",
 	}, "\n")+"\n"))
 	writeFile(t, root, "wiki/log.md", logContent())
 	writeFile(t, root, "wiki/concepts/known.md", conceptPage("Known"))
@@ -74,13 +74,13 @@ func TestSafeModeSyncsIndexLogsAndIsIdempotent(t *testing.T) {
 		t.Fatal("safe mode should report changed wiki")
 	}
 	index := readFile(t, root, "wiki/index.md")
-	if strings.Count(index, "[[known]]") != 1 {
+	if strings.Count(index, "[known](concepts/known.md)") != 1 {
 		t.Fatalf("expected duplicate known entry to be removed:\n%s", index)
 	}
-	if strings.Contains(index, "[[stale]]") {
+	if strings.Contains(index, "stale.md") {
 		t.Fatalf("expected stale entry to be removed:\n%s", index)
 	}
-	if !strings.Contains(index, "[[missing-from-index]]") {
+	if !strings.Contains(index, "[missing-from-index](concepts/missing-from-index.md)") {
 		t.Fatalf("expected missing page to be added:\n%s", index)
 	}
 	log := readFile(t, root, "wiki/log.md")
@@ -111,7 +111,7 @@ func TestSafeModeSyncsIndexLogsAndIsIdempotent(t *testing.T) {
 
 func TestSafeModeIgnoresHiddenMaintenanceReports(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, root, "wiki/index.md", indexWithConcepts("- [[known]] — Known.\n"))
+	writeFile(t, root, "wiki/index.md", indexWithConcepts("- [known](concepts/known.md) — Known.\n"))
 	writeFile(t, root, "wiki/log.md", logContent())
 	writeFile(t, root, "wiki/concepts/known.md", conceptPage("Known"))
 	writeFile(t, root, "wiki/.maintain/report.md", "# Not a wiki page\n")
@@ -127,7 +127,7 @@ func TestSafeModeIgnoresHiddenMaintenanceReports(t *testing.T) {
 
 func TestTaskQueueMapsLintFindingsToLLMMaintenanceWork(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, root, "wiki/index.md", indexWithConcepts("- [[known]] — Known.\n"))
+	writeFile(t, root, "wiki/index.md", indexWithConcepts("- [known](concepts/known.md) — Known.\n"))
 	writeFile(t, root, "wiki/log.md", logContent())
 	writeFile(t, root, "wiki/concepts/known.md", `---
 title: Known
@@ -162,7 +162,7 @@ This page links to [[missing-target]].
 
 func TestProposeModeGeneratesProposalWithoutApplying(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, root, "wiki/index.md", indexWithConcepts("- [[known]] — Known.\n"))
+	writeFile(t, root, "wiki/index.md", indexWithConcepts("- [known](concepts/known.md) — Known.\n"))
 	writeFile(t, root, "wiki/log.md", logContent())
 	writeFile(t, root, "wiki/concepts/known.md", `---
 title: Known
@@ -200,7 +200,7 @@ This page links to [[missing-target]].
 
 func TestAutoModeAppliesGatedProposalAndLogs(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, root, "wiki/index.md", indexWithConcepts("- [[known]] — Known.\n"))
+	writeFile(t, root, "wiki/index.md", indexWithConcepts("- [known](concepts/known.md) — Known.\n"))
 	writeFile(t, root, "wiki/log.md", logContent())
 	writeFile(t, root, "wiki/concepts/known.md", `---
 title: Known
@@ -244,7 +244,7 @@ This page links to [[missing-target]].
 
 func TestAutoModeRollsBackProposalThatFailsLintGate(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, root, "wiki/index.md", indexWithConcepts("- [[known]] — Known.\n"))
+	writeFile(t, root, "wiki/index.md", indexWithConcepts("- [known](concepts/known.md) — Known.\n"))
 	writeFile(t, root, "wiki/log.md", logContent())
 	original := `---
 title: Known

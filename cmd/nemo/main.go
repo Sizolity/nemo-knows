@@ -21,6 +21,7 @@ import (
 	"github.com/huic/nemo-knows/internal/evalharness"
 	"github.com/huic/nemo-knows/internal/llama"
 	"github.com/huic/nemo-knows/internal/prompt"
+	wikiquery "github.com/huic/nemo-knows/internal/query"
 	"github.com/huic/nemo-knows/internal/review"
 	"github.com/huic/nemo-knows/internal/web"
 	"github.com/huic/nemo-knows/internal/wikilint"
@@ -41,9 +42,9 @@ func run(args []string) int {
 	outDir := fs.String("out-dir", "", "directory for command output artifacts")
 	bundleDir := fs.String("bundle-dir", "", "directory for a local ingest draft bundle")
 	reviewBundle := fs.String("review-bundle", "", "directory for a local ingest draft bundle to review")
-	generateCandidates := fs.String("generate-candidates", "", "directory for a reviewed bundle whose concept/topic candidate drafts should be generated")
-	evalCandidates := fs.String("eval-candidates", "", "directory for a reviewed bundle whose concept/topic candidate drafts should be evaluated")
-	reviewCandidates := fs.String("review-candidates", "", "directory for a reviewed bundle whose concept/topic candidate drafts should be reviewed")
+	generateCandidates := fs.String("generate-candidates", "", "directory for a reviewed bundle whose entity/concept/topic candidate drafts should be generated")
+	evalCandidates := fs.String("eval-candidates", "", "directory for a reviewed bundle whose entity/concept/topic candidate drafts should be evaluated")
+	reviewCandidates := fs.String("review-candidates", "", "directory for a reviewed bundle whose entity/concept/topic candidate drafts should be reviewed")
 	llmReviewCandidates := fs.String("llm-review-candidates", "", "directory for candidate drafts to review with the configured model")
 	lintBundle := fs.String("lint-bundle", "", "directory for reviewed candidate drafts to crosslink-lint")
 	evalBundle := fs.String("eval-bundle", "", "directory for a reviewed ingest bundle to evaluate")
@@ -52,10 +53,12 @@ func run(args []string) int {
 	lintWiki := fs.Bool("lint-wiki", false, "run deterministic read-only lint checks over wiki/")
 	maintainWiki := fs.Bool("maintain-wiki", false, "run wiki-only autonomous maintenance")
 	maintainMode := fs.String("mode", wikimaint.ModeReport, "maintenance mode: report, safe, propose, or auto")
+	queryQuestion := fs.String("query", "", "answer a question from the maintained wiki")
+	fileQuery := fs.Bool("file-query", false, "write a query answer topic draft; requires -approve for wiki writes")
 	applyApproved := fs.String("apply-approved", "", "directory for an approved reviewed bundle to apply")
 	approve := fs.Bool("approve", false, "explicitly approve wiki writes for apply mode")
 	forceApply := fs.Bool("force-apply", false, "allow re-applying a bundle that already has an ingest log entry")
-	persistRawWeb := fs.Bool("persist-raw-web", false, "copy the input source to raw/web/<slug>.md before bundle generation")
+	persistRawWeb := fs.Bool("persist-raw-web", false, "copy the input source to pipeline/raw/web/<slug>.md before bundle generation")
 	profile := fs.String("profile", "stable", "generation profile: fast, stable, deep, or fallback")
 	provider := fs.String("provider", "", "generation backend override: llama or deepseek (wins over .env)")
 	serve := fs.Bool("serve", false, "start the local nemo-knows web console")
@@ -72,6 +75,13 @@ func run(args []string) int {
 	}
 	if *serve {
 		if err := web.Run(*addr, cfg, inProcessPipeline{}); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		return 0
+	}
+	if *queryQuestion != "" {
+		if err := runQuery(*queryQuestion, *fileQuery, *approve, *out); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
@@ -237,8 +247,8 @@ func run(args []string) int {
 var candidatePlanLineRE = regexp.MustCompile("(?m)^- `([^`]+)` — .+$")
 var markdownFrontmatterRE = regexp.MustCompile(`(?s)^---\s*\n.*?\n---\s*\n?`)
 var nestedFrontmatterPreludeRE = regexp.MustCompile(`(?s)^\s*(?:title|kind|sources|confidence):.*?\n---\s*\n?`)
-var sourceReferenceLineRE = regexp.MustCompile(`(?m)^\s*-\s*(raw/[^ \n]+|wiki/sources/[^ \n]+)\s*$`)
-var sourceReferenceRE = regexp.MustCompile(`(?:raw|wiki/sources)/[A-Za-z0-9._/-]*[A-Za-z0-9_-]\.md`)
+var sourceReferenceLineRE = regexp.MustCompile(`(?m)^\s*-\s*((?:pipeline/)?raw/[^ \n]+|wiki/sources/[^ \n]+)\s*$`)
+var sourceReferenceRE = regexp.MustCompile(`(?:(?:pipeline/)?raw|wiki/sources)/[A-Za-z0-9._/-]*[A-Za-z0-9_-]\.md`)
 var candidateWikilinkRE = regexp.MustCompile(`\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]`)
 var markdownHeadingRE = regexp.MustCompile(`(?m)^#\s+.+$`)
 var sourceDraftFrontmatterRE = regexp.MustCompile(`(?s)^---\s*\n(.*?)\n---\s*`)
@@ -287,6 +297,8 @@ func candidateDraftTargets(applyPlan string) []candidateDraftTarget {
 		path := match[1]
 		kind := ""
 		switch {
+		case strings.HasPrefix(path, "wiki/entities/"):
+			kind = "entity"
 		case strings.HasPrefix(path, "wiki/concepts/"):
 			kind = "concept"
 		case strings.HasPrefix(path, "wiki/topics/"):
@@ -443,7 +455,7 @@ func markdownSourceList(refs []string) string {
 func targetEvidenceForCandidate(target candidateDraftTarget, sourceRefs []string) string {
 	rawPath := ""
 	for _, ref := range sourceRefs {
-		if strings.HasPrefix(ref, "raw/") {
+		if strings.HasPrefix(ref, "pipeline/raw/") || strings.HasPrefix(ref, "raw/") {
 			rawPath = ref
 			break
 		}
@@ -692,6 +704,28 @@ func runApplyApproved(bundleDir string, approve bool, force bool) error {
 	}
 
 	fmt.Fprintf(os.Stderr, "applied %s\n", bundleDir)
+	return nil
+}
+
+func runQuery(question string, fileQuery bool, approve bool, out string) error {
+	result, err := wikiquery.Execute(wikiquery.Options{
+		Root:     ".",
+		Question: question,
+		File:     fileQuery,
+		Approve:  approve,
+		Out:      out,
+	})
+	if err != nil {
+		return fmt.Errorf("query wiki: %w", err)
+	}
+	fmt.Fprint(os.Stdout, result.Answer)
+	if result.Draft != "" && !approve && out == "" {
+		fmt.Fprint(os.Stdout, "\n## Review Draft\n\n")
+		fmt.Fprint(os.Stdout, result.Draft)
+	}
+	if result.DraftOut != "" {
+		fmt.Fprintf(os.Stderr, "wrote %s\n", result.DraftOut)
+	}
 	return nil
 }
 
@@ -1085,11 +1119,17 @@ func runEvalBundle(bundleDir string, outDir string) error {
 	if err := os.WriteFile(filepath.Join(outDir, "scores.json"), append(scores, '\n'), 0o644); err != nil {
 		return fmt.Errorf("write scores: %w", err)
 	}
+	bundleScoresPath := filepath.Join(bundleDir, "scores.json")
+	if filepath.Clean(bundleScoresPath) != filepath.Clean(filepath.Join(outDir, "scores.json")) {
+		if err := os.WriteFile(bundleScoresPath, append(scores, '\n'), 0o644); err != nil {
+			return fmt.Errorf("write bundle scores: %w", err)
+		}
+	}
 	if err := os.WriteFile(filepath.Join(outDir, "trace.md"), []byte(renderEvalTrace(result)), 0o644); err != nil {
 		return fmt.Errorf("write trace: %w", err)
 	}
 
-	fmt.Fprintf(os.Stderr, "wrote %s and %s\n", filepath.Join(outDir, "scores.json"), filepath.Join(outDir, "trace.md"))
+	fmt.Fprintf(os.Stderr, "wrote %s, %s, and %s\n", filepath.Join(outDir, "scores.json"), bundleScoresPath, filepath.Join(outDir, "trace.md"))
 	return nil
 }
 
@@ -1416,7 +1456,7 @@ func firstMarkdownHeading(content string) string {
 
 func persistRawWebSource(source string) (string, error) {
 	cleanSource := filepath.Clean(source)
-	if strings.HasPrefix(filepath.ToSlash(cleanSource), "raw/") {
+	if strings.HasPrefix(filepath.ToSlash(cleanSource), "pipeline/raw/") {
 		return filepath.ToSlash(cleanSource), nil
 	}
 	content, err := os.ReadFile(source)
@@ -1427,16 +1467,16 @@ func persistRawWebSource(source string) (string, error) {
 	if slug == "" {
 		return "", fmt.Errorf("persist raw web source: cannot derive slug from %s", source)
 	}
-	target := filepath.Join("raw", "web", slug+".md")
+	target := filepath.Join("pipeline", "raw", "web", slug+".md")
 	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-		return "", fmt.Errorf("create raw web directory: %w", err)
+		return "", fmt.Errorf("create pipeline raw web directory: %w", err)
 	}
 	file, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 	if err != nil {
 		if errors.Is(err, os.ErrExist) {
-			return "", fmt.Errorf("persist raw web source: %s already exists", filepath.ToSlash(target))
+			return "", fmt.Errorf("persist pipeline raw web source: %s already exists", filepath.ToSlash(target))
 		}
-		return "", fmt.Errorf("create raw web source: %w", err)
+		return "", fmt.Errorf("create pipeline raw web source: %w", err)
 	}
 	defer file.Close()
 	if _, err := file.Write(content); err != nil {

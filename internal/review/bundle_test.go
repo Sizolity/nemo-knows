@@ -41,6 +41,7 @@ status: draft
 
 ## Candidate Wiki Pages
 - wiki/sources/llm-wiki.md — source page
+- wiki/entities/andrej-karpathy.md — entity page
 - wiki/concepts/persistent-wiki.md — concept page
 - wiki/topics/rag-vs-wiki.md — topic page
 
@@ -62,6 +63,7 @@ status: draft
 		"- [x] `source.md` has YAML frontmatter",
 		"- [x] `ingest-plan.md` includes required section `Candidate Wiki Pages`",
 		"- `wiki/sources/llm-wiki.md`",
+		"- `wiki/entities/andrej-karpathy.md`",
 		"- `wiki/concepts/persistent-wiki.md`",
 		"- `wiki/topics/rag-vs-wiki.md`",
 		"Do not apply this plan automatically.",
@@ -163,10 +165,14 @@ func TestReviewBundleLabelsExistingAndDuplicateCandidates(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(root, "wiki", "sources"), 0o755); err != nil {
 		t.Fatalf("mkdir source wiki: %v", err)
 	}
+	if err := os.MkdirAll(filepath.Join(root, "wiki", "entities"), 0o755); err != nil {
+		t.Fatalf("mkdir entity wiki: %v", err)
+	}
 	if err := os.MkdirAll(filepath.Join(root, "wiki", "concepts"), 0o755); err != nil {
 		t.Fatalf("mkdir concept wiki: %v", err)
 	}
 	writeFile(t, filepath.Join(root, "wiki", "sources", "llm-wiki.md"), "---\nkind: source\n---\n")
+	writeFile(t, filepath.Join(root, "wiki", "entities", "andrej-karpathy.md"), "---\nkind: entity\n---\n")
 	writeFile(t, filepath.Join(root, "wiki", "concepts", "persistent-wiki.md"), "---\nkind: concept\n---\n")
 
 	bundle := filepath.Join(root, "drafts", "bundle")
@@ -176,6 +182,7 @@ func TestReviewBundleLabelsExistingAndDuplicateCandidates(t *testing.T) {
 	writeFile(t, filepath.Join(bundle, "source.md"), validSourceDraft("source"))
 	writeFile(t, filepath.Join(bundle, "ingest-plan.md"), validIngestPlanDraft(strings.Join([]string{
 		"- wiki/sources/llm-wiki.md — source page",
+		"- wiki/entities/andrej-karpathy.md — entity page",
 		"- wiki/concepts/persistent-wiki-architecture.md — similar concept page",
 		"- wiki/topics/rag-vs-wiki.md — topic page",
 	}, "\n")))
@@ -186,6 +193,7 @@ func TestReviewBundleLabelsExistingAndDuplicateCandidates(t *testing.T) {
 	}
 	for _, want := range []string{
 		"- `wiki/sources/llm-wiki.md` — update existing page.",
+		"- `wiki/entities/andrej-karpathy.md` — update existing page.",
 		"- `wiki/concepts/persistent-wiki-architecture.md` — create new page; possible duplicate of `wiki/concepts/persistent-wiki.md`.",
 		"- `wiki/topics/rag-vs-wiki.md` — create new page.",
 	} {

@@ -10,7 +10,7 @@ import (
 
 var (
 	candidateLineRE        = regexp.MustCompile("(?m)^- `([^`]+)`")
-	sourceRefRE            = regexp.MustCompile(`(?m)^\s*-\s+(raw/[^\s]+)\s*$`)
+	sourceRefRE            = regexp.MustCompile(`(?m)^\s*-\s+((?:pipeline/)?raw/[^\s]+)\s*$`)
 	truncationMarkerRE     = regexp.MustCompile(`(?i)\[truncated at [^\]]+\]`)
 	completenessClaimRE    = regexp.MustCompile(`(?i)\b(complete|entire|unabridged)\s+(work|source|text|novel|retrieval|document|file)\b|\b(full text|final chapters|without abridgment|all \d+ chapters|all chapters)\b`)
 	truncationMentionRE    = regexp.MustCompile(`(?i)\b(truncated|truncation|incomplete|partial|excerpt|ends? (at|around|mid)|breaks? off|cut off|through (the )?(opening|beginning) of)\b`)
@@ -104,6 +104,7 @@ func scoreCandidatePaths(applyPlan string, trace *[]string) string {
 	}
 	for _, candidate := range candidates {
 		if !strings.HasPrefix(candidate, "wiki/sources/") &&
+			!strings.HasPrefix(candidate, "wiki/entities/") &&
 			!strings.HasPrefix(candidate, "wiki/concepts/") &&
 			!strings.HasPrefix(candidate, "wiki/topics/") {
 			*trace = append(*trace, "candidate_paths: invalid candidate "+candidate)
@@ -172,7 +173,7 @@ func scoreApplyPlanCoverage(bundleDir string, applyPlan string, trace *[]string)
 		switch {
 		case strings.HasPrefix(path, "wiki/sources/"):
 			sourceCandidates++
-		case strings.HasPrefix(path, "wiki/concepts/") || strings.HasPrefix(path, "wiki/topics/"):
+		case strings.HasPrefix(path, "wiki/entities/") || strings.HasPrefix(path, "wiki/concepts/") || strings.HasPrefix(path, "wiki/topics/"):
 			if _, err := os.Stat(filepath.Join(bundleDir, "candidates", filepath.FromSlash(path))); err != nil {
 				missing = append(missing, path)
 			}

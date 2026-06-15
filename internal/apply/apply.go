@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	wikischema "github.com/huic/nemo-knows/internal/wiki"
 )
 
 var (
@@ -22,8 +24,8 @@ var (
 	titleRE         = regexp.MustCompile(`(?m)^title:\s*(.+?)\s*$`)
 	kindRE          = regexp.MustCompile(`(?m)^kind:\s*(.+?)\s*$`)
 	headingRE       = regexp.MustCompile(`(?m)^#\s+(.+?)\s*$`)
-	sourceRefRE     = regexp.MustCompile(`(?m)^\s*-\s*(raw/[^ \n]+|wiki/sources/[^ \n]+)\s*$`)
-	inlineSourceRE  = regexp.MustCompile(`(?:raw|wiki/sources)/[A-Za-z0-9._/-]*[A-Za-z0-9_-]\.md`)
+	sourceRefRE     = regexp.MustCompile(`(?m)^\s*-\s*((?:pipeline/)?raw/[^ \n]+|wiki/sources/[^ \n]+)\s*$`)
+	inlineSourceRE  = regexp.MustCompile(`(?:(?:pipeline/)?raw|wiki/sources)/[A-Za-z0-9._/-]*[A-Za-z0-9_-]\.md`)
 )
 
 type Options struct {
@@ -127,13 +129,19 @@ func planApprovedWrites(root string, bundleDir string, applyPlan string, sourceD
 		if duplicate := candidate.duplicate; duplicate != "" {
 			target = duplicate
 		}
+		cleanTarget, ok := cleanKnowledgePath(target)
+		if !ok {
+			skipped = append(skipped, fmt.Sprintf("%s — unsupported candidate target", candidate.path))
+			continue
+		}
+		target = cleanTarget
 
 		switch {
 		case strings.HasPrefix(target, "wiki/sources/"):
 			created := !wikiFileExists(root, target)
 			needsIndex = needsIndex || created
 			writes = append(writes, plannedWrite{target: target, draft: sourceDraft, created: created})
-		case strings.HasPrefix(target, "wiki/concepts/") || strings.HasPrefix(target, "wiki/topics/"):
+		case isCandidateDraftTarget(target):
 			draft, existed, err := readCandidateDraft(bundleDir, target)
 			if err != nil {
 				return nil, nil, err
@@ -219,11 +227,11 @@ func parseCandidates(applyPlan string) []candidate {
 }
 
 func writeWikiFile(root string, repoPath string, content []byte) error {
-	if !strings.HasPrefix(repoPath, "wiki/sources/") &&
-		!strings.HasPrefix(repoPath, "wiki/concepts/") &&
-		!strings.HasPrefix(repoPath, "wiki/topics/") {
+	cleanPath, ok := cleanKnowledgePath(repoPath)
+	if !ok {
 		return fmt.Errorf("refuse to write outside wiki knowledge paths: %s", repoPath)
 	}
+	repoPath = cleanPath
 
 	path := filepath.Join(root, filepath.FromSlash(repoPath))
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -257,6 +265,8 @@ func validateCandidateDraft(target string, content []byte) error {
 
 	wantKind := ""
 	switch {
+	case strings.HasPrefix(target, "wiki/entities/"):
+		wantKind = "entity"
 	case strings.HasPrefix(target, "wiki/concepts/"):
 		wantKind = "concept"
 	case strings.HasPrefix(target, "wiki/topics/"):
@@ -272,6 +282,32 @@ func validateCandidateDraft(target string, content []byte) error {
 	}
 
 	return nil
+}
+
+func isCandidateDraftTarget(target string) bool {
+	return strings.HasPrefix(target, "wiki/entities/") ||
+		strings.HasPrefix(target, "wiki/concepts/") ||
+		strings.HasPrefix(target, "wiki/topics/")
+}
+
+func cleanKnowledgePath(repoPath string) (string, bool) {
+	if filepath.IsAbs(repoPath) {
+		return "", false
+	}
+	clean := filepath.ToSlash(filepath.Clean(filepath.FromSlash(repoPath)))
+	if clean != filepath.ToSlash(repoPath) {
+		return "", false
+	}
+	if filepath.Ext(clean) != ".md" {
+		return "", false
+	}
+	if strings.HasPrefix(clean, "wiki/sources/") ||
+		strings.HasPrefix(clean, "wiki/entities/") ||
+		strings.HasPrefix(clean, "wiki/concepts/") ||
+		strings.HasPrefix(clean, "wiki/topics/") {
+		return clean, true
+	}
+	return "", false
 }
 
 func candidateFrontmatter(content []byte) (string, error) {
@@ -315,16 +351,17 @@ func updateIndexForCandidate(root string, target string, draft []byte) (bool, er
 	}
 
 	slug := strings.TrimSuffix(filepath.Base(target), filepath.Ext(target))
-	link := "[[" + slug + "]]"
-	if strings.Contains(string(content), link) {
-		return false, nil
+	for _, line := range strings.Split(string(content), "\n") {
+		if got, ok := wikischema.IndexEntrySlug(line); ok && got == slug {
+			return false, nil
+		}
 	}
 
 	title := candidateTitle(draft)
 	if title == "" {
 		return false, nil
 	}
-	entry := fmt.Sprintf("- %s — %s.\n", link, title)
+	entry := wikischema.FormatIndexEntry(target, title) + "\n"
 	updated := appendIndexEntry(string(content), indexSection(target), entry)
 	if err := os.WriteFile(indexPath, []byte(updated), 0o644); err != nil {
 		return false, fmt.Errorf("write wiki index: %w", err)
@@ -350,6 +387,9 @@ func candidateTitle(draft []byte) string {
 func indexSection(target string) string {
 	if strings.HasPrefix(target, "wiki/sources/") {
 		return "## Sources"
+	}
+	if strings.HasPrefix(target, "wiki/entities/") {
+		return "## Entities"
 	}
 	if strings.HasPrefix(target, "wiki/topics/") {
 		return "## Topics"
@@ -413,16 +453,22 @@ func appendApplyLog(root string, bundleDir string, result Result) error {
 	}
 	entry := strings.Builder{}
 	entry.WriteString(fmt.Sprintf("\n## [%s] ingest | %s\n", date, subject))
-	entry.WriteString("Source: " + firstSourceReference(sourceDraft) + "\n")
-	entry.WriteString("Applied bundle: " + displayBundle(root, bundleDir) + "\n")
+	entry.WriteString("Source: ")
+	entry.WriteString(firstSourceReference(sourceDraft))
+	entry.WriteByte('\n')
+	entry.WriteString("Applied bundle: ")
+	entry.WriteString(displayBundle(root, bundleDir))
+	entry.WriteByte('\n')
 	entry.WriteString("Touched:\n")
 	for _, touched := range result.Touched {
 		entry.WriteString(fmt.Sprintf("- %s (%s)\n", touched.Path, touched.Action))
 	}
 	for _, skipped := range result.Skipped {
-		entry.WriteString("- skipped: " + skipped + "\n")
+		entry.WriteString("- skipped: ")
+		entry.WriteString(skipped)
+		entry.WriteByte('\n')
 	}
-	entry.WriteString("Open: review skipped candidates before creating concept or topic pages.\n")
+	entry.WriteString("Open: review skipped candidates before creating entity, concept, or topic pages.\n")
 
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
@@ -462,14 +508,18 @@ func writeApplyReport(bundleDir string, result Result) error {
 		b.WriteString("(none)\n")
 	}
 	for _, written := range result.Written {
-		b.WriteString("- " + written + "\n")
+		b.WriteString("- ")
+		b.WriteString(written)
+		b.WriteByte('\n')
 	}
 	b.WriteString("\n## Skipped\n\n")
 	if len(result.Skipped) == 0 {
 		b.WriteString("(none)\n")
 	}
 	for _, skipped := range result.Skipped {
-		b.WriteString("- " + skipped + "\n")
+		b.WriteString("- ")
+		b.WriteString(skipped)
+		b.WriteByte('\n')
 	}
 
 	path := filepath.Join(bundleDir, "apply-report.md")

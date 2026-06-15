@@ -130,6 +130,28 @@ func TestEvaluateBundleTreatsSourceCandidateAsRepresentedBySourceDraft(t *testin
 	}
 }
 
+func TestEvaluateBundleAcceptsEntityCandidatePath(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "source.md"), "---\nkind: source\nsources:\n  - raw/source.md\n---\n\n# Source\n")
+	writeFile(t, filepath.Join(dir, "ingest-plan.md"), "---\nkind: topic\n---\n# Ingest Plan\n")
+	writeFile(t, filepath.Join(dir, "apply-plan.md"), validApplyPlan("wiki/entities/andrej-karpathy.md"))
+	writeFile(t, filepath.Join(dir, "candidates", "wiki", "entities", "andrej-karpathy.md"), "---\ntitle: Andrej Karpathy\nkind: entity\nsources:\n  - source.md\n  - raw/source.md\nconfidence: medium\n---\n\n# Andrej Karpathy\n\nA reviewed entity candidate.\n")
+
+	result, err := EvaluateBundle(dir)
+	if err != nil {
+		t.Fatalf("EvaluateBundle returned error: %v", err)
+	}
+	if result.Scores.CandidatePaths != "pass" {
+		t.Fatalf("candidate paths score = %q, want pass", result.Scores.CandidatePaths)
+	}
+	if result.Scores.ApplyPlanCoverage != "pass" {
+		t.Fatalf("apply plan coverage score = %q, want pass", result.Scores.ApplyPlanCoverage)
+	}
+	if result.Scores.Overall != "pass" {
+		t.Fatalf("overall score = %q, want pass", result.Scores.Overall)
+	}
+}
+
 func TestEvaluateBundleMarksMultipleSourceCandidatesAsBorderline(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "source.md"), "---\nkind: source\nsources:\n  - raw/source.md\n---\n\n# Source\n")

@@ -8,13 +8,14 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	wikischema "github.com/huic/nemo-knows/internal/wiki"
 )
 
 var (
 	frontmatterBlockRE = regexp.MustCompile(`(?s)^---\s*\n(.*?)\n---\s*`)
 	wikilinkRE         = regexp.MustCompile(`\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]`)
 	logHeadingRE       = regexp.MustCompile(`^## \[[0-9]{4}-[0-9]{2}-[0-9]{2}\] ([^ |]+) \| .+`)
-	indexEntryRE       = regexp.MustCompile(`- \[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]`)
 )
 
 type Result struct {
@@ -116,12 +117,16 @@ func readWikiPages(root string) ([]page, error) {
 		}
 		repoPath := filepath.ToSlash(rel)
 		fm, _ := splitFrontmatter(string(content))
+		links := wikilinks(string(content))
+		if repoPath == "wiki/index.md" {
+			links = append(links, indexEntryLinks(string(content))...)
+		}
 		pages = append(pages, page{
 			Path:        repoPath,
 			Slug:        strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)),
 			Content:     string(content),
 			Frontmatter: fm,
-			Links:       wikilinks(string(content)),
+			Links:       links,
 		})
 		return nil
 	})
@@ -161,8 +166,11 @@ func lintIndex(root string, result *Result) {
 		return
 	}
 	seen := map[string]bool{}
-	for _, match := range indexEntryRE.FindAllStringSubmatch(string(content), -1) {
-		slug := match[1]
+	for _, line := range strings.Split(stripMarkdownCode(string(content)), "\n") {
+		slug, ok := wikischema.IndexEntrySlug(line)
+		if !ok {
+			continue
+		}
 		if seen[slug] {
 			addIssue(result, "duplicate-index-entry", "warn", "wiki/index.md", "duplicate index entry: "+slug)
 		}
@@ -201,7 +209,17 @@ func wikilinks(content string) []string {
 	links := []string{}
 	body := stripMarkdownCode(content)
 	for _, match := range wikilinkRE.FindAllStringSubmatch(body, -1) {
-		links = append(links, match[1])
+		links = append(links, wikischema.SlugFromReference(match[1]))
+	}
+	return links
+}
+
+func indexEntryLinks(content string) []string {
+	links := []string{}
+	for _, line := range strings.Split(stripMarkdownCode(content), "\n") {
+		if slug, ok := wikischema.IndexEntrySlug(line); ok {
+			links = append(links, slug)
+		}
 	}
 	return links
 }

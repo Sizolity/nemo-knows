@@ -55,3 +55,19 @@ func TestValidateMarkdownUploadRejectsUnsafeInput(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderMarkdownResolvesRelativeMarkdownLinks(t *testing.T) {
+	html := string(renderMarkdown("wiki/index.md", []byte("- [sqlite-wal](sources/sqlite-wal.md) — notes.\n"), nil))
+	if !strings.Contains(html, `<a href="/view?path=wiki%2Fsources%2Fsqlite-wal.md">sqlite-wal</a>`) {
+		t.Fatalf("expected rendered index link, got:\n%s", html)
+	}
+}
+
+func TestRenderMarkdownStillResolvesSemanticWikilinks(t *testing.T) {
+	html := string(renderMarkdown("wiki/concepts/wal.md", []byte("See [[sqlite-wal|SQLite WAL]].\n"), map[string]string{
+		"sqlite-wal": "wiki/sources/sqlite-wal.md",
+	}))
+	if !strings.Contains(html, `<a href="/view?path=wiki/sources/sqlite-wal.md" class="wikilink">SQLite WAL</a>`) {
+		t.Fatalf("expected rendered wikilink, got:\n%s", html)
+	}
+}

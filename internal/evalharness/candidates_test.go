@@ -64,6 +64,43 @@ Compared to a flat document store, this layered design lets multiple sources con
 	}
 }
 
+func TestEvaluateCandidatesScoresEntityDraft(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "source.md"), "---\nkind: source\nsources:\n  - raw/llm-wiki.md\n---\n\n# Source\n\nAndrej Karpathy described an LLM Wiki pattern where a model maintains a persistent Markdown knowledge base from curated source material.\n")
+	writeFile(t, filepath.Join(dir, "apply-plan.md"), "## Candidate Changes\n\n"+
+		"- `wiki/entities/andrej-karpathy.md` — create new page.\n")
+	writeFile(t, filepath.Join(dir, "candidates", "wiki", "entities", "andrej-karpathy.md"), `---
+title: Andrej Karpathy
+kind: entity
+sources:
+  - source.md
+  - raw/llm-wiki.md
+confidence: medium
+---
+
+# Andrej Karpathy
+
+Andrej Karpathy is represented here as the authorial entity connected to the LLM Wiki source. The page records only the source-backed relationship: the idea file is attributed to him and frames a pattern for LLM-maintained Markdown knowledge bases.
+
+The entity matters because the wiki needs stable people pages when sources introduce authors, maintainers, or organisations. In this case, the relevant fact is not a biography but the source relationship that lets later pages cite the idea without repeating attribution details.
+
+Within the ingest workflow, an entity page like this anchors references that can recur across source summaries, concept definitions, and topic syntheses. It keeps person-specific context separate from the concept page for persistent wikis.
+
+The current source does not support broader career claims or dates, so those details are intentionally absent. Future ingests can extend this page if additional documented sources add biographical or project context.
+`)
+
+	result, err := EvaluateCandidates(dir)
+	if err != nil {
+		t.Fatalf("EvaluateCandidates returned error: %v", err)
+	}
+	if result.Scores.Overall != "pass" {
+		t.Fatalf("overall score = %q, want pass; trace=%v", result.Scores.Overall, result.Trace)
+	}
+	if len(result.Candidates) != 1 {
+		t.Fatalf("candidate count = %d, want 1", len(result.Candidates))
+	}
+}
+
 func TestEvaluateCandidatesFlagsMissingSourcesAndShortDraft(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "source.md"), "---\nkind: source\nsources:\n  - raw/llm-wiki.md\n---\n\n# Source\n")

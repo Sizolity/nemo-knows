@@ -17,7 +17,9 @@ import (
 	"io/fs"
 	"math"
 	"net/http"
+	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -777,21 +779,22 @@ func webJobID(source string) string {
 
 func renderWebContent(path string, content []byte, slugToPath map[string]string) template.HTML {
 	if strings.EqualFold(filepath.Ext(path), ".md") {
-		return renderMarkdown(content, slugToPath)
+		return renderMarkdown(path, content, slugToPath)
 	}
 	return template.HTML("<pre>" + html.EscapeString(string(content)) + "</pre>")
 }
 
-// wikilinkRE matches a [[slug]] or [[slug|label]] reference in markdown
-// content. The raw [[...]] syntax is the on-disk source-of-truth used by the
-// ingest pipeline; the web layer only strips the brackets at display time.
+// wikilinkRE matches a [[slug]] or [[slug|label]] semantic cross-reference.
 var wikilinkRE = regexp.MustCompile(`\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]`)
+
+// markdownLinkRE matches the simple inline Markdown links emitted in index.md.
+var markdownLinkRE = regexp.MustCompile(`(^|[^!])\[([^\]]+)\]\(([^)\s]+)\)`)
 
 // candidateWikilinkRE is the broader pattern used for graph edge extraction.
 // It must match the same shape as the renderer.
 var candidateWikilinkRE = regexp.MustCompile(`\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]`)
 
-func renderMarkdown(content []byte, slugToPath map[string]string) template.HTML {
+func renderMarkdown(currentPath string, content []byte, slugToPath map[string]string) template.HTML {
 	lines := strings.Split(stripFrontmatter(string(content)), "\n")
 	var b strings.Builder
 	inCode := false
@@ -803,7 +806,7 @@ func renderMarkdown(content []byte, slugToPath map[string]string) template.HTML 
 			return
 		}
 		b.WriteString("<p>")
-		b.WriteString(renderInline(strings.Join(paragraph, " "), slugToPath))
+		b.WriteString(renderInline(currentPath, strings.Join(paragraph, " "), slugToPath))
 		b.WriteString("</p>\n")
 		paragraph = nil
 	}
@@ -841,7 +844,7 @@ func renderMarkdown(content []byte, slugToPath map[string]string) template.HTML 
 		if level, text, ok := markdownHeading(trimmed); ok {
 			flushParagraph()
 			closeList()
-			fmt.Fprintf(&b, "<h%d>%s</h%d>\n", level, renderInline(text, slugToPath), level)
+			fmt.Fprintf(&b, "<h%d>%s</h%d>\n", level, renderInline(currentPath, text, slugToPath), level)
 			continue
 		}
 		if strings.HasPrefix(trimmed, "- ") {
@@ -851,7 +854,7 @@ func renderMarkdown(content []byte, slugToPath map[string]string) template.HTML 
 				inList = true
 			}
 			b.WriteString("<li>")
-			b.WriteString(renderInline(strings.TrimSpace(strings.TrimPrefix(trimmed, "- ")), slugToPath))
+			b.WriteString(renderInline(currentPath, strings.TrimSpace(strings.TrimPrefix(trimmed, "- ")), slugToPath))
 			b.WriteString("</li>\n")
 			continue
 		}
@@ -889,12 +892,18 @@ func markdownHeading(line string) (int, string, bool) {
 	return level, strings.TrimSpace(line[level+1:]), true
 }
 
-// renderInline rewrites the inline portion of a line: it preserves the raw
-// [[...]] tokens on disk but renders them in HTML as a clean link with just
-// the label text (no visible brackets). Unresolved targets become a subtle
-// dotted span so missing references are still discoverable.
-func renderInline(text string, slugToPath map[string]string) string {
+// renderInline rewrites lightweight inline Markdown used by wiki pages. Index
+// entries use standard Markdown links, while body cross-references may still
+// use [[...]] semantic wikilinks.
+func renderInline(currentPath string, text string, slugToPath map[string]string) string {
 	escaped := html.EscapeString(text)
+	escaped = markdownLinkRE.ReplaceAllStringFunc(escaped, func(match string) string {
+		parts := markdownLinkRE.FindStringSubmatch(match)
+		if len(parts) != 4 {
+			return match
+		}
+		return parts[1] + renderMarkdownAnchor(currentPath, parts[2], html.UnescapeString(parts[3]))
+	})
 	return wikilinkRE.ReplaceAllStringFunc(escaped, func(match string) string {
 		content := strings.Trim(match, "[]")
 		slug := content
@@ -909,6 +918,39 @@ func renderInline(text string, slugToPath map[string]string) string {
 		}
 		return fmt.Sprintf(`<span class="wikilink-missing" title="缺少对应词条页面">%s</span>`, label)
 	})
+}
+
+func renderMarkdownAnchor(currentPath string, label string, target string) string {
+	href, ok := resolveMarkdownHref(currentPath, target)
+	if !ok {
+		return label
+	}
+	return fmt.Sprintf(`<a href="%s">%s</a>`, html.EscapeString(href), label)
+}
+
+func resolveMarkdownHref(currentPath string, target string) (string, bool) {
+	trimmed := strings.TrimSpace(target)
+	lower := strings.ToLower(trimmed)
+	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") || strings.HasPrefix(lower, "mailto:") {
+		return trimmed, true
+	}
+	if strings.HasPrefix(trimmed, "#") {
+		return trimmed, true
+	}
+	if cut := strings.IndexAny(trimmed, "#?"); cut != -1 {
+		trimmed = trimmed[:cut]
+	}
+	if !strings.EqualFold(path.Ext(trimmed), ".md") {
+		return "", false
+	}
+	repoPath := filepath.ToSlash(trimmed)
+	if !strings.HasPrefix(repoPath, "wiki/") {
+		repoPath = path.Clean(path.Join(path.Dir(filepath.ToSlash(currentPath)), repoPath))
+	}
+	if !strings.HasPrefix(repoPath, "wiki/") {
+		return "", false
+	}
+	return "/view?path=" + url.QueryEscape(repoPath), true
 }
 
 // ---------------------------------------------------------------------------

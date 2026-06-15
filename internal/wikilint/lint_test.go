@@ -14,9 +14,9 @@ kind: index
 ---
 
 ## Concepts
-- [[known]] — Known concept.
+- [known](concepts/known.md) — Known concept.
 - [[known]] — Duplicate concept.
-- [[missing-stub]] — Missing stub.
+- [missing-stub](concepts/missing-stub.md) — Missing stub.
 `)
 	writeWikiFile(t, root, "wiki/log.md", `---
 title: Log

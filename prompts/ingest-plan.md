@@ -11,10 +11,12 @@ Rules:
 - Use `kind: topic`.
 - Use `sources: [{{RAW_SOURCE_PATH}}]`.
 - Do not propose wiki/index.md, wiki/log.md, AGENTS.md, or schema files as candidate pages.
-- Candidate pages must be under wiki/sources/, wiki/concepts/, or wiki/topics/.
+- Candidate pages must be under wiki/sources/, wiki/entities/, wiki/concepts/,
+  or wiki/topics/.
 - Candidate pages must be immediate children of those directories: use
-  `wiki/sources/<slug>.md`, `wiki/concepts/<slug>.md`, or
-  `wiki/topics/<slug>.md`. Do not create nested directories.
+  `wiki/sources/<slug>.md`, `wiki/entities/<slug>.md`,
+  `wiki/concepts/<slug>.md`, or `wiki/topics/<slug>.md`. Do not create nested
+  directories.
 - First infer the source kind before proposing non-source pages. Technical
   specifications and APIs usually produce concept pages; tutorials and
   comparisons usually produce topic pages; literary, historical, or narrative
@@ -39,6 +41,7 @@ status: draft
 
 ## Candidate Wiki Pages
 - wiki/sources/<slug>.md — <why>
+- wiki/entities/<slug>.md — <why>
 - wiki/concepts/<slug>.md — <why>
 - wiki/topics/<slug>.md — <why>
 

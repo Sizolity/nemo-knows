@@ -46,13 +46,13 @@ type CandidateFileResult struct {
 	Trace  []string                `json:"trace"`
 }
 
-// EvaluateCandidates scores generated concept/topic candidate drafts.
+// EvaluateCandidates scores generated entity/concept/topic candidate drafts.
 func EvaluateCandidates(bundleDir string) (CandidateResult, error) {
 	return evaluateCandidates("", bundleDir, false)
 }
 
 // EvaluateCandidatesWithRoot scores candidates and verifies wikilinks against
-// the current wiki plus concept/topic candidates named in the apply plan.
+// the current wiki plus entity/concept/topic candidates named in the apply plan.
 func EvaluateCandidatesWithRoot(root string, bundleDir string) (CandidateResult, error) {
 	return evaluateCandidates(root, bundleDir, true)
 }
@@ -108,7 +108,9 @@ func evaluateCandidates(root string, bundleDir string, validateLinks bool) (Cand
 func candidateDraftPaths(applyPlan string) []string {
 	paths := []string{}
 	for _, path := range candidatePaths(applyPlan) {
-		if strings.HasPrefix(path, "wiki/concepts/") || strings.HasPrefix(path, "wiki/topics/") {
+		if strings.HasPrefix(path, "wiki/entities/") ||
+			strings.HasPrefix(path, "wiki/concepts/") ||
+			strings.HasPrefix(path, "wiki/topics/") {
 			paths = append(paths, path)
 		}
 	}
@@ -158,7 +160,10 @@ func scoreCandidateFrontmatter(target string, frontmatter string, trace *[]strin
 		return "fail"
 	}
 	wantKind := "concept"
-	if strings.HasPrefix(target, "wiki/topics/") {
+	switch {
+	case strings.HasPrefix(target, "wiki/entities/"):
+		wantKind = "entity"
+	case strings.HasPrefix(target, "wiki/topics/"):
 		wantKind = "topic"
 	}
 	if kind != wantKind {

@@ -131,8 +131,51 @@ A reviewed concept draft.
 	if err != nil {
 		t.Fatalf("read index: %v", err)
 	}
-	if !strings.Contains(string(index), "- [[llm-maintenance-pattern]] — LLM Maintenance Pattern.") {
+	if !strings.Contains(string(index), "- [llm-maintenance-pattern](concepts/llm-maintenance-pattern.md) — LLM Maintenance Pattern.") {
 		t.Fatalf("index missing concept entry:\n%s", index)
+	}
+}
+
+func TestApplyApprovedAppliesReviewedEntityDraftAndUpdatesIndex(t *testing.T) {
+	root, bundle := makeApplyFixture(t, "pass")
+	writeFile(t, filepath.Join(bundle, "apply-plan.md"), "# Reviewed Ingest Apply Plan\n\n"+
+		"## Candidate Changes\n\n"+
+		"- `wiki/entities/andrej-karpathy.md` — create new page.\n")
+	writeFile(t, filepath.Join(bundle, "candidates", "wiki", "entities", "andrej-karpathy.md"), `---
+title: Andrej Karpathy
+kind: entity
+sources:
+  - raw/llm-wiki.md
+confidence: medium
+---
+
+# Andrej Karpathy
+
+A reviewed entity draft.
+`)
+
+	result, err := ApplyApproved(root, bundle, Options{Approve: true})
+	if err != nil {
+		t.Fatalf("ApplyApproved returned error: %v", err)
+	}
+	if !contains(result.Written, "wiki/entities/andrej-karpathy.md") {
+		t.Fatalf("expected entity draft to be written, got %#v", result.Written)
+	}
+
+	applied, err := os.ReadFile(filepath.Join(root, "wiki", "entities", "andrej-karpathy.md"))
+	if err != nil {
+		t.Fatalf("read applied entity: %v", err)
+	}
+	if !strings.Contains(string(applied), "A reviewed entity draft.") {
+		t.Fatalf("entity content not applied:\n%s", applied)
+	}
+
+	index, err := os.ReadFile(filepath.Join(root, "wiki", "index.md"))
+	if err != nil {
+		t.Fatalf("read index: %v", err)
+	}
+	if !strings.Contains(string(index), "- [andrej-karpathy](entities/andrej-karpathy.md) — Andrej Karpathy.") {
+		t.Fatalf("index missing entity entry:\n%s", index)
 	}
 }
 
@@ -169,7 +212,7 @@ Reviewed source summary.
 	if err != nil {
 		t.Fatalf("read index: %v", err)
 	}
-	if !strings.Contains(string(index), "- [[new-source]] — New Source.") {
+	if !strings.Contains(string(index), "- [new-source](sources/new-source.md) — New Source.") {
 		t.Fatalf("index missing source entry:\n%s", index)
 	}
 }
@@ -242,6 +285,31 @@ sources:
 	}
 }
 
+func TestApplyApprovedRejectsUnsafeEntityTraversalPath(t *testing.T) {
+	root, bundle := makeApplyFixture(t, "pass")
+	writeFile(t, filepath.Join(bundle, "apply-plan.md"), "# Reviewed Ingest Apply Plan\n\n"+
+		"## Candidate Changes\n\n"+
+		"- `wiki/entities/../../secrets.md` — create new page.\n")
+
+	result, err := ApplyApproved(root, bundle, Options{Approve: true})
+	if err != nil {
+		t.Fatalf("ApplyApproved returned error: %v", err)
+	}
+	if len(result.Written) != 0 {
+		t.Fatalf("expected no unsafe entity writes, got %#v", result.Written)
+	}
+	report, err := os.ReadFile(filepath.Join(bundle, "apply-report.md"))
+	if err != nil {
+		t.Fatalf("read apply report: %v", err)
+	}
+	if !strings.Contains(string(report), "unsupported candidate target") {
+		t.Fatalf("report missing unsafe target skip reason:\n%s", report)
+	}
+	if _, err := os.Stat(filepath.Join(root, "wiki", "secrets.md")); err == nil {
+		t.Fatal("unsafe traversal target should not be written")
+	}
+}
+
 func TestApplyApprovedSkipsCandidateWithoutReviewedDraft(t *testing.T) {
 	root, bundle := makeApplyFixture(t, "pass")
 
@@ -267,6 +335,7 @@ func makeApplyFixture(t *testing.T, overall string) (string, string) {
 	root := t.TempDir()
 	for _, dir := range []string{
 		filepath.Join(root, "wiki", "sources"),
+		filepath.Join(root, "wiki", "entities"),
 		filepath.Join(root, "wiki", "concepts"),
 		filepath.Join(root, "wiki", "topics"),
 		filepath.Join(root, "drafts", "bundle"),
@@ -277,7 +346,7 @@ func makeApplyFixture(t *testing.T, overall string) (string, string) {
 	}
 
 	writeFile(t, filepath.Join(root, "wiki", "sources", "llm-wiki.md"), "---\nkind: source\n---\n# Old\n")
-	writeFile(t, filepath.Join(root, "wiki", "index.md"), "---\ntitle: Index\nkind: index\n---\n\n## Sources\n- [[llm-wiki]] — Existing source.\n")
+	writeFile(t, filepath.Join(root, "wiki", "index.md"), "---\ntitle: Index\nkind: index\n---\n\n## Sources\n- [llm-wiki](sources/llm-wiki.md) — Existing source.\n")
 	writeFile(t, filepath.Join(root, "wiki", "log.md"), "# Log\n")
 
 	bundle := filepath.Join(root, "drafts", "bundle")

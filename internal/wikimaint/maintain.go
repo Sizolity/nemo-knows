@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	wikischema "github.com/huic/nemo-knows/internal/wiki"
 	"github.com/huic/nemo-knows/internal/wikilint"
 )
 
@@ -25,7 +26,6 @@ const (
 
 var (
 	frontmatterBlockRE = regexp.MustCompile(`(?s)^---\s*\n(.*?)\n---\s*`)
-	indexEntryRE       = regexp.MustCompile(`^- \[\[([^\]|#]+)(?:[|#][^\]]*)?\]\].*$`)
 	fmLineRE           = regexp.MustCompile(`(?m)^([A-Za-z0-9_-]+):\s*(.+?)\s*$`)
 	taskIDCleanRE      = regexp.MustCompile(`[^a-z0-9-]+`)
 )
@@ -271,7 +271,7 @@ func desiredIndexEntries(pages []wikiPage) map[string]map[string]string {
 		if _, ok := desired[page.Kind]; !ok {
 			continue
 		}
-		desired[page.Kind][page.Slug] = fmt.Sprintf("- [[%s]] — %s.", page.Slug, page.Title)
+		desired[page.Kind][page.Slug] = wikischema.FormatIndexEntry(page.Path, page.Title)
 	}
 	return desired
 }
@@ -332,17 +332,16 @@ func syncSectionBody(heading string, section string, desired map[string]string) 
 		if strings.TrimSpace(line) == "(none yet)" && len(desired) > 0 {
 			continue
 		}
-		match := indexEntryRE.FindStringSubmatch(line)
-		if len(match) != 2 {
+		slug, ok := wikischema.IndexEntrySlug(line)
+		if !ok {
 			kept = append(kept, line)
 			continue
 		}
-		slug := match[1]
 		if _, ok := desired[slug]; !ok {
 			actions = append(actions, Action{
 				Type:    "index-remove",
 				Path:    "wiki/index.md",
-				Message: "removed stale index entry [[" + slug + "]] from " + heading,
+				Message: "removed stale index entry " + slug + " from " + heading,
 			})
 			continue
 		}
@@ -350,12 +349,19 @@ func syncSectionBody(heading string, section string, desired map[string]string) 
 			actions = append(actions, Action{
 				Type:    "index-dedupe",
 				Path:    "wiki/index.md",
-				Message: "removed duplicate index entry [[" + slug + "]] from " + heading,
+				Message: "removed duplicate index entry " + slug + " from " + heading,
 			})
 			continue
 		}
 		seen[slug] = true
-		entries = append(entries, line)
+		entries = append(entries, desired[slug])
+		if line != desired[slug] {
+			actions = append(actions, Action{
+				Type:    "index-normalize",
+				Path:    "wiki/index.md",
+				Message: "normalized index entry " + slug + " in " + heading,
+			})
+		}
 	}
 
 	for _, slug := range sortedSlugs(desired) {
@@ -366,7 +372,7 @@ func syncSectionBody(heading string, section string, desired map[string]string) 
 		actions = append(actions, Action{
 			Type:    "index-add",
 			Path:    "wiki/index.md",
-			Message: "added missing index entry [[" + slug + "]] to " + heading,
+			Message: "added missing index entry " + slug + " to " + heading,
 		})
 	}
 

@@ -10,8 +10,9 @@ Rules:
 - Use kind: topic.
 - Use the provided topic name as the page title, but keep it concise: no more
   than 8 English words or 18 Chinese characters.
-- Use Obsidian-style wikilinks only when the source material clearly supports
-  the relationship.
+- Use Obsidian-style wikilinks only as semantic cross-references when the
+  source material clearly supports the relationship. Do not use wikilinks as
+  index/navigation entries.
 - Only use wikilinks from the Allowed Links list. If a term is not listed or the
   source does not support the relationship, write it as plain text.
 - Wikilinks are optional. Do not add a Related Concepts section just to include

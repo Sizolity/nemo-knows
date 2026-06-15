@@ -569,14 +569,14 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 case "$(cat "$prompt_file")" in
-  *"raw/web/qwen-llama-cpp.md"*) ;;
+  *"pipeline/raw/web/qwen-llama-cpp.md"*) ;;
   *) echo "missing durable raw path in prompt" >&2; exit 1 ;;
 esac
 cat <<'EOF'
 ---
 kind: source
 sources:
-  - raw/web/qwen-llama-cpp.md
+  - pipeline/raw/web/qwen-llama-cpp.md
 ---
 
 # Draft
@@ -591,7 +591,7 @@ EOF
 		t.Fatalf("run returned exit code %d", code)
 	}
 
-	persisted, err := os.ReadFile("raw/web/qwen-llama-cpp.md")
+	persisted, err := os.ReadFile("pipeline/raw/web/qwen-llama-cpp.md")
 	if err != nil {
 		t.Fatalf("read persisted raw source: %v", err)
 	}
@@ -759,6 +759,7 @@ This is a review artifact. Do not apply this plan automatically.
 	}
 	for _, path := range []string{
 		filepath.Join(outDir, "scores.json"),
+		filepath.Join(bundle, "scores.json"),
 		filepath.Join(outDir, "trace.md"),
 	} {
 		if _, err := os.Stat(path); err != nil {
@@ -960,7 +961,7 @@ func TestRunMaintainsWikiSafeMode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read index: %v", err)
 	}
-	if !strings.Contains(string(index), "[[known]]") || strings.Contains(string(index), "[[stale]]") {
+	if !strings.Contains(string(index), "[known](concepts/known.md)") || strings.Contains(string(index), "stale.md") {
 		t.Fatalf("unexpected maintained index:\n%s", index)
 	}
 	log, err := os.ReadFile("wiki/log.md")
@@ -1228,16 +1229,29 @@ EOF
 func TestSourceRefsForCandidateExtractsInlineRawSources(t *testing.T) {
 	refs := sourceRefsForCandidate([]byte(`---
 kind: source
-sources: [raw/web/qwen-llama-cpp.md]
+sources: [pipeline/raw/web/qwen-llama-cpp.md]
 confidence: medium
 ---
 
 # Source Summary
 `))
 
-	want := []string{"source.md", "raw/web/qwen-llama-cpp.md"}
+	want := []string{"source.md", "pipeline/raw/web/qwen-llama-cpp.md"}
 	if strings.Join(refs, ",") != strings.Join(want, ",") {
 		t.Fatalf("refs = %v, want %v", refs, want)
+	}
+}
+
+func TestCandidateDraftTargetsIncludesEntities(t *testing.T) {
+	targets := candidateDraftTargets("## Candidate Changes\n\n" +
+		"- `wiki/entities/andrej-karpathy.md` — create new page.\n" +
+		"- `wiki/concepts/persistent-wiki.md` — create new page.\n" +
+		"- `wiki/sources/source.md` — create new page.\n")
+	if len(targets) != 2 {
+		t.Fatalf("target count = %d, want 2: %#v", len(targets), targets)
+	}
+	if targets[0].Kind != "entity" || targets[0].Path != "wiki/entities/andrej-karpathy.md" {
+		t.Fatalf("first target = %#v, want entity", targets[0])
 	}
 }
 
@@ -1597,7 +1611,7 @@ func TestRunApplyApprovedAppliesBundle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read index: %v", err)
 	}
-	if !strings.Contains(string(index), "[[llm-maintenance-pattern]]") {
+	if !strings.Contains(string(index), "[llm-maintenance-pattern](concepts/llm-maintenance-pattern.md)") {
 		t.Fatalf("index was not updated:\n%s", index)
 	}
 	if _, err := os.Stat("drafts/bundle/apply-report.md"); err != nil {
@@ -1652,5 +1666,61 @@ func TestRunApplyApprovedSupportsForceApply(t *testing.T) {
 	}
 	if code := run([]string{"-apply-approved", "drafts/bundle", "-approve", "-force-apply"}); code != 0 {
 		t.Fatalf("force apply returned exit code %d", code)
+	}
+}
+
+func TestRunQueryFilesApprovedTopic(t *testing.T) {
+	dir := t.TempDir()
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("get wd: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(oldWd); err != nil {
+			t.Fatalf("restore wd: %v", err)
+		}
+	}()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("chdir temp repo: %v", err)
+	}
+
+	for _, path := range []string{"wiki/sources", "wiki/topics"} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", path, err)
+		}
+	}
+	if err := os.WriteFile("wiki/index.md", []byte("---\ntitle: Index\nkind: index\n---\n\n## Sources\n\n- [sqlite-wal](sources/sqlite-wal.md) — SQLite WAL.\n\n## Topics\n\n(none yet)\n"), 0o644); err != nil {
+		t.Fatalf("write index: %v", err)
+	}
+	if err := os.WriteFile("wiki/log.md", []byte("# Log\n"), 0o644); err != nil {
+		t.Fatalf("write log: %v", err)
+	}
+	if err := os.WriteFile("wiki/sources/sqlite-wal.md", []byte("---\ntitle: SQLite WAL\nkind: source\nsources:\n  - pipeline/raw/sqlite-wal.md\nconfidence: medium\n---\n\n# SQLite WAL\n\nSQLite WAL lets readers keep a stable snapshot while writers append changes to the write-ahead log.\n"), 0o644); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+
+	if code := run([]string{"-query", "How does WAL help readers?"}); code != 0 {
+		t.Fatalf("read-only query returned exit code %d", code)
+	}
+	if _, err := os.Stat("wiki/topics/wal-reader-concurrency.md"); !os.IsNotExist(err) {
+		t.Fatalf("read-only query should not write topic, stat err=%v", err)
+	}
+
+	if code := run([]string{"-query", "How does WAL help readers?", "-file-query", "-approve", "-out", "wiki/topics/wal-reader-concurrency.md"}); code != 0 {
+		t.Fatalf("approved filed query returned exit code %d", code)
+	}
+	topic, err := os.ReadFile("wiki/topics/wal-reader-concurrency.md")
+	if err != nil {
+		t.Fatalf("read topic: %v", err)
+	}
+	if !strings.Contains(string(topic), "source: wiki/sources/sqlite-wal.md") {
+		t.Fatalf("topic missing source citation:\n%s", topic)
+	}
+	log, err := os.ReadFile("wiki/log.md")
+	if err != nil {
+		t.Fatalf("read log: %v", err)
+	}
+	if !strings.Contains(string(log), "query-filed | How does WAL help readers") {
+		t.Fatalf("log missing query-filed entry:\n%s", log)
 	}
 }

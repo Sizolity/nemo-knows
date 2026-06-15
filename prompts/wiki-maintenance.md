@@ -1,7 +1,7 @@
 You are maintaining a local LLM wiki. Work only from the wiki snapshot and
 maintenance tasks below. Do not read or invent raw source material. Preserve the
-schema described by AGENTS.md: frontmatter, wikilinks, confidence, and concise
-plain prose.
+schema described by AGENTS.md: frontmatter, semantic wikilinks, confidence,
+and concise plain prose.
 
 Return JSON only, with this shape:
 
