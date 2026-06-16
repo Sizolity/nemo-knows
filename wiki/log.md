@@ -263,3 +263,56 @@ References:
 - wiki/topics/data-preservation-formats.md
 - wiki/sources/sqlite-wal.md
 Open: review whether this filed answer should be expanded after future ingests.
+
+## [2026-06-16] schema-change | wiki/assets image reference convention
+
+Defined how wiki pages reference binary assets. Images, diagrams, and slides
+live under `wiki/assets/<group>/<file>` and are embedded with standard Markdown
+image syntax using a page-relative path, e.g.
+`![alt](../assets/<group>/<file>.png)`. Local image targets must resolve to an
+existing file under `wiki/assets/`; `http(s)://` images are allowed and not
+existence-checked. The tooling now backs this convention end to end: the web
+console renders `![alt](src)` as inline `<img>` and serves `wiki/assets/`
+read-only under `/assets/`, and the lint pass reports missing local images as
+`missing-image`. A minimal source page plus a slide figure under
+`wiki/assets/c10s1-slides/` exercise the mechanism end to end; additional
+MIT 6.004 slide PNGs can be dropped into the same directory and referenced the
+same way.
+
+Touched:
+- AGENTS.md (updated: §2 gained an "Images and assets" convention)
+- wiki/assets/c10s1-slides/ (slide figures for the demo source)
+- wiki/sources/mit-6004-c10s1-assembly-models.md (created: demo source page)
+- wiki/index.md (updated: added the source under Sources)
+- wiki/log.md (updated)
+Open: ingest-side handling of binary assets (copying source attachments into
+wiki/assets/ during import) is not yet implemented; see the development report.
+
+## [2026-06-16] schema-change | adopt Markdown relative links, retire wikilinks
+
+Replaced the Obsidian-style double-bracket cross-reference convention with
+standard Markdown relative links so internal references are direct file jumps
+that need no slug-to-path resolution layer in the renderer. A reference target
+slug now resolves to the target page's path, and the link is written relative to
+the linking page's folder: a sibling page is `name.md` and a page in another
+wiki folder is `../folder/name.md`. Labels follow the rule "explicit label wins,
+otherwise the target page's frontmatter title, otherwise the slug text"; a
+reference whose target page does not exist degrades to plain text instead of a
+dangling link.
+
+Existing wiki content was migrated with the shared `internal/wiki` converter: 2
+references were rewritten, both pointing at the Data Preservation Formats topic
+via a relative `../topics/data-preservation-formats.md` path —
+`wiki/entities/sqlite.md` and `wiki/concepts/serverless-database.md`. The lint
+and candidate-eval gates now report any residual double-bracket reference as
+`forbidden-wikilink` (error) and any relative link whose target file is missing
+as `missing-link-target` (error). Slugs stay globally unique and are still used
+for page identity and de-duplication; only the cross-reference syntax changed.
+
+Touched:
+- wiki/entities/sqlite.md (updated: cross-reference converted to a relative link)
+- wiki/concepts/serverless-database.md (updated: cross-reference converted)
+- wiki/AGENTS.md (updated: §"Links" convention and lint rules)
+- wiki/log.md (updated)
+Open: a rename/move workflow that rewrites inbound relative links automatically,
+so `missing-link-target` stays empty without manual edits after a page moves.

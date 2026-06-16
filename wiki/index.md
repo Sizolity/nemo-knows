@@ -1,7 +1,7 @@
 ---
 title: Index
 kind: index
-updated: 2026-06-15
+updated: 2026-06-16
 ---
 
 # Index
@@ -13,6 +13,7 @@ updated: 2026-06-15
 - [qwen-llama-cpp](sources/qwen-llama-cpp.md) — Notes on running Qwen models locally with llama.cpp, GGUF files, and generation parameters.
 - [sqlite-wal](sources/sqlite-wal.md) — Notes on SQLite write-ahead logging, reader/writer concurrency, checkpoints, and operational trade-offs.
 - [sqlite-overview](sources/sqlite-overview.md) — Distilled SQLite documentation: serverless single-file engine, public-domain stewardship, ubiquity, and ACID/WAL reliability.
+- [mit-6004-c10s1-assembly-models](sources/mit-6004-c10s1-assembly-models.md) — MIT 6.004 lecture 10.1 annotated slides on assembly language and models of computation; carries the wiki image-assets demo figure.
 
 ## Entities
 

@@ -60,4 +60,13 @@ wiki/assets/*
 !wiki/concepts/.gitkeep
 !wiki/topics/.gitkeep
 !wiki/assets/.gitkeep
+# Promoted demo assets for the image-assets capability (real MIT 6.004 slides).
+# The directory must be re-included before its files can be tracked, since
+# wiki/assets/* ignores the subdirectory itself.
+!wiki/assets/c10s1-slides/
+!wiki/assets/c10s1-slides/Slide02.png
+!wiki/assets/c10s1-slides/Slide03.png
+!wiki/assets/c10s1-slides/Slide04.png
+!wiki/assets/c10s1-slides/Slide05.png
+!wiki/assets/c10s1-slides/Slide06.png
 scratch/
