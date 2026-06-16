@@ -1,0 +1,21 @@
+{
+  "bundle": "pipeline/drafts/entity-sqlite-20260615",
+  "scores": {
+    "schema": "pass",
+    "wiki_safety": "pass",
+    "candidate_paths": "pass",
+    "duplicate_detection": "pass",
+    "source_completeness": "pass",
+    "apply_plan_coverage": "pass",
+    "apply_readiness": "pass",
+    "overall": "pass"
+  },
+  "trace": [
+    "schema: all required review checks present",
+    "wiki_safety: no-auto-apply warning present",
+    "candidate_paths: 4 legal candidates",
+    "duplicate_detection: duplicates are labeled or no obvious duplicate",
+    "source_completeness: no raw truncation markers found",
+    "apply_plan_coverage: planned pages are represented by generated artifacts"
+  ]
+}
