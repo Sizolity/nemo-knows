@@ -168,6 +168,20 @@ nav { display: flex; gap: 16px; }
   max-width: 860px;
 }
 
+.content img {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  display: block;
+  height: auto;
+  margin: 1em auto;
+  max-width: 100%;
+}
+
+.image-missing {
+  color: var(--muted);
+  font-style: italic;
+}
+
 .content pre {
   background: #f3f3f3;
   border: 1px solid var(--line);

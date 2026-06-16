@@ -16,6 +16,7 @@ import (
 	"io"
 	"io/fs"
 	"math"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
@@ -30,6 +31,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/huic/nemo-knows/internal/config"
+	wikischema "github.com/huic/nemo-knows/internal/wiki"
 )
 
 const maxMarkdownUploadBytes = 4 << 20
@@ -138,6 +140,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/build", s.handleBuild)
 	mux.HandleFunc("/graph", s.handleGraph)
 	mux.HandleFunc("/view", s.handleView)
+
+	// Wiki assets (images, diagrams) are served read-only from wiki/assets/.
+	mux.HandleFunc("/assets/", s.handleAsset)
 
 	// Static assets are served from the embedded FS under /static/.
 	staticSub, err := fs.Sub(staticFS, "static")
@@ -315,6 +320,61 @@ func (s *Server) handleView(w http.ResponseWriter, r *http.Request) {
 	data.Path = path
 	data.Content = renderWebContent(path, content, slugToPath)
 	s.render(w, "view", data)
+}
+
+// handleAsset serves files from wiki/assets/ over the read-only /assets/ route.
+// It is GET/HEAD only, rejects any path that escapes wiki/assets/, and sets the
+// content type from the file extension with nosniff so a stored file cannot be
+// reinterpreted as a different type by the browser.
+func (s *Server) handleAsset(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	repoPath, ok := cleanAssetPath(strings.TrimPrefix(r.URL.Path, "/assets/"))
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	full := filepath.FromSlash(repoPath)
+	info, err := os.Stat(full)
+	if err != nil || info.IsDir() {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", assetContentType(repoPath))
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	http.ServeFile(w, r, full)
+}
+
+// cleanAssetPath validates a decoded /assets/ request path and maps it to a
+// repo-relative path under wiki/assets/. It rejects absolute paths, empty
+// segments, and any "." or ".." segment so traversal outside wiki/assets/ is
+// impossible. The returned path is always within wiki/assets/.
+func cleanAssetPath(rel string) (string, bool) {
+	rel = strings.TrimSpace(filepath.ToSlash(rel))
+	if rel == "" || strings.HasPrefix(rel, "/") {
+		return "", false
+	}
+	for _, seg := range strings.Split(rel, "/") {
+		if seg == "" || seg == "." || seg == ".." {
+			return "", false
+		}
+	}
+	repoPath := "wiki/assets/" + rel
+	if cleaned := path.Clean(repoPath); cleaned != repoPath || !strings.HasPrefix(cleaned, "wiki/assets/") {
+		return "", false
+	}
+	return repoPath, true
+}
+
+// assetContentType returns the MIME type for a wiki asset based on its
+// extension, falling back to a generic binary type for unknown extensions.
+func assetContentType(repoPath string) string {
+	if ct := mime.TypeByExtension(path.Ext(repoPath)); ct != "" {
+		return ct
+	}
+	return "application/octet-stream"
 }
 
 func (s *Server) handleBuild(w http.ResponseWriter, r *http.Request) {
@@ -682,15 +742,16 @@ func buildWikiGraph(limit int) ([]webGraphNode, []webGraphEdge) {
 		if err != nil {
 			continue
 		}
-		matches := candidateWikilinkRE.FindAllStringSubmatch(string(content), -1)
-		for _, match := range matches {
-			targetSlug := slugFromLink(match[1])
-			toPath := pathBySlug[targetSlug]
+		addEdge := func(targetSlug string) {
+			if targetSlug == "" {
+				return
+			}
 			key := from + "->" + targetSlug
 			if seen[key] {
-				continue
+				return
 			}
 			seen[key] = true
+			toPath := pathBySlug[targetSlug]
 			edges = append(edges, webGraphEdge{
 				From:     titleByPath[from],
 				FromPath: from,
@@ -698,6 +759,16 @@ func buildWikiGraph(limit int) ([]webGraphNode, []webGraphEdge) {
 				ToPath:   toPath,
 				Known:    toPath != "",
 			})
+		}
+		// Primary edge source: Markdown relative links between wiki pages.
+		for _, href := range wikischema.MarkdownLinkTargets(string(content)) {
+			if repoPath, ok := wikischema.RepoPathFromHref(from, href); ok && strings.HasPrefix(repoPath, "wiki/") {
+				addEdge(slugFromWikiPath(repoPath))
+			}
+		}
+		// Defensive fallback: any residual [[wikilink]] still contributes an edge.
+		for _, match := range candidateWikilinkRE.FindAllStringSubmatch(string(content), -1) {
+			addEdge(slugFromLink(match[1]))
 		}
 	}
 	return nodes, edges
@@ -789,6 +860,12 @@ var wikilinkRE = regexp.MustCompile(`\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]`)
 
 // markdownLinkRE matches the simple inline Markdown links emitted in index.md.
 var markdownLinkRE = regexp.MustCompile(`(^|[^!])\[([^\]]+)\]\(([^)\s]+)\)`)
+
+// markdownImageRE matches an inline Markdown image: ![alt](src). The alt text
+// may be empty. It is intentionally processed before markdownLinkRE so the
+// leading "!" is consumed here rather than tripping the link matcher (which
+// deliberately skips a "!" prefix).
+var markdownImageRE = regexp.MustCompile(`!\[([^\]]*)\]\(([^)\s]+)\)`)
 
 // candidateWikilinkRE is the broader pattern used for graph edge extraction.
 // It must match the same shape as the renderer.
@@ -892,11 +969,23 @@ func markdownHeading(line string) (int, string, bool) {
 	return level, strings.TrimSpace(line[level+1:]), true
 }
 
-// renderInline rewrites lightweight inline Markdown used by wiki pages. Index
-// entries use standard Markdown links, while body cross-references may still
-// use [[...]] semantic wikilinks.
+// renderInline rewrites lightweight inline Markdown used by wiki pages. Both
+// index entries and body cross-references use standard Markdown relative links,
+// which resolve directly to a file (a true file-to-file jump). The [[...]]
+// wikilink branch is retained only as a defensive fallback for any legacy
+// content that has not yet been migrated; maintained pages no longer rely on it.
 func renderInline(currentPath string, text string, slugToPath map[string]string) string {
 	escaped := html.EscapeString(text)
+	// Images are resolved before links: the alt text is already HTML-escaped by
+	// html.EscapeString above (safe for an attribute value), while the src is
+	// unescaped before resolution and re-escaped when emitted.
+	escaped = markdownImageRE.ReplaceAllStringFunc(escaped, func(match string) string {
+		parts := markdownImageRE.FindStringSubmatch(match)
+		if len(parts) != 3 {
+			return match
+		}
+		return renderMarkdownImage(currentPath, parts[1], html.UnescapeString(parts[2]))
+	})
 	escaped = markdownLinkRE.ReplaceAllStringFunc(escaped, func(match string) string {
 		parts := markdownLinkRE.FindStringSubmatch(match)
 		if len(parts) != 4 {
@@ -951,6 +1040,96 @@ func resolveMarkdownHref(currentPath string, target string) (string, bool) {
 		return "", false
 	}
 	return "/view?path=" + url.QueryEscape(repoPath), true
+}
+
+// renderMarkdownImage turns a Markdown image into a safe <img> tag. escapedAlt
+// is the alt text after html.EscapeString (already safe for an attribute), and
+// target is the raw, unescaped src. Unresolvable, unsafe, or non-image targets
+// degrade to the alt text (or a missing-image marker) instead of emitting a tag.
+func renderMarkdownImage(currentPath string, escapedAlt string, target string) string {
+	src, ok := resolveImageSrc(currentPath, target)
+	if !ok {
+		if strings.TrimSpace(escapedAlt) == "" {
+			return `<span class="image-missing" title="无法解析的图片引用">[缺少图片]</span>`
+		}
+		return escapedAlt
+	}
+	return fmt.Sprintf(`<img src="%s" alt="%s" loading="lazy">`, html.EscapeString(src), escapedAlt)
+}
+
+// resolveImageSrc maps a Markdown image target to a URL the console can serve.
+// http/https targets pass through unchanged. Local targets are resolved
+// relative to the current page (or taken as repo-relative when they already
+// start with wiki/) and must land on an image file under wiki/assets/, which is
+// served by the read-only /assets/ route. Anything that escapes wiki/assets/,
+// carries a scheme other than http/https, or is not a known image extension is
+// rejected so the caller can degrade safely.
+func resolveImageSrc(currentPath string, target string) (string, bool) {
+	trimmed := strings.TrimSpace(target)
+	if trimmed == "" {
+		return "", false
+	}
+	lower := strings.ToLower(trimmed)
+	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
+		return trimmed, true
+	}
+	// Reject any other scheme or protocol-relative URL; only local assets remain.
+	if strings.Contains(trimmed, "://") || strings.HasPrefix(trimmed, "//") {
+		return "", false
+	}
+	if cut := strings.IndexAny(trimmed, "#?"); cut != -1 {
+		trimmed = trimmed[:cut]
+	}
+	if !isImageExt(path.Ext(trimmed)) {
+		return "", false
+	}
+	repoPath, ok := assetRepoPath(currentPath, trimmed)
+	if !ok {
+		return "", false
+	}
+	return assetURL(repoPath), true
+}
+
+// assetRepoPath resolves a local image target to a repo-relative path under
+// wiki/assets/. Relative targets are joined onto the directory of currentPath;
+// targets already rooted at wiki/ are cleaned in place. The cleaned result must
+// stay within wiki/assets/, which rejects any "../" traversal that escapes it.
+func assetRepoPath(currentPath string, target string) (string, bool) {
+	repoPath := filepath.ToSlash(target)
+	if !strings.HasPrefix(repoPath, "wiki/") {
+		repoPath = path.Clean(path.Join(path.Dir(filepath.ToSlash(currentPath)), repoPath))
+	} else {
+		repoPath = path.Clean(repoPath)
+	}
+	if repoPath != "wiki/assets" && !strings.HasPrefix(repoPath, "wiki/assets/") {
+		return "", false
+	}
+	if repoPath == "wiki/assets" || strings.Contains(repoPath, "../") {
+		return "", false
+	}
+	return repoPath, true
+}
+
+// assetURL builds the /assets/ URL for a wiki/assets/ repo path, escaping each
+// path segment so filenames with spaces or reserved characters stay valid.
+func assetURL(repoPath string) string {
+	rel := strings.TrimPrefix(repoPath, "wiki/assets/")
+	segments := strings.Split(rel, "/")
+	for i, seg := range segments {
+		segments[i] = url.PathEscape(seg)
+	}
+	return "/assets/" + strings.Join(segments, "/")
+}
+
+// isImageExt reports whether ext (including the leading dot) is a renderable
+// raster/vector image type the console is willing to emit as an <img> tag.
+func isImageExt(ext string) bool {
+	switch strings.ToLower(ext) {
+	case ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".avif", ".bmp", ".ico":
+		return true
+	default:
+		return false
+	}
 }
 
 // ---------------------------------------------------------------------------
