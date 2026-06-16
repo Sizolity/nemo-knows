@@ -197,3 +197,69 @@ Touched:
 - wiki/AGENTS.md (created)
 - AGENTS.md (rewritten — project scope only)
 - wiki/log.md (updated)
+
+## [2026-06-15] query-filed | SQLite WAL concurrency and checkpoint trade-offs
+Question: SQLite WAL concurrency and checkpoint trade-offs
+Touched:
+- topics/sqlite-wal-concurrency-checkpoint-trade-offs.md (created)
+- index.md (updated)
+References:
+- wiki/sources/sqlite-wal.md
+Open: review whether this filed answer should be expanded after future ingests.
+
+## [2026-06-15] schema-change | index.md is navigation-only
+
+Removed the per-section usage descriptions and the top overview prose
+from `index.md`, making it navigation-only (category headings plus
+single-line Markdown relative-link entries, or `(none yet)`). Category
+meanings now live solely in `AGENTS.md` §0, and §2 gained an "Index
+format" convention plus a §9 rule forbidding explanatory prose in the
+index. The index append/normalize tooling no longer depends on this
+prose and now replaces the `(none yet)` placeholder when a section
+gains its first entry.
+Touched:
+- AGENTS.md (updated)
+- index.md (updated)
+Open: none.
+
+## [2026-06-15] ingest | SQLite Database Engine Overview
+Source: pipeline/raw/web/sqlite.md
+Applied bundle: pipeline/drafts/entity-sqlite-20260615
+Touched:
+- wiki/concepts/serverless-database.md (created)
+- wiki/index.md (updated)
+- wiki/entities/sqlite.md (created)
+- wiki/sources/sqlite.md (created)
+- wiki/topics/data-preservation-formats.md (created)
+Open: review skipped candidates before creating entity, concept, or topic pages.
+
+## [2026-06-15] lint | sqlite slug uniqueness and title fix
+Resolved a cross-category slug collision surfaced during E2E testing: the source
+page that ingest created at `wiki/sources/sqlite.md` shared the slug `sqlite`
+with `wiki/entities/sqlite.md`, leaving `[[sqlite]]` ambiguous and (via a
+slug-only index check) keeping the source page out of the index. Adopted
+wiki-wide slug uniqueness; source pages are named after the external document
+rather than the entity, so the source page was renamed to `sqlite-overview`.
+The entity title casing was also corrected from the slug-derived `Sqlite` back
+to `SQLite`.
+Touched:
+- wiki/sources/sqlite-overview.md (renamed from wiki/sources/sqlite.md)
+- wiki/entities/sqlite.md (updated: title cased SQLite; sources cite wiki/sources/sqlite-overview.md)
+- wiki/concepts/serverless-database.md (updated: sources cite wiki/sources/sqlite-overview.md)
+- wiki/topics/data-preservation-formats.md (updated: sources cite wiki/sources/sqlite-overview.md)
+- wiki/index.md (updated: added sqlite-overview under Sources; corrected the entity entry to SQLite)
+- wiki/log.md (updated)
+Open: none.
+
+## [2026-06-15] query-filed | What makes SQLite suitable for long-term data preservation
+Question: What makes SQLite suitable for long-term data preservation
+Touched:
+- topics/makes-sqlite-suitable-long-term-data.md (created)
+- index.md (updated)
+References:
+- wiki/entities/sqlite.md
+- wiki/concepts/serverless-database.md
+- wiki/sources/sqlite-overview.md
+- wiki/topics/data-preservation-formats.md
+- wiki/sources/sqlite-wal.md
+Open: review whether this filed answer should be expanded after future ingests.

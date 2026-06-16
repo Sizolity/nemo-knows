@@ -36,8 +36,11 @@ touch many files in one pass.
 ### How the wiki works
 
 - **`index.md`** is the entry point for every operation. It catalogues
-  every page by category. Start here before any query, ingest, or lint
-  pass.
+  every page by category and is navigation-only: under each category
+  heading it lists one entry per page (or `(none yet)`), with no
+  explanatory prose. What each category holds is defined in this list,
+  not repeated inside the index. Start here before any query, ingest, or
+  lint pass.
 - **`log.md`** is the append-only audit trail. Every ingest, filed
   query, lint pass, and schema change is recorded here.
 - **`sources/`** holds one page per ingested external document — what it
@@ -107,6 +110,21 @@ wikilinks identify related page slugs and are not the index navigation format.
 Use standard Markdown links with relative paths for non-semantic navigation
 or references outside the wiki. Inline citations look like
 `(see [[ada-lovelace]])` or `(source: wiki/sources/some-source.md §3)`.
+
+**Index format.** `index.md` is navigation-only. It contains the four
+category headings — `## Sources`, `## Entities`, `## Concepts`,
+`## Topics` — and, under each, one catalogue entry per page, or the literal
+placeholder `(none yet)` when the category has no pages. Each entry is a
+single line: a standard Markdown relative link followed by a one-line
+description, e.g.
+`- [sqlite-wal](sources/sqlite-wal.md) — Notes on SQLite write-ahead logging.`
+Do not write per-section usage descriptions or any other explanatory prose
+in the index; what each category holds is defined once in §0 (How the wiki
+works), which is the single source for that guidance. Tooling generates and
+normalizes the index from this format, so prose placed under a heading is
+treated as noise and removed on the next maintenance pass. Adding the first
+entry to a category replaces its `(none yet)` placeholder, and a category
+that loses its last entry has the placeholder restored.
 
 **Length.** Prefer many short, focused pages over one long page. If a
 page exceeds ~600 lines or starts covering more than one subject, split
@@ -247,6 +265,9 @@ otherwise wait for the user.
 
 - Do not modify or delete `index.md` or `log.md` structural sections;
   only append to the log and update the index catalogue.
+- Do not add per-section usage notes or other explanatory prose to
+  `index.md`; it is navigation-only (see §2, Index format). Category
+  meanings belong in §0 of this schema.
 - Do not invent `kind` values, subdirectories, or frontmatter fields
   without updating this schema and notifying the user.
 - Do not collapse `log.md` or rewrite past entries. It is an audit
