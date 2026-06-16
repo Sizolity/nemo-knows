@@ -14,20 +14,26 @@ If a rule here conflicts with a user instruction in chat, the user wins
 
 This repository has two distinct surfaces:
 
-- **`wiki/`** is the product — a self-contained, LLM-maintained
-  Markdown knowledge base. An agent maintaining the wiki reads
+- **`wiki/`** is the LLM-maintained Markdown knowledge base that `nemo`
+  builds and maintains. An agent maintaining wiki *content* reads
   `wiki/AGENTS.md`, not this file.
 - **Everything else** is development infrastructure for the Go CLI
   (`nemo`) that builds and maintains the wiki.
 
+> **Current phase — `wiki/` is the test corpus.** Its contents are
+> presently **test data, not production product content**. Test the core
+> framework **black-box, directly against `wiki/`** (run real `nemo`
+> commands and observe real effects); treat `wiki/` changes made while
+> testing as expected, not as production edits.
+
 ```
 nemo-knows/
-├── wiki/                 # THE PRODUCT (see wiki/AGENTS.md)
-├── pipeline/             # ingest pipeline test infrastructure
+├── wiki/                 # LLM-maintained KB; CURRENT TEST CORPUS (see wiki/AGENTS.md)
+├── pipeline/             # legacy ingest-pipeline scaffold (deprecated as primary test path)
 │   ├── raw/              #   test source material (immutable)
 │   ├── drafts/           #   model-output buffers
 │   └── evals/            #   evaluation harness
-├── tmp/                  # production/debug scratch space (gitignored)
+├── tmp/                  # transient scratch (gitignored); clean up periodically
 ├── cmd/                  # Go CLI entry points (nemo, nemo-web, nemo-server)
 ├── internal/             # Go packages
 ├── prompts/              # prompt templates for the ingest pipeline
@@ -49,9 +55,10 @@ nemo-knows/
   directly, may use `tmp/` for transient debug or review artifacts, and should
   not depend on `pipeline/` unless the user is explicitly running a development
   or stability-evaluation pipeline.
-- **`wiki/` is the product.** The autonomous maintainer
-  (`nemo -maintain-wiki`) uses `wiki/` as its knowledge input, never reads
-  `pipeline/`, and may write transient reports or debug artifacts under `tmp/`.
+- **`wiki/` is the maintained knowledge base** (currently the test corpus,
+  see Mental model). The autonomous maintainer (`nemo -maintain-wiki`) uses
+  `wiki/` as its knowledge input, never reads `pipeline/`, and may write
+  transient reports or debug artifacts under `tmp/`.
 - **Do not run `git push` automatically.** The user controls what
   leaves this machine.
 - **Do not commit secrets.** `.env` is gitignored; `.env.example` is a
@@ -70,7 +77,15 @@ go build -o .bin/nemo-web ./cmd/nemo-web
 go test ./...
 ```
 
-Development pipeline (for testing prompts and review logic):
+**Testing convention (current).** Prefer **black-box testing directly
+against `wiki/`**: run the real `nemo` pipeline end-to-end on `wiki/`
+content and observe actual effects (apply → index/log → lint). The
+`pipeline/` scaffold below is **legacy / deprecated as the primary test
+path** — kept for reference and optional reuse. Put intermediate or debug
+artifacts under `tmp/` (transient quality/stability verification only),
+clean them up when done, and keep production-runtime artifacts minimal.
+
+Legacy development pipeline (optional, for prompt/review-logic experiments):
 
 ```sh
 .bin/nemo -provider llama -source pipeline/raw/example.md \
@@ -109,6 +124,8 @@ path pulls source over SSH and builds locally.
 - Do not modify, rename, or delete anything under `pipeline/raw/`.
 - Do not treat `pipeline/drafts/` or `pipeline/evals/runs/` as durable
   storage. They are development buffers.
+- Do not treat `tmp/` as durable storage. It holds transient debug /
+  quality-verification artifacts; clean it up periodically.
 - Do not commit secrets or credentials.
 - Do not run `git push` automatically.
 - Do not collapse `wiki/log.md` or rewrite past entries.

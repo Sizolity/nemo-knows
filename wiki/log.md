@@ -316,3 +316,39 @@ Touched:
 - wiki/log.md (updated)
 Open: a rename/move workflow that rewrites inbound relative links automatically,
 so `missing-link-target` stays empty without manual edits after a page moves.
+
+## [2026-06-16] ingest | llama.cpp
+Source: pipeline/raw/web/llama-cpp.md
+Applied bundle: pipeline/drafts/e2e-llama-cpp-2026-06-16
+Touched:
+- wiki/concepts/gguf.md (created)
+- wiki/index.md (updated)
+- wiki/concepts/llama-cpp-backends.md (created)
+- wiki/concepts/quantization.md (created)
+- wiki/entities/georgi-gerganov.md (created)
+- wiki/entities/llama-cpp.md (created)
+- wiki/sources/llama-cpp-overview.md (created)
+Open: review skipped candidates before creating entity, concept, or topic pages.
+
+## [2026-06-16] query-filed | How does llama.cpp combine the GGUF format and
+Question: How does llama.cpp combine the GGUF format and quantization to enable CPU-first local inference?
+Touched:
+- topics/llama-cpp-gguf-quantization-cpu-inference.md (created)
+- index.md (updated)
+References:
+- wiki/concepts/gguf.md
+- wiki/entities/llama-cpp.md
+- wiki/sources/llama-cpp-overview.md
+- wiki/concepts/quantization.md
+- wiki/concepts/llama-cpp-backends.md
+Open: review whether this filed answer should be expanded after future ingests.
+
+## [2026-06-16] ingest | The Transformer Architecture
+Source: pipeline/raw/web/corpus-2026-05-18/081-attention-is-all-you-need.md
+Applied bundle: tmp/gen-stress-2026-06-16/attention-r1
+Touched:
+- wiki/concepts/transformer-architecture.md (created)
+- wiki/index.md (updated)
+- wiki/sources/081-attention-is-all-you-need.md (created)
+- wiki/topics/sequence-transduction-models.md (created)
+Open: review skipped candidates before creating entity, concept, or topic pages.
