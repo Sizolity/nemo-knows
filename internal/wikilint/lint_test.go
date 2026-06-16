@@ -263,6 +263,49 @@ confidence: medium
 	}
 }
 
+func TestLintWikiExemptsContractAgentsDoc(t *testing.T) {
+	root := t.TempDir()
+	writeWikiFile(t, root, "wiki/index.md", `---
+title: Index
+kind: index
+---
+
+## Concepts
+- [serverless-database](concepts/serverless-database.md) — Serverless engine.
+`)
+	writeWikiFile(t, root, "wiki/log.md", `---
+title: Log
+kind: log
+---
+
+## [2026-06-16] note | ok
+`)
+	// Contract doc: no YAML frontmatter, prose H1, and a [[wikilink]] inside an
+	// inline code span (mirrors the real wiki/AGENTS.md). It must be fully
+	// exempt — no missing-frontmatter and no orphan-page even though nothing
+	// links to it.
+	writeWikiFile(t, root, "wiki/AGENTS.md", "# AGENTS.md — wiki contract\n\nResidual `[[slug]]` syntax is forbidden outside examples.\n")
+	// An ordinary knowledge page missing frontmatter must STILL be flagged, so
+	// the exemption does not leak to normal pages. It is linked from the index
+	// so the assertion isolates frontmatter handling from orphan handling.
+	writeWikiFile(t, root, "wiki/concepts/serverless-database.md", "# Serverless Database\n")
+
+	result, err := LintWiki(root)
+	if err != nil {
+		t.Fatalf("LintWiki returned error: %v", err)
+	}
+
+	for _, issue := range result.Issues {
+		if issue.Path == "wiki/AGENTS.md" {
+			t.Fatalf("did not expect any lint issue for contract doc wiki/AGENTS.md, got %q: %s", issue.Code, issue.Message)
+		}
+	}
+
+	if !hasIssueForPath(result, "missing-frontmatter", "wiki/concepts/serverless-database.md") {
+		t.Fatalf("expected missing-frontmatter for ordinary page without frontmatter in %#v", result.Issues)
+	}
+}
+
 func TestLintWikiChecksImageExistence(t *testing.T) {
 	root := t.TempDir()
 	writeWikiFile(t, root, "wiki/index.md", `---
@@ -334,6 +377,15 @@ func writeWikiFile(t *testing.T, root string, rel string, content string) {
 func hasIssue(result Result, code string) bool {
 	for _, issue := range result.Issues {
 		if issue.Code == code {
+			return true
+		}
+	}
+	return false
+}
+
+func hasIssueForPath(result Result, code string, path string) bool {
+	for _, issue := range result.Issues {
+		if issue.Code == code && issue.Path == path {
 			return true
 		}
 	}

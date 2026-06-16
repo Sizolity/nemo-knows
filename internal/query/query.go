@@ -22,6 +22,10 @@ var (
 	kindRE        = regexp.MustCompile(`(?m)^kind:\s*(.+?)\s*$`)
 	headingRE     = regexp.MustCompile(`(?m)^#\s+(.+?)\s*$`)
 	tokenRE       = regexp.MustCompile(`[A-Za-z0-9]+`)
+	// inlineLinkRE matches inline Markdown links and images so the topic draft
+	// path can flatten them to their visible label: [label](href) and
+	// ![alt](src). Group 1 captures the label/alt text.
+	inlineLinkRE = regexp.MustCompile(`!?\[([^\]]*)\]\([^)]*\)`)
 )
 
 type Options struct {
@@ -274,7 +278,7 @@ func renderTopicDraft(question string, pages []Page, now time.Time) string {
 		b.WriteString("- ")
 		b.WriteString(page.Title)
 		b.WriteString(": ")
-		b.WriteString(snippet(page.Content))
+		b.WriteString(topicExcerpt(page.Content))
 		b.WriteString(" (source: ")
 		b.WriteString(page.Path)
 		b.WriteString(")\n")
@@ -412,18 +416,49 @@ func stopWord(token string) bool {
 }
 
 func snippet(content string) string {
+	return truncateExcerpt(firstBodyLine(content))
+}
+
+// firstBodyLine returns the first non-empty, non-heading body line of a page,
+// or "" when the page has no usable prose line.
+func firstBodyLine(content string) string {
 	_, body := splitFrontmatter(content)
 	for _, line := range strings.Split(body, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "---") {
 			continue
 		}
-		if len(line) > 220 {
-			return strings.TrimSpace(line[:220]) + "..."
-		}
 		return line
 	}
-	return "No short summary is available."
+	return ""
+}
+
+// truncateExcerpt caps an excerpt at 220 characters and supplies the fallback
+// text used when a page has no usable body line.
+func truncateExcerpt(line string) string {
+	if line == "" {
+		return "No short summary is available."
+	}
+	if len(line) > 220 {
+		return strings.TrimSpace(line[:220]) + "..."
+	}
+	return line
+}
+
+// topicExcerpt is the excerpt used for FILED topic drafts. It flattens inline
+// Markdown links/images to their visible label BEFORE truncation, so relative
+// links (written relative to the source page's directory) are never copied
+// verbatim into wiki/topics/, where they would dangle and trip the
+// missing-link-target lint. The authoritative source path is preserved
+// separately in the draft's "(source: …)" note and "## References" list.
+func topicExcerpt(content string) string {
+	return truncateExcerpt(stripInlineMarkdownLinks(firstBodyLine(content)))
+}
+
+// stripInlineMarkdownLinks rewrites [label](href) -> label and ![alt](src) ->
+// alt, dropping the link/image target entirely.
+func stripInlineMarkdownLinks(s string) string {
+	return inlineLinkRE.ReplaceAllString(s, "$1")
 }
 
 func splitFrontmatter(content string) (string, string) {

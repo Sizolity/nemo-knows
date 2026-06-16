@@ -104,7 +104,7 @@ func LintWiki(root string) (Result, error) {
 	lintIndex(root, &result)
 	lintLog(root, &result)
 	for _, page := range pages {
-		if page.Path == "wiki/index.md" || page.Path == "wiki/log.md" {
+		if isContractDoc(page.Path) {
 			continue
 		}
 		if inbound[page.Slug] == 0 {
@@ -173,6 +173,11 @@ func readWikiPages(root string) ([]page, error) {
 }
 
 func lintFrontmatter(page page, result *Result) {
+	// Contract/skeleton documents are not knowledge pages and are exempt from
+	// the generic frontmatter contract (see isContractDoc).
+	if isContractDoc(page.Path) {
+		return
+	}
 	if page.Frontmatter == "" {
 		addIssue(result, "missing-frontmatter", "error", page.Path, "page is missing YAML frontmatter")
 		return
@@ -368,6 +373,24 @@ func requiresSources(path string) bool {
 		strings.HasPrefix(path, "wiki/entities/") ||
 		strings.HasPrefix(path, "wiki/concepts/") ||
 		strings.HasPrefix(path, "wiki/topics/")
+}
+
+// isContractDoc reports whether path is a structural/contract document rather
+// than a knowledge page. These are the wiki index, the append-only audit log,
+// and the agent contract (wiki/AGENTS.md). They are exempt from the generic
+// frontmatter and orphan-page checks: index.md and log.md have their own
+// dedicated linters (lintIndex/lintLog) and structural roles, while AGENTS.md
+// is prose contract documentation with no YAML frontmatter and no inbound
+// links. The exemption is intentionally limited to these exact paths so
+// ordinary knowledge pages (sources/entities/concepts/topics) still require
+// frontmatter and inbound links.
+func isContractDoc(path string) bool {
+	switch path {
+	case "wiki/index.md", "wiki/log.md", "wiki/AGENTS.md":
+		return true
+	default:
+		return false
+	}
 }
 
 func addIssue(result *Result, code string, level string, path string, message string) {

@@ -173,3 +173,87 @@ func contains(items []string, want string) bool {
 	}
 	return false
 }
+
+func TestStripInlineMarkdownLinks(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"plain", "plain text", "plain text"},
+		{"same-level link", "[Llama Cpp](llama-cpp.md) runs fast", "Llama Cpp runs fast"},
+		{"parent link", "see [Georgi](../entities/georgi-gerganov.md) here", "see Georgi here"},
+		{"anchor link", "[Sec](page.md#anchor) ref", "Sec ref"},
+		{"image", "diagram ![alt text](../assets/x.png) below", "diagram alt text below"},
+		{"multiple links", "[A](a.md) and [B](b.md)", "A and B"},
+		{"empty alt image", "![](only.png)", ""},
+		{"url target", "[label](http://example.com/path?q=1)", "label"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := stripInlineMarkdownLinks(tc.in); got != tc.want {
+				t.Fatalf("stripInlineMarkdownLinks(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestTopicExcerptFlattensAndTruncates(t *testing.T) {
+	const fm = "---\ntitle: X\nkind: entity\n---\n\n# X\n\n"
+
+	flattened := topicExcerpt(fm + "Created by [Georgi Gerganov](georgi-gerganov.md) in 2023.\n")
+	if want := "Created by Georgi Gerganov in 2023."; flattened != want {
+		t.Fatalf("flattened excerpt = %q, want %q", flattened, want)
+	}
+
+	long := topicExcerpt(fm + "[Doc](x.md) " + strings.Repeat("a", 240) + "\n")
+	if !strings.HasSuffix(long, "...") {
+		t.Fatalf("long excerpt should be truncated with ellipsis: %q", long)
+	}
+	if strings.Contains(long, "](") {
+		t.Fatalf("truncated excerpt still contains a link target: %q", long)
+	}
+	if len(long) > 223 {
+		t.Fatalf("truncated excerpt too long (%d bytes): %q", len(long), long)
+	}
+
+	if got := topicExcerpt("---\ntitle: X\nkind: entity\n---\n\n# X\n"); got != "No short summary is available." {
+		t.Fatalf("empty-body excerpt = %q, want fallback text", got)
+	}
+}
+
+func TestRenderTopicDraftOmitsInlineLinkSyntax(t *testing.T) {
+	const fmE = "---\ntitle: X\nkind: entity\n---\n\n"
+	pages := []Page{
+		{
+			Path:    "wiki/entities/llama-cpp.md",
+			Title:   "llama.cpp",
+			Content: fmE + "# llama.cpp\n\nCreated by [Georgi Gerganov](georgi-gerganov.md), released in 2023.\n",
+		},
+		{
+			Path:    "wiki/entities/georgi-gerganov.md",
+			Title:   "Georgi Gerganov",
+			Content: fmE + "# Georgi Gerganov\n\nInitiated [llama.cpp](llama-cpp.md); see ![logo](../assets/logo.png).\n",
+		},
+	}
+
+	draft := renderTopicDraft("llama.cpp project history", pages, time.Date(2026, 6, 16, 0, 0, 0, 0, time.UTC))
+
+	// The filed draft is written into wiki/topics/, so any inline link/image
+	// syntax copied from a source page's directory would dangle there.
+	for _, bad := range []string{"](", "![", "[["} {
+		if strings.Contains(draft, bad) {
+			t.Fatalf("filed topic draft must not contain %q (dangling-link risk):\n%s", bad, draft)
+		}
+	}
+	for _, want := range []string{
+		"Created by Georgi Gerganov, released in 2023.",
+		"Initiated llama.cpp; see logo.",
+		"(source: wiki/entities/llama-cpp.md)",
+		"(source: wiki/entities/georgi-gerganov.md)",
+	} {
+		if !strings.Contains(draft, want) {
+			t.Fatalf("filed topic draft missing %q:\n%s", want, draft)
+		}
+	}
+}

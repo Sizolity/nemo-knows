@@ -1161,6 +1161,10 @@ func runEvalBundle(bundleDir string, outDir string) error {
 	if err := os.WriteFile(filepath.Join(outDir, "scores.json"), append(scores, '\n'), 0o644); err != nil {
 		return fmt.Errorf("write scores: %w", err)
 	}
+	// Also write scores.json into the bundle itself: apply.requirePassingEval
+	// reads <bundle>/scores.json as the apply approval gate. So -resume re-running
+	// eval rewrites the bundle's gate file each pass; the content is deterministic
+	// (byte-identical re-write), so this dual-write is safe and intentional.
 	bundleScoresPath := filepath.Join(bundleDir, "scores.json")
 	if filepath.Clean(bundleScoresPath) != filepath.Clean(filepath.Join(outDir, "scores.json")) {
 		if err := os.WriteFile(bundleScoresPath, append(scores, '\n'), 0o644); err != nil {
