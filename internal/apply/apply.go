@@ -17,6 +17,10 @@ var (
 	ErrApprovalRequired = errors.New("apply requires explicit approval")
 	ErrEvalNotPassing   = errors.New("bundle eval score is not passing")
 	ErrAlreadyApplied   = errors.New("bundle has already been applied")
+	// ErrSlugConflict is returned when applying a bundle would put two distinct
+	// wiki pages under the same slug. Slugs must be unique across the whole wiki
+	// so [[slug]] wikilinks resolve to a single page.
+	ErrSlugConflict = errors.New("wiki slug conflict: slugs must be unique across the whole wiki")
 
 	candidateLineRE = regexp.MustCompile("(?m)^- `([^`]+)` — (.+)$")
 	duplicateOfRE   = regexp.MustCompile("possible duplicate of `([^`]+)`")
@@ -79,6 +83,9 @@ func ApplyApproved(root string, bundleDir string, opts Options) (Result, error) 
 
 	writes, skipped, err := planApprovedWrites(root, bundleDir, string(applyPlan), sourceDraft)
 	if err != nil {
+		return Result{}, err
+	}
+	if err := checkSlugConflicts(root, writes); err != nil {
 		return Result{}, err
 	}
 
@@ -350,9 +357,14 @@ func updateIndexForCandidate(root string, target string, draft []byte) (bool, er
 		return false, fmt.Errorf("read wiki index: %w", err)
 	}
 
-	slug := strings.TrimSuffix(filepath.Base(target), filepath.Ext(target))
+	// Catalog index entries by section + relative path, not by slug. A page is
+	// already listed only when an entry points at the same wiki file. Pages that
+	// merely share a slug across categories (for example a source and an entity
+	// both named "sqlite") must each still appear in their own section, so a
+	// slug-only check would silently drop the second page from the index.
+	wantRel := wikischema.IndexRelativePath(target)
 	for _, line := range strings.Split(string(content), "\n") {
-		if got, ok := wikischema.IndexEntrySlug(line); ok && got == slug {
+		if existing, ok := wikischema.IndexEntryTarget(line); ok && wikischema.IndexRelativePath(existing) == wantRel {
 			return false, nil
 		}
 	}
@@ -362,12 +374,53 @@ func updateIndexForCandidate(root string, target string, draft []byte) (bool, er
 		return false, nil
 	}
 	entry := wikischema.FormatIndexEntry(target, title) + "\n"
-	updated := appendIndexEntry(string(content), indexSection(target), entry)
+	updated := wikischema.AppendIndexEntry(string(content), indexSection(target), entry)
 	if err := os.WriteFile(indexPath, []byte(updated), 0o644); err != nil {
 		return false, fmt.Errorf("write wiki index: %w", err)
 	}
 
 	return true, nil
+}
+
+// checkSlugConflicts fails the apply when it would create two distinct wiki
+// pages that share a slug. It compares newly created pages against existing
+// wiki pages at a different path and against one another, so a source page and
+// an entity page can no longer both claim the slug "sqlite".
+func checkSlugConflicts(root string, writes []plannedWrite) error {
+	bySlug := existingWikiSlugPaths(root)
+	for _, item := range writes {
+		if !item.created {
+			continue
+		}
+		slug := wikischema.SlugFromWikiPath(item.target)
+		if other, ok := bySlug[slug]; ok && other != item.target {
+			return fmt.Errorf("%w: slug %q is used by both %s and %s; rename one page so every slug is unique", ErrSlugConflict, slug, other, item.target)
+		}
+		bySlug[slug] = item.target
+	}
+	return nil
+}
+
+// existingWikiSlugPaths maps each maintained wiki page slug to its repo-relative
+// path so callers can detect cross-category slug collisions.
+func existingWikiSlugPaths(root string) map[string]string {
+	slugs := map[string]string{}
+	_ = filepath.WalkDir(filepath.Join(root, "wiki"), func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() || filepath.Ext(path) != ".md" {
+			return nil
+		}
+		rel, relErr := filepath.Rel(root, path)
+		if relErr != nil {
+			return nil
+		}
+		repoPath := filepath.ToSlash(rel)
+		if _, ok := cleanKnowledgePath(repoPath); !ok {
+			return nil
+		}
+		slugs[wikischema.SlugFromWikiPath(repoPath)] = repoPath
+		return nil
+	})
+	return slugs
 }
 
 func candidateTitle(draft []byte) string {
@@ -396,51 +449,6 @@ func indexSection(target string) string {
 	}
 
 	return "## Concepts"
-}
-
-func appendIndexEntry(index string, section string, entry string) string {
-	if !strings.Contains(index, section) {
-		if !strings.HasSuffix(index, "\n") {
-			index += "\n"
-		}
-		return index + "\n" + section + "\n" + entry
-	}
-
-	lines := strings.Split(index, "\n")
-	sectionLine := -1
-	for i, line := range lines {
-		if strings.TrimSpace(line) == section {
-			sectionLine = i
-			break
-		}
-	}
-	if sectionLine == -1 {
-		return index
-	}
-
-	end := len(lines)
-	for i := sectionLine + 1; i < len(lines); i++ {
-		if strings.HasPrefix(lines[i], "## ") {
-			end = i
-			break
-		}
-	}
-
-	insertAt := end
-	for insertAt > sectionLine+1 && strings.TrimSpace(lines[insertAt-1]) == "" {
-		insertAt--
-	}
-
-	entryLine := strings.TrimSuffix(entry, "\n")
-	updated := make([]string, 0, len(lines)+2)
-	updated = append(updated, lines[:insertAt]...)
-	updated = append(updated, entryLine)
-	if end < len(lines) {
-		updated = append(updated, "")
-	}
-	updated = append(updated, lines[insertAt:]...)
-
-	return strings.Join(updated, "\n")
 }
 
 func appendApplyLog(root string, bundleDir string, result Result) error {

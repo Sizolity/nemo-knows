@@ -55,6 +55,14 @@ func LintWiki(root string) (Result, error) {
 	slugToPath := map[string]string{}
 	inbound := map[string]int{}
 	for _, page := range pages {
+		// Slugs must be unique across the whole wiki so a [[slug]] wikilink
+		// resolves to a single page. Flag cross-category collisions (for example
+		// a source and an entity both named "sqlite") instead of silently
+		// keeping whichever page was walked last.
+		if existing, ok := slugToPath[page.Slug]; ok {
+			addIssue(&result, "duplicate-slug", "error", page.Path, "slug also used by "+existing+"; slugs must be unique across the wiki")
+			continue
+		}
 		slugToPath[page.Slug] = page.Path
 	}
 
@@ -165,6 +173,10 @@ func lintIndex(root string, result *Result) {
 		addIssue(result, "missing-index", "error", "wiki/index.md", "wiki index could not be read")
 		return
 	}
+	// Index entries are deduped by slug: with wiki-wide slug uniqueness enforced
+	// (see the duplicate-slug check in LintWiki), one slug maps to exactly one
+	// page, so a repeated slug here means the same page is listed twice. Genuine
+	// cross-category slug collisions are reported as duplicate-slug instead.
 	seen := map[string]bool{}
 	for _, line := range strings.Split(stripMarkdownCode(string(content)), "\n") {
 		slug, ok := wikischema.IndexEntrySlug(line)

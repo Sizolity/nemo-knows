@@ -1267,7 +1267,7 @@ func TestNormalizeCandidateDraftFixesHeadingWithoutAddingWeakLink(t *testing.T) 
 	}
 
 	content := normalizeCandidateDraft(`---
-title: Wrong
+title: Tooling Stack
 kind: concept
 ---
 
@@ -1276,13 +1276,38 @@ kind: concept
 Ingest processing turns sources into wiki maintenance drafts.`, target, []string{"source.md", "raw/llm-wiki.md"}, allowedLinks)
 
 	if !strings.Contains(content, "# Tooling Stack\n") {
-		t.Fatalf("heading should be normalized to target title:\n%s", content)
+		t.Fatalf("heading should be normalized to the page title:\n%s", content)
 	}
 	if strings.Contains(content, "# [[tooling-stack]]") {
 		t.Fatalf("heading wikilink should not remain as the H1:\n%s", content)
 	}
 	if strings.Contains(content, "[[ingest|Ingest]]") {
 		t.Fatalf("body should not auto-add wikilinks just to satisfy structure:\n%s", content)
+	}
+}
+
+func TestNormalizeCandidateDraftPrefersModelFrontmatterTitleCasing(t *testing.T) {
+	target := candidateDraftTarget{
+		Path:  "wiki/entities/sqlite.md",
+		Kind:  "entity",
+		Title: "Sqlite", // slug-derived default that loses the real casing
+	}
+
+	content := normalizeCandidateDraft(`---
+title: SQLite
+kind: entity
+---
+
+SQLite is a small, fast, self-contained SQL database engine written in C.`, target, []string{"source.md", "raw/web/sqlite.md"}, map[string]bool{})
+
+	if !strings.Contains(content, "title: SQLite\n") {
+		t.Fatalf("frontmatter title should preserve the model's casing:\n%s", content)
+	}
+	if strings.Contains(content, "title: Sqlite\n") {
+		t.Fatalf("title must not be downcased to the slug-derived form:\n%s", content)
+	}
+	if !strings.Contains(content, "# SQLite\n") {
+		t.Fatalf("heading should match the model's title:\n%s", content)
 	}
 }
 

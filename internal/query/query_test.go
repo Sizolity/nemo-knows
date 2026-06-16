@@ -104,6 +104,9 @@ func TestExecuteApprovedQueryWritesTopicIndexAndLog(t *testing.T) {
 	if !strings.Contains(string(index), "[wal-reader-concurrency](topics/wal-reader-concurrency.md)") {
 		t.Fatalf("index missing filed query topic:\n%s", index)
 	}
+	if strings.Contains(string(index), "(none yet)") {
+		t.Fatalf("filing the first topic should replace the Topics placeholder:\n%s", index)
+	}
 	log, err := os.ReadFile(filepath.Join(root, "wiki", "log.md"))
 	if err != nil {
 		t.Fatalf("read log: %v", err)

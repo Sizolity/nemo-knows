@@ -567,16 +567,17 @@ func adjustExcerptEnd(content string, end int) int {
 }
 
 func normalizeCandidateDraft(cleaned string, target candidateDraftTarget, sourceRefs []string, allowedLinks map[string]bool) string {
+	title := candidateTitleOrDefault(cleaned, target.Title)
 	body := markdownFrontmatterRE.ReplaceAllString(cleaned, "")
 	body = nestedFrontmatterPreludeRE.ReplaceAllString(body, "")
 	body = strings.TrimSpace(body)
 	body = normalizeCandidateWikilinks(body, allowedLinks)
-	body = normalizeCandidateHeading(body, target.Title)
+	body = normalizeCandidateHeading(body, title)
 
 	var b strings.Builder
 	b.WriteString("---\n")
 	b.WriteString("title: ")
-	b.WriteString(target.Title)
+	b.WriteString(title)
 	b.WriteByte('\n')
 	b.WriteString("kind: ")
 	b.WriteString(target.Kind)
@@ -659,6 +660,21 @@ func normalizeCandidateHeading(body string, title string) string {
 		return heading
 	}
 	return heading + "\n\n" + body
+}
+
+// candidateTitleOrDefault prefers the model's frontmatter title so correct
+// capitalization survives normalization (for example "SQLite" rather than a
+// slug-derived "Sqlite"). It falls back to the body's first heading and then to
+// the slug-derived default when the model omitted a usable title.
+func candidateTitleOrDefault(cleaned string, fallback string) string {
+	frontmatter, body := splitMarkdownFrontmatter(cleaned)
+	if title := frontmatterField(frontmatter, "title"); title != "" {
+		return title
+	}
+	if heading := firstMarkdownHeading(body); heading != "" {
+		return heading
+	}
+	return fallback
 }
 
 func titleFromSlug(slug string) string {

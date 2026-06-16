@@ -125,6 +125,105 @@ func TestSafeModeIgnoresHiddenMaintenanceReports(t *testing.T) {
 	}
 }
 
+func TestSafeModeNormalizesLegacyProseAndStrandedPlaceholder(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "wiki/index.md", `---
+title: Index
+kind: index
+---
+
+# Index
+
+## Sources
+
+(none yet)
+
+## Entities
+
+(none yet)
+
+## Concepts
+
+(none yet)
+
+## Topics
+
+_Cross-cutting syntheses, comparisons, derived insights — including
+high-value query answers filed back from chat._
+
+(none yet)
+- [persistent-wiki](topics/persistent-wiki.md) — Persistent wiki architecture.
+`)
+	writeFile(t, root, "wiki/log.md", logContent())
+	writeFile(t, root, "wiki/topics/persistent-wiki.md", `---
+title: Persistent Wiki Architecture
+kind: topic
+sources:
+  - wiki/sources/example.md
+confidence: medium
+---
+
+# Persistent Wiki Architecture
+`)
+
+	result, err := Maintain(root, Options{
+		Mode:   ModeSafe,
+		Today:  time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC),
+		OutDir: filepath.Join(root, ".wiki-maintain"),
+	})
+	if err != nil {
+		t.Fatalf("Maintain returned error: %v", err)
+	}
+	if !result.Changed {
+		t.Fatal("safe mode should normalize legacy prose and placeholder")
+	}
+	if !hasAction(result.Actions, "index-strip-prose") {
+		t.Fatalf("expected prose-stripping action, got %#v", result.Actions)
+	}
+	index := readFile(t, root, "wiki/index.md")
+	if strings.Contains(index, "Cross-cutting syntheses") {
+		t.Fatalf("expected per-section prose to be removed:\n%s", index)
+	}
+	if strings.Contains(index, "## Topics\n\n(none yet)") {
+		t.Fatalf("expected stranded placeholder to be removed once a real entry exists:\n%s", index)
+	}
+	if !strings.Contains(index, "## Topics\n\n- [persistent-wiki](topics/persistent-wiki.md) — Persistent wiki architecture.\n") {
+		t.Fatalf("expected curated topic entry to survive normalization:\n%s", index)
+	}
+
+	second, err := Maintain(root, Options{
+		Mode:  ModeSafe,
+		Today: time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("second Maintain returned error: %v", err)
+	}
+	if second.Changed {
+		t.Fatalf("expected normalized index to be idempotent, actions: %#v", second.Actions)
+	}
+}
+
+func TestSafeModeRestoresPlaceholderWhenSectionEmpties(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "wiki/index.md", indexWithConcepts("- [gone](concepts/gone.md) — Removed page.\n"))
+	writeFile(t, root, "wiki/log.md", logContent())
+
+	result, err := Maintain(root, Options{Mode: ModeSafe, Today: time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC)})
+	if err != nil {
+		t.Fatalf("Maintain returned error: %v", err)
+	}
+	if !result.Changed {
+		t.Fatal("safe mode should remove the stale entry")
+	}
+	index := readFile(t, root, "wiki/index.md")
+	if strings.Contains(index, "gone") {
+		t.Fatalf("expected stale entry to be removed:\n%s", index)
+	}
+	if !strings.Contains(index, "## Concepts\n\n(none yet)\n") {
+		t.Fatalf("expected placeholder to be restored for the emptied section:\n%s", index)
+	}
+}
+
 func TestTaskQueueMapsLintFindingsToLLMMaintenanceWork(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, root, "wiki/index.md", indexWithConcepts("- [known](concepts/known.md) — Known.\n"))
@@ -316,7 +415,6 @@ kind: index
 
 ## Concepts
 
-_Ideas, mechanisms, definitions. One page per concept._
 ` + entries + `
 ## Topics
 

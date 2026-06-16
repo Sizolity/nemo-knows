@@ -33,6 +33,7 @@ func EvaluateBundleCrosslinks(root string, bundleDir string) (CrosslinkResult, e
 		return CrosslinkResult{}, fmt.Errorf("read apply plan: %w", err)
 	}
 	result := CrosslinkResult{Bundle: bundleDir}
+	detectSlugConflicts(root, candidatePaths(string(applyPlan)), &result)
 	targets := candidateDraftPaths(string(applyPlan))
 	candidateSlugs := map[string]string{}
 	for _, target := range targets {
@@ -94,4 +95,63 @@ func existingWikiSlugs(root string) map[string]bool {
 		return nil
 	})
 	return slugs
+}
+
+// existingWikiSlugPaths maps each maintained wiki page slug to its repo-relative
+// path so the harness can flag cross-category slug collisions.
+func existingWikiSlugPaths(root string) map[string]string {
+	slugs := map[string]string{}
+	_ = filepath.WalkDir(filepath.Join(root, "wiki"), func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() || filepath.Ext(path) != ".md" {
+			return nil
+		}
+		rel, relErr := filepath.Rel(root, path)
+		if relErr != nil {
+			return nil
+		}
+		repoPath := filepath.ToSlash(rel)
+		if !isWikiKnowledgePath(repoPath) {
+			return nil
+		}
+		slugs[strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))] = repoPath
+		return nil
+	})
+	return slugs
+}
+
+func isWikiKnowledgePath(repoPath string) bool {
+	return strings.HasPrefix(repoPath, "wiki/sources/") ||
+		strings.HasPrefix(repoPath, "wiki/entities/") ||
+		strings.HasPrefix(repoPath, "wiki/concepts/") ||
+		strings.HasPrefix(repoPath, "wiki/topics/")
+}
+
+// detectSlugConflicts reports cross-category slug collisions among the bundle's
+// candidate pages and against the existing wiki. Slugs must be unique across the
+// whole wiki so [[slug]] wikilinks resolve to a single page; a collision is a
+// structural problem even when every individual wikilink target exists.
+func detectSlugConflicts(root string, candidates []string, result *CrosslinkResult) {
+	existing := existingWikiSlugPaths(root)
+	seen := map[string]string{}
+	for _, target := range candidates {
+		if !isWikiKnowledgePath(target) {
+			continue
+		}
+		slug := strings.TrimSuffix(filepath.Base(target), filepath.Ext(target))
+		if other, ok := existing[slug]; ok && other != target {
+			result.Issues = append(result.Issues, CrosslinkIssue{
+				Path:    target,
+				Code:    "slug-conflict",
+				Message: "slug already used by existing wiki page at a different path: " + other,
+			})
+		}
+		if other, ok := seen[slug]; ok && other != target {
+			result.Issues = append(result.Issues, CrosslinkIssue{
+				Path:    target,
+				Code:    "slug-conflict",
+				Message: "slug also used by a sibling candidate at a different path: " + other,
+			})
+		}
+		seen[slug] = target
+	}
 }

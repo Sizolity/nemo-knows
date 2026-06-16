@@ -393,6 +393,30 @@ This page links to [[known]].
 	}
 }
 
+func TestEvaluateBundleCrosslinksFlagsCrossCategorySlugConflict(t *testing.T) {
+	root := t.TempDir()
+	bundle := filepath.Join(root, "drafts", "bundle")
+	writeFile(t, filepath.Join(root, "wiki", "entities", "sqlite.md"), "---\nkind: entity\n---\n# SQLite\n")
+	writeFile(t, filepath.Join(bundle, "apply-plan.md"), "## Candidate Changes\n\n"+
+		"- `wiki/sources/sqlite.md` — create new page.\n"+
+		"- `wiki/topics/sqlite-notes.md` — create new page.\n")
+	writeFile(t, filepath.Join(bundle, "candidates", "wiki", "topics", "sqlite-notes.md"), "# Sqlite Notes\n\nLinks to [[sqlite]].\n")
+
+	result, err := EvaluateBundleCrosslinks(root, bundle)
+	if err != nil {
+		t.Fatalf("EvaluateBundleCrosslinks returned error: %v", err)
+	}
+	found := false
+	for _, issue := range result.Issues {
+		if issue.Code == "slug-conflict" && issue.Path == "wiki/sources/sqlite.md" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected slug-conflict issue for wiki/sources/sqlite.md, got %#v", result.Issues)
+	}
+}
+
 func TestCandidateDepthFailsForStubWithOnlyHeadersAndLists(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "source.md"), "---\nkind: source\nsources:\n  - raw/stub.md\n---\n\n# Source\n\nA reference source.\n")

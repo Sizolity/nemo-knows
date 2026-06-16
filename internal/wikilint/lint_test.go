@@ -71,6 +71,56 @@ confidence: medium
 	}
 }
 
+func TestLintWikiFlagsCrossCategorySlugCollision(t *testing.T) {
+	root := t.TempDir()
+	writeWikiFile(t, root, "wiki/index.md", `---
+title: Index
+kind: index
+---
+
+## Sources
+- [sqlite](sources/sqlite.md) — Source page.
+
+## Entities
+- [sqlite](entities/sqlite.md) — Entity page.
+`)
+	writeWikiFile(t, root, "wiki/log.md", `---
+title: Log
+kind: log
+---
+
+## [2026-05-16] note | ok
+`)
+	writeWikiFile(t, root, "wiki/sources/sqlite.md", `---
+title: SQLite Source
+kind: source
+sources:
+  - raw/sqlite.md
+confidence: medium
+---
+
+# SQLite Source
+`)
+	writeWikiFile(t, root, "wiki/entities/sqlite.md", `---
+title: SQLite
+kind: entity
+sources:
+  - raw/sqlite.md
+confidence: medium
+---
+
+# SQLite
+`)
+
+	result, err := LintWiki(root)
+	if err != nil {
+		t.Fatalf("LintWiki returned error: %v", err)
+	}
+	if !hasIssue(result, "duplicate-slug") {
+		t.Fatalf("expected duplicate-slug issue for cross-category collision in %#v", result.Issues)
+	}
+}
+
 func TestLintWikiIgnoresExamplesInCode(t *testing.T) {
 	root := t.TempDir()
 	writeWikiFile(t, root, "wiki/index.md", "```text\n[[example-stub]]\n```\n\n`[[inline-example]]`\n")

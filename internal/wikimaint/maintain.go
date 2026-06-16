@@ -302,7 +302,7 @@ func appendMissingSection(index string, heading string, desired map[string]strin
 	b.WriteString(heading)
 	b.WriteString("\n")
 	if len(desired) == 0 {
-		b.WriteString("\n(none yet)\n")
+		b.WriteString("\n" + wikischema.IndexEmptyPlaceholder + "\n")
 	} else {
 		b.WriteString("\n")
 		for _, entry := range sortedEntries(desired) {
@@ -317,24 +317,33 @@ func appendMissingSection(index string, heading string, desired map[string]strin
 	}}
 }
 
+// syncSectionBody normalizes one index category into the navigation-only
+// format: the heading, a blank line, then one entry per page (or the empty
+// placeholder). Stale, duplicate, and legacy entries are repaired and any
+// non-navigational prose (such as legacy per-section usage descriptions) is
+// removed; the category meanings live in wiki/AGENTS.md, not in the index.
 func syncSectionBody(heading string, section string, desired map[string]string) (string, []Action) {
 	lines := strings.Split(section, "\n")
 	if len(lines) == 0 {
 		return section, nil
 	}
 
-	kept := []string{lines[0]}
 	entries := []string{}
 	seen := map[string]bool{}
 	actions := []Action{}
 
 	for _, line := range lines[1:] {
-		if strings.TrimSpace(line) == "(none yet)" && len(desired) > 0 {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || trimmed == wikischema.IndexEmptyPlaceholder {
 			continue
 		}
 		slug, ok := wikischema.IndexEntrySlug(line)
 		if !ok {
-			kept = append(kept, line)
+			actions = append(actions, Action{
+				Type:    "index-strip-prose",
+				Path:    "wiki/index.md",
+				Message: "removed non-navigational prose from " + heading,
+			})
 			continue
 		}
 		if _, ok := desired[slug]; !ok {
@@ -354,14 +363,16 @@ func syncSectionBody(heading string, section string, desired map[string]string) 
 			continue
 		}
 		seen[slug] = true
-		entries = append(entries, desired[slug])
-		if line != desired[slug] {
-			actions = append(actions, Action{
-				Type:    "index-normalize",
-				Path:    "wiki/index.md",
-				Message: "normalized index entry " + slug + " in " + heading,
-			})
+		if keepExistingEntry(line, desired[slug]) {
+			entries = append(entries, line)
+			continue
 		}
+		entries = append(entries, desired[slug])
+		actions = append(actions, Action{
+			Type:    "index-normalize",
+			Path:    "wiki/index.md",
+			Message: "normalized index entry " + slug + " in " + heading,
+		})
 	}
 
 	for _, slug := range sortedSlugs(desired) {
@@ -376,15 +387,36 @@ func syncSectionBody(heading string, section string, desired map[string]string) 
 		})
 	}
 
-	if len(entries) == 0 && !containsNoneYet(kept) {
-		kept = append(trimTrailingBlankLines(kept), "", "(none yet)")
+	var b strings.Builder
+	b.WriteString(lines[0])
+	b.WriteString("\n\n")
+	if len(entries) == 0 {
+		b.WriteString(wikischema.IndexEmptyPlaceholder)
+		b.WriteByte('\n')
+	} else {
+		for _, entry := range entries {
+			b.WriteString(entry)
+			b.WriteByte('\n')
+		}
 	}
-	if len(entries) > 0 {
-		kept = trimTrailingBlankLines(kept)
-		kept = append(kept, entries...)
-	}
+	return b.String(), actions
+}
 
-	return strings.Join(kept, "\n"), actions
+// keepExistingEntry reports whether an existing canonical Markdown index entry
+// should be preserved verbatim. Entries already pointing at the correct page
+// are kept so curated one-line descriptions survive normalization; legacy
+// [[slug]] entries and entries with the wrong link target are rewritten to the
+// canonical form.
+func keepExistingEntry(line string, desiredEntry string) bool {
+	existing, ok := wikischema.IndexEntryTarget(line)
+	if !ok {
+		return false
+	}
+	want, ok := wikischema.IndexEntryTarget(desiredEntry)
+	if !ok {
+		return false
+	}
+	return wikischema.IndexRelativePath(existing) == wikischema.IndexRelativePath(want)
 }
 
 func sortedEntries(entries map[string]string) []string {
@@ -403,22 +435,6 @@ func sortedSlugs(entries map[string]string) []string {
 	}
 	sort.Strings(slugs)
 	return slugs
-}
-
-func trimTrailingBlankLines(lines []string) []string {
-	for len(lines) > 0 && strings.TrimSpace(lines[len(lines)-1]) == "" {
-		lines = lines[:len(lines)-1]
-	}
-	return lines
-}
-
-func containsNoneYet(lines []string) bool {
-	for _, line := range lines {
-		if strings.TrimSpace(line) == "(none yet)" {
-			return true
-		}
-	}
-	return false
 }
 
 func appendLintLog(root string, today time.Time, actions []Action) error {

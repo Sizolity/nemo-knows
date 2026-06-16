@@ -342,54 +342,21 @@ func updateIndex(root string, target string, title string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("read wiki index: %w", err)
 	}
-	slug := strings.TrimSuffix(filepath.Base(target), filepath.Ext(target))
+	// Catalog the index by section + relative path, not by slug, so a filed
+	// topic is never silently dropped just because another category already has
+	// a page with the same slug.
+	wantRel := wikischema.IndexRelativePath(target)
 	for _, line := range strings.Split(string(content), "\n") {
-		if got, ok := wikischema.IndexEntrySlug(line); ok && got == slug {
+		if existing, ok := wikischema.IndexEntryTarget(line); ok && wikischema.IndexRelativePath(existing) == wantRel {
 			return false, nil
 		}
 	}
 	entry := wikischema.FormatIndexEntry(target, title) + "\n"
-	updated := appendIndexEntry(string(content), "## Topics", entry)
+	updated := wikischema.AppendIndexEntry(string(content), "## Topics", entry)
 	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil {
 		return false, fmt.Errorf("write wiki index: %w", err)
 	}
 	return true, nil
-}
-
-func appendIndexEntry(index string, section string, entry string) string {
-	lines := strings.Split(index, "\n")
-	sectionLine := -1
-	for i, line := range lines {
-		if strings.TrimSpace(line) == section {
-			sectionLine = i
-			break
-		}
-	}
-	if sectionLine == -1 {
-		if !strings.HasSuffix(index, "\n") {
-			index += "\n"
-		}
-		return index + "\n" + section + "\n" + strings.TrimSuffix(entry, "\n") + "\n"
-	}
-	end := len(lines)
-	for i := sectionLine + 1; i < len(lines); i++ {
-		if strings.HasPrefix(lines[i], "## ") {
-			end = i
-			break
-		}
-	}
-	insertAt := end
-	for insertAt > sectionLine+1 && strings.TrimSpace(lines[insertAt-1]) == "" {
-		insertAt--
-	}
-	updated := make([]string, 0, len(lines)+2)
-	updated = append(updated, lines[:insertAt]...)
-	updated = append(updated, strings.TrimSuffix(entry, "\n"))
-	if end < len(lines) {
-		updated = append(updated, "")
-	}
-	updated = append(updated, lines[insertAt:]...)
-	return strings.Join(updated, "\n")
 }
 
 func appendQueryLog(root string, question string, target string, pages []Page, now time.Time) error {

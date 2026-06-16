@@ -1,11 +1,54 @@
 package apply
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestUpdateIndexForCandidateCatalogsBySectionPathNotSlug(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "wiki", "index.md"), "---\ntitle: Index\nkind: index\n---\n\n## Sources\n\n(none yet)\n\n## Entities\n\n- [sqlite](entities/sqlite.md) — SQLite.\n")
+
+	draft := []byte("---\ntitle: SQLite Overview\nkind: source\n---\n\n# SQLite Overview\n")
+	written, err := updateIndexForCandidate(root, "wiki/sources/sqlite.md", draft)
+	if err != nil {
+		t.Fatalf("updateIndexForCandidate returned error: %v", err)
+	}
+	if !written {
+		t.Fatal("a source page sharing a slug with an existing entity must still be added to its section")
+	}
+
+	index, err := os.ReadFile(filepath.Join(root, "wiki", "index.md"))
+	if err != nil {
+		t.Fatalf("read index: %v", err)
+	}
+	if !strings.Contains(string(index), "- [sqlite](sources/sqlite.md) — SQLite Overview.") {
+		t.Fatalf("index missing the new source entry:\n%s", index)
+	}
+	if !strings.Contains(string(index), "- [sqlite](entities/sqlite.md) — SQLite.") {
+		t.Fatalf("index dropped the existing entity entry:\n%s", index)
+	}
+}
+
+func TestApplyApprovedRejectsCrossCategorySlugConflict(t *testing.T) {
+	root, bundle := makeApplyFixture(t, "pass")
+	writeFile(t, filepath.Join(root, "wiki", "entities", "conflict.md"), "---\ntitle: Conflict\nkind: entity\nsources:\n  - raw/conflict.md\nconfidence: medium\n---\n\n# Conflict\n")
+	writeFile(t, filepath.Join(bundle, "apply-plan.md"), "# Reviewed Ingest Apply Plan\n\n"+
+		"## Candidate Changes\n\n"+
+		"- `wiki/sources/conflict.md` — create new page.\n")
+	writeFile(t, filepath.Join(bundle, "source.md"), "---\ntitle: Conflict Source\nkind: source\nsources:\n  - raw/conflict.md\nconfidence: medium\n---\n\n# Conflict Source\n\nBody.\n")
+
+	_, err := ApplyApproved(root, bundle, Options{Approve: true})
+	if !errors.Is(err, ErrSlugConflict) {
+		t.Fatalf("expected ErrSlugConflict, got %v", err)
+	}
+	if _, statErr := os.Stat(filepath.Join(root, "wiki", "sources", "conflict.md")); statErr == nil {
+		t.Fatal("conflicting source page must not be written")
+	}
+}
 
 func TestApplyApprovedRequiresApproval(t *testing.T) {
 	root, bundle := makeApplyFixture(t, "pass")
