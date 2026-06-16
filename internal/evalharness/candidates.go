@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	wikischema "github.com/huic/nemo-knows/internal/wiki"
 )
 
 var (
@@ -15,7 +17,6 @@ var (
 	candidateConfidenceRE  = regexp.MustCompile(`(?m)^confidence:\s*(.+?)\s*$`)
 	candidateHeadingRE     = regexp.MustCompile(`(?m)^#\s+(.+?)\s*$`)
 	candidateTokenRE       = regexp.MustCompile(`[a-z0-9]+`)
-	wikilinkRE             = regexp.MustCompile(`\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]`)
 )
 
 type CandidateResult struct {
@@ -125,7 +126,7 @@ func scoreCandidateFile(target string, content string, sourceDraft string, allow
 	result.Scores.Sources = scoreCandidateSources(frontmatter, &result.Trace)
 	result.Scores.Title = scoreCandidateTitle(frontmatter, body, &result.Trace)
 	result.Scores.TitleAlignment = scoreCandidateTitleAlignment(frontmatterValue(frontmatter, candidateTitleRE), body, &result.Trace)
-	result.Scores.Wikilinks = scoreCandidateWikilinks(body, allowedLinks, supportedLinks, validateLinks, &result.Trace)
+	result.Scores.Wikilinks = scoreCandidateLinks(target, body, allowedLinks, supportedLinks, validateLinks, &result.Trace)
 	result.Scores.Markdown = scoreCandidateMarkdown(body, &result.Trace)
 	result.Scores.Length = scoreCandidateLength(body, &result.Trace)
 	result.Scores.Depth = scoreCandidateDepth(body, &result.Trace)
@@ -230,39 +231,58 @@ func scoreCandidateTitleAlignment(title string, body string, trace *[]string) st
 	return "pass"
 }
 
-func scoreCandidateWikilinks(body string, allowedLinks map[string]bool, supportedLinks map[string]bool, validateLinks bool, trace *[]string) string {
-	matches := wikilinkRE.FindAllStringSubmatch(body, -1)
-	if len(matches) == 0 {
-		*trace = append(*trace, "wikilinks: none present; acceptable when no source-supported link is available")
+// scoreCandidateLinks scores a candidate's cross-references after the migration
+// to Markdown relative links. Any residual Obsidian [[wikilink]] is treated as a
+// defect (the draft cleaner should have rewritten it), aligning the eval gate
+// with the lint forbidden-wikilink rule. Otherwise it resolves each Markdown
+// relative link (from the candidate's own path) to a target slug and, when
+// validateLinks is set, checks that the target is an allowed (existing or
+// sibling-candidate) page that is also supported by the source.
+func scoreCandidateLinks(target string, body string, allowedLinks map[string]bool, supportedLinks map[string]bool, validateLinks bool, trace *[]string) string {
+	if refs := wikischema.WikilinkReferences(body); len(refs) > 0 {
+		*trace = append(*trace, "links: forbidden [[wikilink]] syntax present; use Markdown relative links: "+strings.Join(refs, ", "))
+		return "borderline"
+	}
+	slugs := candidateLinkSlugs(target, body)
+	if len(slugs) == 0 {
+		*trace = append(*trace, "links: none present; acceptable when no source-supported link is available")
 		return "pass"
 	}
 	if validateLinks {
 		missing := []string{}
 		weak := []string{}
-		for _, match := range matches {
-			if len(match) != 2 {
-				continue
-			}
-			slug := slugFromCandidateLink(match[1])
+		for _, slug := range slugs {
 			if !allowedLinks[slug] {
-				missing = append(missing, match[1])
+				missing = append(missing, slug)
 				continue
 			}
 			if !supportedLinks[slug] {
-				weak = append(weak, match[1])
+				weak = append(weak, slug)
 			}
 		}
 		if len(missing) > 0 {
-			*trace = append(*trace, "wikilinks: missing targets: "+strings.Join(missing, ", "))
+			*trace = append(*trace, "links: missing targets: "+strings.Join(missing, ", "))
 			return "borderline"
 		}
 		if len(weak) > 0 {
-			*trace = append(*trace, "wikilinks: weak semantic targets: "+strings.Join(weak, ", "))
+			*trace = append(*trace, "links: weak semantic targets: "+strings.Join(weak, ", "))
 			return "borderline"
 		}
 	}
-	*trace = append(*trace, "wikilinks: at least one wikilink present")
+	*trace = append(*trace, "links: at least one Markdown relative link present")
 	return "pass"
+}
+
+// candidateLinkSlugs returns the target slugs of a candidate's wiki-internal
+// Markdown relative links, resolved against the candidate's own repo path.
+func candidateLinkSlugs(target string, body string) []string {
+	slugs := []string{}
+	for _, href := range wikischema.MarkdownLinkTargets(body) {
+		if repoPath, ok := wikischema.RepoPathFromHref(target, href); ok && strings.HasPrefix(repoPath, "wiki/") {
+			slugs = append(slugs, wikischema.SlugFromWikiPath(repoPath))
+		}
+	}
+	return slugs
 }
 
 func scoreCandidateMarkdown(body string, trace *[]string) string {
@@ -302,14 +322,6 @@ func candidateSupportedLinkSlugs(sourceDraft string, targets []string, allowedLi
 		}
 	}
 	return supported
-}
-
-func slugFromCandidateLink(link string) string {
-	slug := strings.TrimSpace(link)
-	slug = strings.TrimSuffix(slug, filepath.Ext(slug))
-	slug = strings.ToLower(slug)
-	slug = strings.ReplaceAll(slug, " ", "-")
-	return slug
 }
 
 func scoreCandidateLength(body string, trace *[]string) string {

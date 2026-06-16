@@ -24,6 +24,7 @@ import (
 	wikiquery "github.com/huic/nemo-knows/internal/query"
 	"github.com/huic/nemo-knows/internal/review"
 	"github.com/huic/nemo-knows/internal/web"
+	wikischema "github.com/huic/nemo-knows/internal/wiki"
 	"github.com/huic/nemo-knows/internal/wikilint"
 	"github.com/huic/nemo-knows/internal/wikimaint"
 )
@@ -249,7 +250,6 @@ var markdownFrontmatterRE = regexp.MustCompile(`(?s)^---\s*\n.*?\n---\s*\n?`)
 var nestedFrontmatterPreludeRE = regexp.MustCompile(`(?s)^\s*(?:title|kind|sources|confidence):.*?\n---\s*\n?`)
 var sourceReferenceLineRE = regexp.MustCompile(`(?m)^\s*-\s*((?:pipeline/)?raw/[^ \n]+|wiki/sources/[^ \n]+)\s*$`)
 var sourceReferenceRE = regexp.MustCompile(`(?:(?:pipeline/)?raw|wiki/sources)/[A-Za-z0-9._/-]*[A-Za-z0-9_-]\.md`)
-var candidateWikilinkRE = regexp.MustCompile(`\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]`)
 var markdownHeadingRE = regexp.MustCompile(`(?m)^#\s+.+$`)
 var sourceDraftFrontmatterRE = regexp.MustCompile(`(?s)^---\s*\n(.*?)\n---\s*`)
 
@@ -277,7 +277,7 @@ func runGenerateCandidates(bundleDir string, cfg config.Config) error {
 	sourceRefs := sourceRefsForCandidate(sourceDraft)
 
 	targets := candidateDraftTargets(string(applyPlan))
-	allowedLinks := allowedLinkSlugs(string(sourceDraft), targets)
+	allowedLinks := allowedLinkTargets(string(sourceDraft), targets)
 	for _, target := range targets {
 		promptPath := filepath.Join("prompts", target.Kind+"-page.md")
 		out := filepath.Join(bundleDir, "candidates", filepath.FromSlash(target.Path))
@@ -346,7 +346,7 @@ func knownTitleAcronym(part string) string {
 	}
 }
 
-func runCandidateDraft(promptPath string, out string, target candidateDraftTarget, sourceContent string, sourceRefs []string, allowedLinks map[string]bool, cfg config.Config) error {
+func runCandidateDraft(promptPath string, out string, target candidateDraftTarget, sourceContent string, sourceRefs []string, allowedLinks map[string]string, cfg config.Config) error {
 	templateContent, err := os.ReadFile(promptPath)
 	if err != nil {
 		return fmt.Errorf("read candidate prompt: %w", err)
@@ -360,7 +360,7 @@ func runCandidateDraft(promptPath string, out string, target candidateDraftTarge
 		PageTitle:      target.Title,
 		PageKind:       target.Kind,
 		TargetPath:     target.Path,
-		AllowedLinks:   markdownAllowedLinks(allowedLinks),
+		AllowedLinks:   markdownAllowedLinks(allowedLinks, target.Path),
 	})
 	if err != nil {
 		return fmt.Errorf("render candidate prompt: %w", err)
@@ -566,12 +566,12 @@ func adjustExcerptEnd(content string, end int) int {
 	return end
 }
 
-func normalizeCandidateDraft(cleaned string, target candidateDraftTarget, sourceRefs []string, allowedLinks map[string]bool) string {
+func normalizeCandidateDraft(cleaned string, target candidateDraftTarget, sourceRefs []string, allowedLinks map[string]string) string {
 	title := candidateTitleOrDefault(cleaned, target.Title)
 	body := markdownFrontmatterRE.ReplaceAllString(cleaned, "")
 	body = nestedFrontmatterPreludeRE.ReplaceAllString(body, "")
 	body = strings.TrimSpace(body)
-	body = normalizeCandidateWikilinks(body, allowedLinks)
+	body = convertCandidateLinks(body, target.Path, allowedLinks)
 	body = normalizeCandidateHeading(body, title)
 
 	var b strings.Builder
@@ -596,21 +596,27 @@ func normalizeCandidateDraft(cleaned string, target candidateDraftTarget, source
 	return b.String()
 }
 
-func allowedLinkSlugs(sourceContent string, targets []candidateDraftTarget) map[string]bool {
-	allowed := map[string]bool{}
-	for _, target := range targets {
-		allowed[slugFromWikiPath(target.Path)] = true
-	}
+// allowedLinkTargets maps each link-eligible slug to its wiki repo-relative
+// path. A slug is eligible when it is one of the reviewed candidate targets or
+// an existing wiki page whose subject the source material actually supports.
+// The path lets the draft pipeline emit real Markdown relative links rather
+// than slug-only references. Candidate targets are added last so a generated
+// page wins over a same-slug existing page (slugs are globally unique anyway).
+func allowedLinkTargets(sourceContent string, targets []candidateDraftTarget) map[string]string {
+	allowed := map[string]string{}
 	_ = filepath.WalkDir("wiki", func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() || filepath.Ext(path) != ".md" {
 			return nil
 		}
 		slug := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
 		if sourceSupportsLinkSlug(sourceContent, slug) {
-			allowed[slug] = true
+			allowed[slug] = filepath.ToSlash(path)
 		}
 		return nil
 	})
+	for _, target := range targets {
+		allowed[slugFromWikiPath(target.Path)] = filepath.ToSlash(target.Path)
+	}
 	return allowed
 }
 
@@ -619,7 +625,11 @@ func sourceSupportsLinkSlug(sourceContent string, slug string) bool {
 	return strings.Contains(normalized, slug) || strings.Contains(normalized, strings.ToLower(titleFromSlug(slug)))
 }
 
-func markdownAllowedLinks(allowed map[string]bool) string {
+// markdownAllowedLinks renders the allow-list as ready-to-paste Markdown
+// relative links computed from the page being generated, so the model copies a
+// real file jump instead of inventing slug syntax. The page's own slug is
+// skipped to avoid offering a self-link.
+func markdownAllowedLinks(allowed map[string]string, fromPath string) string {
 	if len(allowed) == 0 {
 		return "(none)"
 	}
@@ -630,25 +640,49 @@ func markdownAllowedLinks(allowed map[string]bool) string {
 	sort.Strings(slugs)
 	var b strings.Builder
 	for _, slug := range slugs {
-		b.WriteString("- [[")
-		b.WriteString(slug)
-		b.WriteString("]]\n")
+		target := allowed[slug]
+		if target == filepath.ToSlash(fromPath) {
+			continue
+		}
+		rel := wikischema.RelativeLinkPath(fromPath, target)
+		b.WriteString("- [")
+		b.WriteString(candidateLinkTitle(target))
+		b.WriteString("](")
+		b.WriteString(rel)
+		b.WriteString(")\n")
 	}
-	return strings.TrimRight(b.String(), "\n")
+	out := strings.TrimRight(b.String(), "\n")
+	if out == "" {
+		return "(none)"
+	}
+	return out
 }
 
-func normalizeCandidateWikilinks(body string, allowed map[string]bool) string {
-	return candidateWikilinkRE.ReplaceAllStringFunc(body, func(link string) string {
-		match := candidateWikilinkRE.FindStringSubmatch(link)
-		if len(match) != 2 {
-			return link
+// convertCandidateLinks rewrites any residual [[slug]] wikilinks the model
+// emitted into Markdown relative links when the slug resolves to an allowed
+// target, and degrades unresolved or self references to plain text. This keeps
+// generated drafts on the standard Markdown relative-link convention.
+func convertCandidateLinks(body string, fromPath string, allowed map[string]string) string {
+	return wikischema.ConvertWikilinks(fromPath, body, func(slug string) (wikischema.LinkTarget, bool) {
+		target, ok := allowed[slug]
+		if !ok || target == filepath.ToSlash(fromPath) {
+			return wikischema.LinkTarget{}, false
 		}
-		target := match[1]
-		if allowed[slugFromLink(target)] {
-			return link
-		}
-		return target
+		return wikischema.LinkTarget{RepoPath: target, Title: candidateLinkTitle(target)}, true
 	})
+}
+
+// candidateLinkTitle prefers the target page's frontmatter title when the file
+// already exists on disk, falling back to a slug-derived title for candidate
+// pages that have not been written to wiki/ yet.
+func candidateLinkTitle(path string) string {
+	if data, err := os.ReadFile(path); err == nil {
+		frontmatter, _ := splitMarkdownFrontmatter(string(data))
+		if title := frontmatterField(frontmatter, "title"); title != "" {
+			return title
+		}
+	}
+	return titleFromWikiPath(path)
 }
 
 func normalizeCandidateHeading(body string, title string) string {
@@ -693,14 +727,6 @@ func titleFromSlug(slug string) string {
 
 func slugFromWikiPath(path string) string {
 	return strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
-}
-
-func slugFromLink(link string) string {
-	slug := strings.TrimSpace(link)
-	slug = strings.TrimSuffix(slug, filepath.Ext(slug))
-	slug = strings.ToLower(slug)
-	slug = strings.ReplaceAll(slug, " ", "-")
-	return slug
 }
 
 func containsString(items []string, want string) bool {

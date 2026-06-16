@@ -12,12 +12,18 @@ Rules:
   than 8 English words or 18 Chinese characters.
 - Entity pages are for people, organisations, products, and places. Record only
   facts supported by the source material or Target Evidence.
-- Use Obsidian-style wikilinks only as semantic cross-references when the
-  source material clearly supports the relationship. Do not use wikilinks as
+- Use standard Markdown relative links only as semantic cross-references when
+  the source material clearly supports the relationship. Do not use them as
   index/navigation entries.
-- Only use wikilinks from the Allowed Links list. If a term is not listed or the
-  source does not support the relationship, write it as plain text.
-- Wikilinks are optional. Do not add a Related Concepts section just to include
+- Link only to pages in the Allowed Links list, copying the exact
+  `[Label](relative/path.md)` form shown there. Each path is already computed
+  relative to this page's Target path (a sibling page in the same folder is
+  `name.md`; a page in another wiki folder is `../folder/name.md`). Never emit
+  Obsidian-style `[[wikilinks]]`.
+- If a term is not in the Allowed Links list, or the source does not support the
+  relationship, write it as plain text. Never invent a link to a page that may
+  not exist.
+- Cross-links are optional. Do not add a Related Concepts section just to include
   links.
 - Do not invent biographies, dates, affiliations, product claims, locations, or
   roles.

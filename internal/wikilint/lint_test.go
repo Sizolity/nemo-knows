@@ -3,6 +3,7 @@ package wikilint
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -57,7 +58,8 @@ confidence: medium
 	}
 	for _, code := range []string{
 		"duplicate-index-entry",
-		"missing-wikilink-target",
+		"forbidden-wikilink",
+		"missing-link-target",
 		"missing-frontmatter",
 		"invalid-log-action",
 		"orphan-page",
@@ -68,6 +70,110 @@ confidence: medium
 	}
 	if result.Summary.Total == 0 {
 		t.Fatal("expected non-empty lint summary")
+	}
+}
+
+func TestLintWikiAcceptsMarkdownRelativeLinks(t *testing.T) {
+	root := t.TempDir()
+	writeWikiFile(t, root, "wiki/index.md", `---
+title: Index
+kind: index
+---
+
+## Concepts
+- [serverless-database](concepts/serverless-database.md) — Serverless engine.
+
+## Topics
+- [data-preservation-formats](topics/data-preservation-formats.md) — Formats.
+`)
+	writeWikiFile(t, root, "wiki/log.md", `---
+title: Log
+kind: log
+---
+
+## [2026-06-16] note | ok
+`)
+	writeWikiFile(t, root, "wiki/concepts/serverless-database.md", `---
+title: Serverless Database
+kind: concept
+sources:
+  - raw/source.md
+confidence: medium
+---
+
+# Serverless Database
+
+Recommended for [data preservation](../topics/data-preservation-formats.md).
+`)
+	writeWikiFile(t, root, "wiki/topics/data-preservation-formats.md", `---
+title: Data Preservation Formats
+kind: topic
+sources:
+  - raw/source.md
+confidence: medium
+---
+
+# Data Preservation Formats
+
+Used by the [serverless database](../concepts/serverless-database.md).
+`)
+
+	result, err := LintWiki(root)
+	if err != nil {
+		t.Fatalf("LintWiki returned error: %v", err)
+	}
+	for _, code := range []string{"forbidden-wikilink", "missing-link-target", "orphan-page"} {
+		if hasIssue(result, code) {
+			t.Fatalf("did not expect issue code %q for valid relative links in %#v", code, result.Issues)
+		}
+	}
+}
+
+func TestLintWikiFlagsMissingRelativeLinkTarget(t *testing.T) {
+	root := t.TempDir()
+	writeWikiFile(t, root, "wiki/index.md", `---
+title: Index
+kind: index
+---
+
+## Concepts
+- [present](concepts/present.md) — Present.
+`)
+	writeWikiFile(t, root, "wiki/log.md", `---
+title: Log
+kind: log
+---
+
+## [2026-06-16] note | ok
+`)
+	writeWikiFile(t, root, "wiki/concepts/present.md", `---
+title: Present
+kind: concept
+sources:
+  - raw/source.md
+confidence: medium
+---
+
+# Present
+
+Points at a [moved page](../concepts/gone.md).
+`)
+
+	result, err := LintWiki(root)
+	if err != nil {
+		t.Fatalf("LintWiki returned error: %v", err)
+	}
+	var msg string
+	for _, issue := range result.Issues {
+		if issue.Code == "missing-link-target" {
+			msg = issue.Message
+		}
+	}
+	if msg == "" {
+		t.Fatalf("expected missing-link-target issue in %#v", result.Issues)
+	}
+	if !strings.Contains(msg, "gone.md") {
+		t.Fatalf("missing-link-target message should name the broken target, got %q", msg)
 	}
 }
 
@@ -150,10 +256,67 @@ confidence: medium
 	if err != nil {
 		t.Fatalf("LintWiki returned error: %v", err)
 	}
-	for _, code := range []string{"missing-wikilink-target", "invalid-log-action"} {
+	for _, code := range []string{"forbidden-wikilink", "invalid-log-action"} {
 		if hasIssue(result, code) {
 			t.Fatalf("did not expect issue code %q in %#v", code, result.Issues)
 		}
+	}
+}
+
+func TestLintWikiChecksImageExistence(t *testing.T) {
+	root := t.TempDir()
+	writeWikiFile(t, root, "wiki/index.md", `---
+title: Index
+kind: index
+---
+
+## Sources
+- [slides](sources/slides.md) — Slide deck.
+`)
+	writeWikiFile(t, root, "wiki/log.md", `---
+title: Log
+kind: log
+---
+
+## [2026-06-16] note | ok
+`)
+	writeWikiFile(t, root, "wiki/sources/slides.md", `---
+title: Slides
+kind: source
+sources:
+  - https://example.com/deck
+confidence: medium
+---
+
+# Slides
+
+![present](../assets/deck/present.png)
+![missing](../assets/deck/missing.png)
+![remote](https://example.com/remote.png)
+`)
+	// Only the "present" asset exists on disk.
+	writeWikiFile(t, root, "wiki/assets/deck/present.png", "\x89PNG\r\n\x1a\n")
+
+	result, err := LintWiki(root)
+	if err != nil {
+		t.Fatalf("LintWiki returned error: %v", err)
+	}
+	if !hasIssue(result, "missing-image") {
+		t.Fatalf("expected missing-image issue in %#v", result.Issues)
+	}
+	count := 0
+	var msg string
+	for _, issue := range result.Issues {
+		if issue.Code == "missing-image" {
+			count++
+			msg = issue.Message
+		}
+	}
+	if count != 1 {
+		t.Fatalf("expected exactly 1 missing-image (present + remote excluded), got %d in %#v", count, result.Issues)
+	}
+	if !strings.Contains(msg, "missing.png") {
+		t.Fatalf("missing-image message should name the missing file, got %q", msg)
 	}
 }
 

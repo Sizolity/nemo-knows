@@ -19,7 +19,8 @@ var (
 	ErrAlreadyApplied   = errors.New("bundle has already been applied")
 	// ErrSlugConflict is returned when applying a bundle would put two distinct
 	// wiki pages under the same slug. Slugs must be unique across the whole wiki
-	// so [[slug]] wikilinks resolve to a single page.
+	// because the filename slug is each page's identity for de-duplication, index
+	// catalogue entries, and the renderer's defensive wikilink fallback.
 	ErrSlugConflict = errors.New("wiki slug conflict: slugs must be unique across the whole wiki")
 
 	candidateLineRE = regexp.MustCompile("(?m)^- `([^`]+)` — (.+)$")

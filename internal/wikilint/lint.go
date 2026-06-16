@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -14,8 +15,9 @@ import (
 
 var (
 	frontmatterBlockRE = regexp.MustCompile(`(?s)^---\s*\n(.*?)\n---\s*`)
-	wikilinkRE         = regexp.MustCompile(`\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]`)
 	logHeadingRE       = regexp.MustCompile(`^## \[[0-9]{4}-[0-9]{2}-[0-9]{2}\] ([^ |]+) \| .+`)
+	// imageRE matches a Markdown image ![alt](src); group 1 captures the src.
+	imageRE = regexp.MustCompile(`!\[[^\]]*\]\(([^)\s]+)\)`)
 )
 
 type Result struct {
@@ -42,7 +44,19 @@ type page struct {
 	Slug        string
 	Content     string
 	Frontmatter string
-	Links       []string
+	// LinkRefs holds every local Markdown relative link (e.g. [x](../sub/x.md))
+	// resolved to a repo-relative path, used for target-existence and inbound
+	// (orphan) checks.
+	LinkRefs []linkRef
+	// Wikilinks holds any residual Obsidian [[...]] cross-references found
+	// outside code. They are forbidden after the migration to Markdown links.
+	Wikilinks []string
+}
+
+// linkRef is a single local Markdown relative link on a page.
+type linkRef struct {
+	Href     string // raw href as written, e.g. "../topics/x.md"
+	RepoPath string // resolved repo-relative slash path, e.g. "wiki/topics/x.md"
 }
 
 func LintWiki(root string) (Result, error) {
@@ -68,14 +82,25 @@ func LintWiki(root string) (Result, error) {
 
 	for _, page := range pages {
 		lintFrontmatter(page, &result)
-		for _, link := range page.Links {
-			if _, ok := slugToPath[link]; !ok {
-				addIssue(&result, "missing-wikilink-target", "warn", page.Path, "wikilink target does not exist: "+link)
+		if refs := dedupeStrings(page.Wikilinks); len(refs) > 0 {
+			addIssue(&result, "forbidden-wikilink", "error", page.Path,
+				"Obsidian [[wikilink]] syntax is no longer allowed; use Markdown relative links instead: [["+strings.Join(refs, "]], [[")+"]]")
+		}
+		for _, ref := range page.LinkRefs {
+			if ref.RepoPath == "" || strings.HasPrefix(ref.RepoPath, "../") || ref.RepoPath == ".." {
+				addIssue(&result, "missing-link-target", "error", page.Path, "relative link escapes the repository: "+ref.Href)
 				continue
 			}
-			inbound[link]++
+			if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(ref.RepoPath))); err != nil {
+				addIssue(&result, "missing-link-target", "error", page.Path, "relative link target does not exist: "+ref.Href+" (resolved to "+ref.RepoPath+")")
+				continue
+			}
+			if strings.HasPrefix(ref.RepoPath, "wiki/") {
+				inbound[wikischema.SlugFromWikiPath(ref.RepoPath)]++
+			}
 		}
 	}
+	lintImages(root, pages, &result)
 	lintIndex(root, &result)
 	lintLog(root, &result)
 	for _, page := range pages {
@@ -83,7 +108,7 @@ func LintWiki(root string) (Result, error) {
 			continue
 		}
 		if inbound[page.Slug] == 0 {
-			addIssue(&result, "orphan-page", "info", page.Path, "page has no inbound wikilinks")
+			addIssue(&result, "orphan-page", "info", page.Path, "page has no inbound Markdown links")
 		}
 	}
 
@@ -123,18 +148,21 @@ func readWikiPages(root string) ([]page, error) {
 		if err != nil {
 			return err
 		}
-		repoPath := filepath.ToSlash(rel)
+		pagePath := filepath.ToSlash(rel)
 		fm, _ := splitFrontmatter(string(content))
-		links := wikilinks(string(content))
-		if repoPath == "wiki/index.md" {
-			links = append(links, indexEntryLinks(string(content))...)
+		refs := []linkRef{}
+		for _, href := range wikischema.MarkdownLinkTargets(string(content)) {
+			if resolved, ok := wikischema.RepoPathFromHref(pagePath, href); ok {
+				refs = append(refs, linkRef{Href: href, RepoPath: resolved})
+			}
 		}
 		pages = append(pages, page{
-			Path:        repoPath,
+			Path:        pagePath,
 			Slug:        strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)),
 			Content:     string(content),
 			Frontmatter: fm,
-			Links:       links,
+			LinkRefs:    refs,
+			Wikilinks:   wikischema.WikilinkReferences(string(content)),
 		})
 		return nil
 	})
@@ -209,31 +237,70 @@ func lintLog(root string, result *Result) {
 	}
 }
 
+// lintImages flags Markdown image references whose local target file is
+// missing. Remote http/https images are skipped. Local targets are resolved
+// relative to the referencing page (or taken as repo-relative when rooted at
+// wiki/) and checked for existence on disk under root; a target that escapes
+// the repository or does not exist is reported as a warning so the broken
+// reference is visible without blocking the wiki.
+func lintImages(root string, pages []page, result *Result) {
+	for _, page := range pages {
+		body := stripMarkdownCode(page.Content)
+		for _, match := range imageRE.FindAllStringSubmatch(body, -1) {
+			target := strings.TrimSpace(match[1])
+			repoPath, local := imageRepoPath(page.Path, target)
+			if !local {
+				continue
+			}
+			if repoPath == "" || repoPath == ".." || strings.HasPrefix(repoPath, "../") {
+				addIssue(result, "missing-image", "warn", page.Path, "image reference escapes the wiki: "+target)
+				continue
+			}
+			full := filepath.Join(root, filepath.FromSlash(repoPath))
+			if _, err := os.Stat(full); err != nil {
+				addIssue(result, "missing-image", "warn", page.Path, "image file does not exist: "+target+" (resolved to "+repoPath+")")
+			}
+		}
+	}
+}
+
+// imageRepoPath resolves a Markdown image src to a repo-relative path. The
+// boolean result reports whether the target is a local reference that should be
+// existence-checked; http/https and other-scheme/protocol-relative targets
+// return false so they are skipped.
+func imageRepoPath(pagePath string, target string) (string, bool) {
+	trimmed := strings.TrimSpace(target)
+	if trimmed == "" {
+		return "", false
+	}
+	lower := strings.ToLower(trimmed)
+	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
+		return "", false
+	}
+	if strings.Contains(trimmed, "://") || strings.HasPrefix(trimmed, "//") {
+		return "", false
+	}
+	if cut := strings.IndexAny(trimmed, "#?"); cut != -1 {
+		trimmed = trimmed[:cut]
+	}
+	if trimmed == "" {
+		return "", false
+	}
+	repoPath := filepath.ToSlash(trimmed)
+	if !strings.HasPrefix(repoPath, "wiki/") {
+		repoPath = path.Clean(path.Join(path.Dir(filepath.ToSlash(pagePath)), repoPath))
+	} else {
+		repoPath = path.Clean(repoPath)
+	}
+	return repoPath, true
+}
+
 func splitFrontmatter(content string) (string, string) {
 	match := frontmatterBlockRE.FindStringSubmatch(content)
 	if len(match) != 2 {
 		return "", content
 	}
 	return match[1], frontmatterBlockRE.ReplaceAllString(content, "")
-}
-
-func wikilinks(content string) []string {
-	links := []string{}
-	body := stripMarkdownCode(content)
-	for _, match := range wikilinkRE.FindAllStringSubmatch(body, -1) {
-		links = append(links, wikischema.SlugFromReference(match[1]))
-	}
-	return links
-}
-
-func indexEntryLinks(content string) []string {
-	links := []string{}
-	for _, line := range strings.Split(stripMarkdownCode(content), "\n") {
-		if slug, ok := wikischema.IndexEntrySlug(line); ok {
-			links = append(links, slug)
-		}
-	}
-	return links
 }
 
 func stripMarkdownCode(content string) string {
@@ -305,4 +372,19 @@ func requiresSources(path string) bool {
 
 func addIssue(result *Result, code string, level string, path string, message string) {
 	result.Issues = append(result.Issues, Issue{Code: code, Level: level, Path: path, Message: message})
+}
+
+// dedupeStrings returns the input with duplicates removed, preserving first-seen
+// order, so a page that repeats the same forbidden reference is reported once.
+func dedupeStrings(in []string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		if seen[s] {
+			continue
+		}
+		seen[s] = true
+		out = append(out, s)
+	}
+	return out
 }

@@ -48,12 +48,12 @@ func ReviewCandidates(result CandidateResult) CandidateReview {
 
 func candidateReviewRecommendation(problem string) string {
 	switch {
-	case strings.Contains(problem, "wikilinks: weak semantic targets:"):
-		return "Convert unsupported wikilinks to plain text unless source support is added or the reviewed candidate set explicitly justifies the link."
-	case strings.Contains(problem, "wikilinks: missing targets:"):
-		return "Remove missing wikilinks or add explicit reviewed candidate pages before approved apply."
-	case strings.Contains(problem, "wikilinks: no wikilinks found"):
-		return "Add one source-supported wikilink to an existing page or reviewed candidate; otherwise keep the term as plain text and accept the borderline score."
+	case strings.Contains(problem, "links: forbidden [[wikilink]]"):
+		return "Replace the deprecated [[wikilink]] syntax with a standard Markdown relative link to the target page, or with plain text when no target page exists."
+	case strings.Contains(problem, "links: weak semantic targets:"):
+		return "Convert unsupported relative links to plain text unless source support is added or the reviewed candidate set explicitly justifies the link."
+	case strings.Contains(problem, "links: missing targets:"):
+		return "Remove broken relative links or add explicit reviewed candidate pages before approved apply."
 	case strings.Contains(problem, "markdown: unclosed fenced code block"):
 		return "Fix malformed Markdown before approved apply; unclosed fences usually mean the model wrapped the page in a code block."
 	case strings.Contains(problem, "sources: missing"):
@@ -94,14 +94,14 @@ func ReviewCrosslinks(crosslinks CrosslinkResult) []CandidateReviewItem {
 				Path:           issue.Path,
 				Severity:       "borderline",
 				Problem:        "crosslink: " + issue.Message,
-				Recommendation: "Add a [[wikilink]] to this page from at least one sibling candidate. If no natural link exists, consider whether this topic should be merged into another page.",
+				Recommendation: "Add a Markdown relative link to this page from at least one sibling candidate. If no natural link exists, consider whether this topic should be merged into another page.",
 			})
 		case "missing-target":
 			items = append(items, CandidateReviewItem{
 				Path:           issue.Path,
 				Severity:       "borderline",
 				Problem:        "crosslink: " + issue.Message,
-				Recommendation: "Remove the broken wikilink or add the missing target as a reviewed candidate before apply.",
+				Recommendation: "Remove the broken relative link or add the missing target as a reviewed candidate before apply.",
 			})
 		}
 	}

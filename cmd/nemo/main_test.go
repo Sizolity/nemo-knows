@@ -792,7 +792,7 @@ confidence: medium
 
 # LLM Maintenance Pattern
 
-The [[LLM Wiki]] maintenance pattern describes how an LLM keeps a durable wiki current across ingest, query, and lint operations. It turns source summaries into maintained pages rather than treating every answer as temporary context.
+The LLM Wiki maintenance pattern describes how an LLM keeps a durable wiki current across ingest, query, and lint operations. It turns source summaries into maintained pages rather than treating every answer as temporary context.
 `), 0o644); err != nil {
 		t.Fatalf("write candidate: %v", err)
 	}
@@ -852,7 +852,7 @@ confidence: medium
 
 # Checkpointing
 
-SQLite WAL checkpointing copies committed frames back into the database while linking to [[Unrelated]], which exists but is not supported by this source. This line is long enough for the candidate length gate.
+SQLite WAL checkpointing copies committed frames back into the database while linking to [Unrelated](unrelated.md), which exists but is not supported by this source. This line is long enough for the candidate length gate.
 `), 0o644); err != nil {
 		t.Fatalf("write candidate: %v", err)
 	}
@@ -867,8 +867,8 @@ SQLite WAL checkpointing copies committed frames back into the database while li
 	content := string(review)
 	for _, want := range []string{
 		"# Candidate Review",
-		"wikilinks: weak semantic targets: Unrelated",
-		"Convert unsupported wikilinks to plain text",
+		"links: weak semantic targets: unrelated",
+		"Convert unsupported relative links to plain text",
 		"Do not apply these suggestions automatically.",
 	} {
 		if !strings.Contains(content, want) {
@@ -895,7 +895,7 @@ func TestRunLintsWiki(t *testing.T) {
 	if err := os.Chdir(dir); err != nil {
 		t.Fatalf("chdir temp repo: %v", err)
 	}
-	if err := os.WriteFile("wiki/index.md", []byte("---\ntitle: Index\nkind: index\n---\n\n- [[missing]] — Missing.\n"), 0o644); err != nil {
+	if err := os.WriteFile("wiki/index.md", []byte("---\ntitle: Index\nkind: index\n---\n\n- [Missing](concepts/missing.md) — Missing.\n"), 0o644); err != nil {
 		t.Fatalf("write index: %v", err)
 	}
 	if err := os.WriteFile("wiki/log.md", []byte("---\ntitle: Log\nkind: log\n---\n\n## [2026-05-16] note | ok\n"), 0o644); err != nil {
@@ -1261,9 +1261,9 @@ func TestNormalizeCandidateDraftFixesHeadingWithoutAddingWeakLink(t *testing.T) 
 		Kind:  "concept",
 		Title: "Tooling Stack",
 	}
-	allowedLinks := map[string]bool{
-		"ingest":        true,
-		"tooling-stack": true,
+	allowedLinks := map[string]string{
+		"ingest":        "wiki/concepts/ingest.md",
+		"tooling-stack": "wiki/concepts/tooling-stack.md",
 	}
 
 	content := normalizeCandidateDraft(`---
@@ -1298,7 +1298,7 @@ title: SQLite
 kind: entity
 ---
 
-SQLite is a small, fast, self-contained SQL database engine written in C.`, target, []string{"source.md", "raw/web/sqlite.md"}, map[string]bool{})
+SQLite is a small, fast, self-contained SQL database engine written in C.`, target, []string{"source.md", "raw/web/sqlite.md"}, map[string]string{})
 
 	if !strings.Contains(content, "title: SQLite\n") {
 		t.Fatalf("frontmatter title should preserve the model's casing:\n%s", content)
@@ -1311,7 +1311,7 @@ SQLite is a small, fast, self-contained SQL database engine written in C.`, targ
 	}
 }
 
-func TestAllowedLinkSlugsOnlyIncludesCandidatesAndSourceSupportedWikiPages(t *testing.T) {
+func TestAllowedLinkTargetsOnlyIncludesCandidatesAndSourceSupportedWikiPages(t *testing.T) {
 	dir := t.TempDir()
 	oldWd, err := os.Getwd()
 	if err != nil {
@@ -1338,17 +1338,17 @@ func TestAllowedLinkSlugsOnlyIncludesCandidatesAndSourceSupportedWikiPages(t *te
 			t.Fatalf("write wiki page: %v", err)
 		}
 	}
-	allowed := allowedLinkSlugs("The source explicitly mentions a persistent wiki.", []candidateDraftTarget{
+	allowed := allowedLinkTargets("The source explicitly mentions a persistent wiki.", []candidateDraftTarget{
 		{Path: "wiki/concepts/llama-cli-arguments.md"},
 	})
 
-	if !allowed["llama-cli-arguments"] {
-		t.Fatalf("candidate target should be allowed: %v", allowed)
+	if allowed["llama-cli-arguments"] != "wiki/concepts/llama-cli-arguments.md" {
+		t.Fatalf("candidate target should map to its repo path: %v", allowed)
 	}
-	if !allowed["persistent-wiki"] {
-		t.Fatalf("source-supported existing page should be allowed: %v", allowed)
+	if allowed["persistent-wiki"] != "wiki/concepts/persistent-wiki.md" {
+		t.Fatalf("source-supported existing page should map to its repo path: %v", allowed)
 	}
-	if allowed["unrelated"] {
+	if allowed["unrelated"] != "" {
 		t.Fatalf("source-unsupported existing page should not be allowed: %v", allowed)
 	}
 }
@@ -1593,7 +1593,7 @@ func TestRunApplyApprovedAppliesBundle(t *testing.T) {
 			t.Fatalf("mkdir %s: %v", path, err)
 		}
 	}
-	if err := os.WriteFile("wiki/index.md", []byte("---\ntitle: Index\nkind: index\n---\n\n## Sources\n- [[llm-wiki]] — Existing source.\n"), 0o644); err != nil {
+	if err := os.WriteFile("wiki/index.md", []byte("---\ntitle: Index\nkind: index\n---\n\n## Sources\n- [llm-wiki](sources/llm-wiki.md) — Existing source.\n"), 0o644); err != nil {
 		t.Fatalf("write index: %v", err)
 	}
 	if err := os.WriteFile("wiki/log.md", []byte("# Log\n"), 0o644); err != nil {

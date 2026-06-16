@@ -189,10 +189,12 @@ keeps wikilinks aligned with the wiki's purpose: navigation should make the
 knowledge base more accurate and more connected, not merely satisfy a structural
 check.
 
-`wiki/index.md` is different: it is a navigation catalogue, so entries are
-standard Markdown links relative to `wiki/index.md`, for example
-`[sqlite-wal](sources/sqlite-wal.md)`. Body-page `[[wikilinks]]` remain
-semantic cross-references and are not used as the index entry format.
+Both `wiki/index.md` entries and body-page semantic cross-references use the
+same form: standard Markdown links whose target is a path relative to the page
+that contains them, for example `[sqlite-wal](sources/sqlite-wal.md)` from the
+index or `[SQLite](../entities/sqlite.md)` from a sibling folder. Obsidian-style
+`[[wikilinks]]` are no longer part of the schema; the lint and candidate-eval
+gates report any residual `[[...]]` so links stay real, resolvable file jumps.
 
 ### Ingest Evaluation Harness
 

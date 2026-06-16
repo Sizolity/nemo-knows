@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	wikischema "github.com/huic/nemo-knows/internal/wiki"
 )
 
 type CrosslinkResult struct {
@@ -25,8 +27,11 @@ type CrosslinkEdge struct {
 	To   string `json:"to"`
 }
 
-// EvaluateBundleCrosslinks checks wikilinks among reviewed candidate drafts and
-// the existing wiki. It is read-only and meant to supplement candidate eval.
+// EvaluateBundleCrosslinks checks the Markdown relative links among reviewed
+// candidate drafts and against the existing wiki. It is read-only and meant to
+// supplement candidate eval. Targets are reachable when they resolve to a
+// sibling candidate or an existing wiki page on disk; residual Obsidian
+// [[wikilink]] syntax is flagged so the bundle gate matches the lint rules.
 func EvaluateBundleCrosslinks(root string, bundleDir string) (CrosslinkResult, error) {
 	applyPlan, err := os.ReadFile(filepath.Join(bundleDir, "apply-plan.md"))
 	if err != nil {
@@ -35,11 +40,10 @@ func EvaluateBundleCrosslinks(root string, bundleDir string) (CrosslinkResult, e
 	result := CrosslinkResult{Bundle: bundleDir}
 	detectSlugConflicts(root, candidatePaths(string(applyPlan)), &result)
 	targets := candidateDraftPaths(string(applyPlan))
-	candidateSlugs := map[string]string{}
+	candidateTargets := map[string]bool{}
 	for _, target := range targets {
-		candidateSlugs[strings.TrimSuffix(filepath.Base(target), filepath.Ext(target))] = target
+		candidateTargets[target] = true
 	}
-	wikiSlugs := existingWikiSlugs(root)
 	inbound := map[string]int{}
 	for _, target := range targets {
 		path := filepath.Join(bundleDir, "candidates", filepath.FromSlash(target))
@@ -48,25 +52,28 @@ func EvaluateBundleCrosslinks(root string, bundleDir string) (CrosslinkResult, e
 			result.Issues = append(result.Issues, CrosslinkIssue{Path: target, Code: "missing-candidate", Message: "candidate draft is missing"})
 			continue
 		}
-		for _, match := range wikilinkRE.FindAllStringSubmatch(string(content), -1) {
-			if len(match) != 2 {
+		if refs := wikischema.WikilinkReferences(string(content)); len(refs) > 0 {
+			result.Issues = append(result.Issues, CrosslinkIssue{Path: target, Code: "forbidden-wikilink", Message: "Obsidian [[wikilink]] syntax is no longer allowed; use Markdown relative links: " + strings.Join(refs, ", ")})
+		}
+		for _, href := range wikischema.MarkdownLinkTargets(string(content)) {
+			repoPath, ok := wikischema.RepoPathFromHref(target, href)
+			if !ok || !strings.HasPrefix(repoPath, "wiki/") {
 				continue
 			}
-			slug := slugFromCandidateLink(match[1])
-			if candidateTarget, ok := candidateSlugs[slug]; ok {
-				inbound[slug]++
-				result.Graph = append(result.Graph, CrosslinkEdge{From: target, To: candidateTarget})
+			if candidateTargets[repoPath] {
+				inbound[repoPath]++
+				result.Graph = append(result.Graph, CrosslinkEdge{From: target, To: repoPath})
 				continue
 			}
-			if wikiSlugs[slug] {
-				result.Graph = append(result.Graph, CrosslinkEdge{From: target, To: "wiki/" + slug})
+			if _, statErr := os.Stat(filepath.Join(root, filepath.FromSlash(repoPath))); statErr == nil {
+				result.Graph = append(result.Graph, CrosslinkEdge{From: target, To: repoPath})
 				continue
 			}
-			result.Issues = append(result.Issues, CrosslinkIssue{Path: target, Code: "missing-target", Message: "wikilink target does not exist in reviewed candidates or wiki: " + match[1]})
+			result.Issues = append(result.Issues, CrosslinkIssue{Path: target, Code: "missing-target", Message: "relative link target does not exist in reviewed candidates or wiki: " + href})
 		}
 	}
-	for slug, target := range candidateSlugs {
-		if inbound[slug] == 0 {
+	for _, target := range targets {
+		if inbound[target] == 0 {
 			result.Issues = append(result.Issues, CrosslinkIssue{Path: target, Code: "zero-inbound", Message: "candidate has no inbound links from sibling candidates"})
 		}
 	}
@@ -83,18 +90,6 @@ func EvaluateBundleCrosslinks(root string, bundleDir string) (CrosslinkResult, e
 		return result.Graph[i].From < result.Graph[j].From
 	})
 	return result, nil
-}
-
-func existingWikiSlugs(root string) map[string]bool {
-	slugs := map[string]bool{}
-	_ = filepath.WalkDir(filepath.Join(root, "wiki"), func(path string, d os.DirEntry, err error) error {
-		if err != nil || d.IsDir() || filepath.Ext(path) != ".md" {
-			return nil
-		}
-		slugs[strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))] = true
-		return nil
-	})
-	return slugs
 }
 
 // existingWikiSlugPaths maps each maintained wiki page slug to its repo-relative
@@ -127,9 +122,10 @@ func isWikiKnowledgePath(repoPath string) bool {
 }
 
 // detectSlugConflicts reports cross-category slug collisions among the bundle's
-// candidate pages and against the existing wiki. Slugs must be unique across the
-// whole wiki so [[slug]] wikilinks resolve to a single page; a collision is a
-// structural problem even when every individual wikilink target exists.
+// candidate pages and against the existing wiki. Slugs must remain unique across
+// the whole wiki because they are the stable page identifiers (filenames); a
+// collision is a structural problem even when every individual relative link
+// resolves.
 func detectSlugConflicts(root string, candidates []string, result *CrosslinkResult) {
 	existing := existingWikiSlugPaths(root)
 	seen := map[string]string{}

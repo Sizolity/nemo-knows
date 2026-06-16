@@ -247,14 +247,14 @@ This page links to [[missing-target]].
 	if err != nil {
 		t.Fatalf("Maintain returned error: %v", err)
 	}
-	for _, kind := range []string{"missing-wikilink-target", "orphan-page"} {
+	for _, kind := range []string{"forbidden-wikilink", "orphan-page"} {
 		if !hasTask(result.Tasks, kind) {
 			t.Fatalf("expected task kind %q in %#v", kind, result.Tasks)
 		}
 	}
 	for _, task := range result.Tasks {
-		if task.Kind == "missing-wikilink-target" && !strings.Contains(task.Recommendation, "retargeting") {
-			t.Fatalf("missing wikilink task has weak recommendation: %#v", task)
+		if task.Kind == "forbidden-wikilink" && !strings.Contains(task.Recommendation, "Markdown relative link") {
+			t.Fatalf("forbidden wikilink task has weak recommendation: %#v", task)
 		}
 	}
 }

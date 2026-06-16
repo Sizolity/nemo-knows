@@ -24,7 +24,7 @@ confidence: medium
 
 # LLM Maintenance Pattern
 
-The [[LLM Wiki]] maintenance pattern describes how an LLM keeps a durable wiki current across ingest, query, and lint operations. It turns source summaries into maintained pages rather than treating every answer as a temporary response.
+The LLM Wiki maintenance pattern describes how an LLM keeps a durable wiki current across ingest, query, and lint operations. It turns source summaries into maintained pages rather than treating every answer as a temporary response. The broader design is captured in [Persistent Wiki Architecture](../topics/persistent-wiki-architecture.md).
 
 This concept is useful because the human keeps control over sources while the model handles structure, links, summaries, and bookkeeping. The agent reads raw inputs, produces structured Markdown pages, and logs every operation it performs.
 
@@ -43,7 +43,7 @@ confidence: medium
 
 # Persistent Wiki Architecture
 
-Persistent wiki architecture uses [[Markdown]] pages as the durable knowledge layer around raw sources. Source pages capture individual inputs, concept pages define reusable ideas, and topic pages connect those ideas into cross-cutting explanations.
+Persistent wiki architecture uses Markdown pages as the durable knowledge layer around raw sources. Source pages capture individual inputs, concept pages define reusable ideas, and topic pages connect those ideas into cross-cutting explanations. It builds directly on the [LLM Maintenance Pattern](../concepts/llm-maintenance-pattern.md).
 
 The architecture stays auditable because raw sources remain immutable while accepted wiki edits are explicit and logged. Every change traces back to a raw document through the sources list in each page's frontmatter.
 
@@ -287,7 +287,7 @@ confidence: medium
 
 # LLM Maintenance Pattern
 
-The [[Known]] page is allowed, but [[Missing Target]] is not. This draft has enough words to pass the basic length check while still proving that missing wikilink targets are surfaced before apply.
+The [Known](known.md) page is allowed, but [Missing Target](missing-target.md) is not. This draft has enough words to pass the basic length check while still proving that missing relative-link targets are surfaced before apply.
 
 The LLM maintenance pattern turns raw documents into durable wiki pages through a structured ingest, query, and lint cycle that a model runs on behalf of a human maintainer.
 
@@ -334,7 +334,7 @@ confidence: medium
 
 # Checkpointing
 
-SQLite WAL checkpointing copies committed frames back into the main database while readers keep using a stable snapshot. This draft has enough words to pass the length gate while linking to [[Unrelated]], which exists but is not supported by the source or reviewed candidates.
+SQLite WAL checkpointing copies committed frames back into the main database while readers keep using a stable snapshot. This draft has enough words to pass the length gate while linking to [Unrelated](unrelated.md), which exists but is not supported by the source or reviewed candidates.
 
 A checkpoint transfers pages from the WAL file into the original database file by reading each committed frame and writing it to the corresponding page offset. The operation can proceed concurrently with readers because they continue using the WAL snapshot they started with.
 
@@ -364,11 +364,11 @@ func TestEvaluateBundleCrosslinksReportsMissingAndZeroInbound(t *testing.T) {
 		"- `wiki/topics/second.md` — create new page.\n")
 	writeFile(t, filepath.Join(bundle, "candidates", "wiki", "concepts", "first.md"), `# First
 
-This page links to [[second]] and [[Missing Target]].
+This page links to [second](../topics/second.md) and [Missing Target](missing-target.md).
 `)
 	writeFile(t, filepath.Join(bundle, "candidates", "wiki", "topics", "second.md"), `# Second
 
-This page links to [[known]].
+This page links to [known](../concepts/known.md).
 `)
 
 	result, err := EvaluateBundleCrosslinks(root, bundle)
@@ -393,6 +393,59 @@ This page links to [[known]].
 	}
 }
 
+func TestEvaluateBundleCrosslinksFlagsResidualWikilink(t *testing.T) {
+	root := t.TempDir()
+	bundle := filepath.Join(root, "drafts", "bundle")
+	writeFile(t, filepath.Join(bundle, "apply-plan.md"), "## Candidate Changes\n\n"+
+		"- `wiki/concepts/first.md` — create new page.\n")
+	writeFile(t, filepath.Join(bundle, "candidates", "wiki", "concepts", "first.md"), "# First\n\nThis page still uses [[legacy]] syntax.\n")
+
+	result, err := EvaluateBundleCrosslinks(root, bundle)
+	if err != nil {
+		t.Fatalf("EvaluateBundleCrosslinks returned error: %v", err)
+	}
+	found := false
+	for _, issue := range result.Issues {
+		if issue.Code == "forbidden-wikilink" && issue.Path == "wiki/concepts/first.md" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected forbidden-wikilink issue, got %#v", result.Issues)
+	}
+}
+
+func TestEvaluateCandidatesFlagsResidualWikilinkSyntax(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "source.md"), "---\nkind: source\nsources:\n  - raw/llm-wiki.md\n---\n\n# Source\n\nThe LLM Wiki pattern keeps a durable wiki from raw documents.\n")
+	writeFile(t, filepath.Join(dir, "apply-plan.md"), "## Candidate Changes\n\n- `wiki/concepts/llm-maintenance-pattern.md` — create new page.\n")
+	writeFile(t, filepath.Join(dir, "candidates", "wiki", "concepts", "llm-maintenance-pattern.md"), `---
+title: LLM Maintenance Pattern
+kind: concept
+sources:
+  - source.md
+  - raw/llm-wiki.md
+confidence: medium
+---
+
+# LLM Maintenance Pattern
+
+The maintenance pattern keeps a durable wiki current across ingest, query, and lint operations while linking to [[some-page]] using deprecated syntax.
+
+It turns source summaries into maintained pages so the knowledge base compounds across ingests rather than dissolving into one-off chat answers that nobody can audit later.
+
+Each cycle records provenance metadata, keeping every claim traceable to a specific raw input that the human curated before the model ran.
+`)
+
+	result, err := EvaluateCandidates(dir)
+	if err != nil {
+		t.Fatalf("EvaluateCandidates returned error: %v", err)
+	}
+	if got := result.Candidates[0].Scores.Wikilinks; got != "borderline" {
+		t.Fatalf("links score = %q, want borderline for residual [[wikilink]]; trace=%v", got, result.Candidates[0].Trace)
+	}
+}
+
 func TestEvaluateBundleCrosslinksFlagsCrossCategorySlugConflict(t *testing.T) {
 	root := t.TempDir()
 	bundle := filepath.Join(root, "drafts", "bundle")
@@ -400,7 +453,7 @@ func TestEvaluateBundleCrosslinksFlagsCrossCategorySlugConflict(t *testing.T) {
 	writeFile(t, filepath.Join(bundle, "apply-plan.md"), "## Candidate Changes\n\n"+
 		"- `wiki/sources/sqlite.md` — create new page.\n"+
 		"- `wiki/topics/sqlite-notes.md` — create new page.\n")
-	writeFile(t, filepath.Join(bundle, "candidates", "wiki", "topics", "sqlite-notes.md"), "# Sqlite Notes\n\nLinks to [[sqlite]].\n")
+	writeFile(t, filepath.Join(bundle, "candidates", "wiki", "topics", "sqlite-notes.md"), "# Sqlite Notes\n\nLinks to sqlite.\n")
 
 	result, err := EvaluateBundleCrosslinks(root, bundle)
 	if err != nil {

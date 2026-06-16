@@ -739,8 +739,10 @@ func taskFromIssue(n int, issue wikilint.Issue) Task {
 	switch issue.Code {
 	case "orphan-page":
 		task.Recommendation = "Review whether the page should receive meaningful inbound links, be merged into a broader page, or remain intentionally standalone."
-	case "missing-wikilink-target":
-		task.Recommendation = "Repair the broken wikilink by retargeting it to an existing page or creating a sourced page if the concept is worth keeping."
+	case "forbidden-wikilink":
+		task.Recommendation = "Replace the deprecated [[wikilink]] with a standard Markdown relative link to the target page, or with plain text when no target page exists."
+	case "missing-link-target":
+		task.Recommendation = "Repair the broken Markdown relative link by retargeting it to an existing page or creating a sourced page if the concept is worth keeping."
 	case "duplicate-index-entry":
 		task.Recommendation = "Run safe maintenance to deduplicate the index entry."
 		task.AutoSafe = true

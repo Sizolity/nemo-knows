@@ -102,14 +102,23 @@ page's claims are after the latest ingest — drop it to `medium` or `low`
 when sources disagree or when you're inferring beyond what the sources
 say.
 
-**Links.** `index.md` is a navigation catalogue and uses standard Markdown
-links with paths relative to `index.md`, such as
-`[sqlite-wal](sources/sqlite-wal.md)`. Body pages may use Obsidian-style
-`[[wikilinks]]` as semantic cross-references between wiki concepts; those
-wikilinks identify related page slugs and are not the index navigation format.
-Use standard Markdown links with relative paths for non-semantic navigation
-or references outside the wiki. Inline citations look like
-`(see [[ada-lovelace]])` or `(source: wiki/sources/some-source.md §3)`.
+**Links.** Every cross-reference between wiki pages — both the `index.md`
+navigation catalogue and the semantic links inside body pages — is a standard
+Markdown link whose target is a path relative to the page that contains it. A
+sibling page in the same folder is `[Label](name.md)`; a page in another wiki
+folder is `[Label](../folder/name.md)`; `index.md` links down into a category
+as `[sqlite-wal](sources/sqlite-wal.md)`. Inline citations look like
+`(see [Ada Lovelace](../entities/ada-lovelace.md))` or
+`(source: wiki/sources/some-source.md §3)`. Obsidian-style `[[wikilinks]]` are
+**not allowed** anywhere in `wiki/` content; the lint pass reports any residual
+`[[...]]` as `forbidden-wikilink` (error). Because these links are real file
+paths rather than slugs, they double as direct file jumps and need no
+slug→path resolution layer in the renderer. The trade-off is that a relative
+link breaks when its target page is renamed or moved; the lint pass guards this
+by reporting any relative link whose target file does not exist as
+`missing-link-target` (error), so a move must update its inbound links in the
+same change. Slugs (page filenames) stay globally unique and are still used for
+page identity and de-duplication — only the cross-reference syntax changed.
 
 **Index format.** `index.md` is navigation-only. It contains the four
 category headings — `## Sources`, `## Entities`, `## Concepts`,
@@ -125,6 +134,19 @@ normalizes the index from this format, so prose placed under a heading is
 treated as noise and removed on the next maintenance pass. Adding the first
 entry to a category replaces its `(none yet)` placeholder, and a category
 that loses its last entry has the placeholder restored.
+
+**Images and assets.** Binary assets — images, diagrams, slides — live under
+`wiki/assets/`, grouped in a per-source or per-topic subdirectory, such as
+`wiki/assets/<group>/<file>.png`. Pages reference them with standard Markdown
+image syntax and a path relative to the page, so a page in `sources/`,
+`entities/`, `concepts/`, or `topics/` writes
+`![alt text](../assets/<group>/<file>.png)`. Always give the image meaningful
+alt text. A local image target must resolve to an existing file under
+`wiki/assets/`; the lint pass reports any missing local image as
+`missing-image`. External images may be referenced by absolute `http(s)://` URL
+and are not existence-checked. The web console serves `wiki/assets/` read-only
+under `/assets/` and renders these references as inline `<img>` tags;
+unresolvable or unsafe targets degrade to the alt text instead of an image.
 
 **Length.** Prefer many short, focused pages over one long page. If a
 page exceeds ~600 lines or starts covering more than one subject, split
@@ -183,10 +205,10 @@ chat):
 
 1. **Find contradictions.** Read pairs of pages with overlapping
    `sources` and surface any factual disagreements.
-2. **Find orphans.** List pages with no inbound semantic `[[wikilinks]]`
-   and no `index.md` Markdown catalogue entry.
-3. **Find stubs.** List pages mentioned in semantic `[[wikilinks]]` but
-   missing files.
+2. **Find orphans.** List pages with no inbound semantic Markdown relative
+   links and no `index.md` Markdown catalogue entry.
+3. **Find stubs.** List relative links that point at missing target files
+   (`missing-link-target`), and any residual `[[...]]` (`forbidden-wikilink`).
 4. **Find stale claims.** Read pages whose `updated` is older than any
    source they cite; flag for re-review.
 5. **Find missing concepts.** Identify terms that recur across many
@@ -276,7 +298,7 @@ otherwise wait for the user.
   this machine.
 - Do not reference files outside `wiki/` in wiki pages. The wiki is
   self-contained; external references belong in source pages, not as
-  wikilinks.
+  internal relative links.
 
 ## 10. Open questions for the schema itself
 
