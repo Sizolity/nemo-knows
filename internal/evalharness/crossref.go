@@ -39,6 +39,7 @@ func EvaluateBundleCrosslinks(root string, bundleDir string) (CrosslinkResult, e
 	}
 	result := CrosslinkResult{Bundle: bundleDir}
 	detectSlugConflicts(root, candidatePaths(string(applyPlan)), &result)
+	detectSourceLinkSafety(bundleDir, &result)
 	targets := candidateDraftPaths(string(applyPlan))
 	candidateTargets := map[string]bool{}
 	for _, target := range targets {
@@ -54,6 +55,9 @@ func EvaluateBundleCrosslinks(root string, bundleDir string) (CrosslinkResult, e
 		}
 		if refs := wikischema.WikilinkReferences(string(content)); len(refs) > 0 {
 			result.Issues = append(result.Issues, CrosslinkIssue{Path: target, Code: "forbidden-wikilink", Message: "Obsidian [[wikilink]] syntax is no longer allowed; use Markdown relative links: " + strings.Join(refs, ", ")})
+		}
+		for _, link := range wikischema.UnsafeLinkTargets(target, string(content)) {
+			result.Issues = append(result.Issues, CrosslinkIssue{Path: target, Code: "unsafe-link-target", Message: unsafeLinkMessage(link)})
 		}
 		for _, href := range wikischema.MarkdownLinkTargets(string(content)) {
 			repoPath, ok := wikischema.RepoPathFromHref(target, href)
@@ -150,4 +154,36 @@ func detectSlugConflicts(root string, candidates []string, result *CrosslinkResu
 		}
 		seen[slug] = target
 	}
+}
+
+// detectSourceLinkSafety flags forbidden cross-reference syntax and unsafe link
+// targets in the bundle's source draft body. The crosslink pass otherwise only
+// inspects generated candidate drafts, but the source page is applied to wiki/
+// too and must satisfy the same link-safety invariants — this is the eval-side
+// gate for the source-page body where the original Suggested Links defect lived.
+func detectSourceLinkSafety(bundleDir string, result *CrosslinkResult) {
+	content, err := os.ReadFile(filepath.Join(bundleDir, "source.md"))
+	if err != nil {
+		return
+	}
+	// Source pages live at wiki/sources/<slug>.md, so anchor relative-target
+	// resolution at that depth. The reported path stays "source.md" because the
+	// final slug is only resolved from the apply plan at write time.
+	const fromPath = "wiki/sources/source.md"
+	const display = "source.md"
+	if refs := wikischema.WikilinkReferences(string(content)); len(refs) > 0 {
+		result.Issues = append(result.Issues, CrosslinkIssue{Path: display, Code: "forbidden-wikilink", Message: "Obsidian [[wikilink]] syntax is no longer allowed; use Markdown relative links: " + strings.Join(refs, ", ")})
+	}
+	for _, link := range wikischema.UnsafeLinkTargets(fromPath, string(content)) {
+		result.Issues = append(result.Issues, CrosslinkIssue{Path: display, Code: "unsafe-link-target", Message: unsafeLinkMessage(link)})
+	}
+}
+
+// unsafeLinkMessage renders a human-readable explanation for an unsafe link
+// finding so eval issues read the same way the lint unsafe-link-target rule does.
+func unsafeLinkMessage(link wikischema.UnsafeLink) string {
+	if link.Reason == wikischema.ReasonDangerousScheme {
+		return "link uses a dangerous URI scheme (" + link.Scheme + "); only http/https/mailto are allowed: " + link.Target
+	}
+	return "relative link target escapes the repository root: " + link.Target
 }

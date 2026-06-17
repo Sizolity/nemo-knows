@@ -242,27 +242,36 @@ func renderAnswer(question string, pages []Page) string {
 }
 
 func renderTopicDraft(question string, pages []Page, now time.Time) string {
-	title := topicTitle(question)
+	fromRepoPath := topicDraftRepoPath(question)
+	// The question is untrusted free text that flows into the filed topic. The
+	// title (frontmatter + H1) is sanitized here, and the assembled body is run
+	// through the same shared cleaner below, so a question carrying
+	// [[wikilink]], {{placeholder}}, or a dangerous/escaping link target cannot
+	// land verbatim in wiki/topics/. Code spans are preserved.
+	title := wikischema.SanitizeBodyLinks(fromRepoPath, topicTitle(question))
 	date := now.Format("2006-01-02")
-	var b strings.Builder
-	b.WriteString("---\n")
-	b.WriteString("title: ")
-	b.WriteString(title)
-	b.WriteString("\nkind: topic\ncreated: ")
-	b.WriteString(date)
-	b.WriteString("\nupdated: ")
-	b.WriteString(date)
-	b.WriteString("\nsources:\n")
+	var fm strings.Builder
+	fm.WriteString("---\n")
+	fm.WriteString("title: ")
+	fm.WriteString(title)
+	fm.WriteString("\nkind: topic\ncreated: ")
+	fm.WriteString(date)
+	fm.WriteString("\nupdated: ")
+	fm.WriteString(date)
+	fm.WriteString("\nsources:\n")
 	if len(pages) == 0 {
-		b.WriteString("  - wiki/index.md\n")
+		fm.WriteString("  - wiki/index.md\n")
 	} else {
 		for _, page := range pages {
-			b.WriteString("  - ")
-			b.WriteString(page.Path)
-			b.WriteByte('\n')
+			fm.WriteString("  - ")
+			fm.WriteString(page.Path)
+			fm.WriteByte('\n')
 		}
 	}
-	b.WriteString("confidence: medium\n---\n\n# ")
+	fm.WriteString("confidence: medium\n---\n\n")
+
+	var b strings.Builder
+	b.WriteString("# ")
 	b.WriteString(title)
 	b.WriteString("\n\n")
 	b.WriteString("Question: ")
@@ -270,7 +279,7 @@ func renderTopicDraft(question string, pages []Page, now time.Time) string {
 	b.WriteString("\n\n")
 	if len(pages) == 0 {
 		b.WriteString("The current wiki does not contain enough source-backed material to answer this question. This draft should not be filed as a durable answer until relevant sources are ingested.\n")
-		return b.String()
+		return fm.String() + wikischema.SanitizeBodyLinks(fromRepoPath, b.String())
 	}
 	b.WriteString("The current answer is grounded in the maintained wiki pages listed below. It should be reviewed before filing because this deterministic query path only performs keyword matching and excerpt extraction.\n\n")
 	b.WriteString("## Answer Notes\n\n")
@@ -289,7 +298,15 @@ func renderTopicDraft(question string, pages []Page, now time.Time) string {
 		b.WriteString(page.Path)
 		b.WriteByte('\n')
 	}
-	return b.String()
+	return fm.String() + wikischema.SanitizeBodyLinks(fromRepoPath, b.String())
+}
+
+// topicDraftRepoPath is the wiki path a filed query topic will occupy. Only the
+// wiki/topics/ directory depth matters: it anchors the link sanitizer's
+// repository-escape (../) check at the right level; the exact slug is
+// irrelevant to that resolution.
+func topicDraftRepoPath(question string) string {
+	return "wiki/topics/" + slugForQuestion(question) + ".md"
 }
 
 func writeReviewDraft(path string, draft string) error {

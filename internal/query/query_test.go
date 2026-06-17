@@ -257,3 +257,27 @@ func TestRenderTopicDraftOmitsInlineLinkSyntax(t *testing.T) {
 		}
 	}
 }
+
+// TestRenderTopicDraftSanitizesAdversarialQuestion guards the second layer of
+// defense for filed query topics: the question is untrusted free text that flows
+// into the title and body, so a dangerous scheme, placeholder, or [[wikilink]]
+// carried in the question must be neutralized deterministically, not just by the
+// excerpt link-stripping.
+func TestRenderTopicDraftSanitizesAdversarialQuestion(t *testing.T) {
+	pages := []Page{
+		{
+			Path:    "wiki/sources/sqlite-wal.md",
+			Title:   "SQLite WAL",
+			Content: "---\ntitle: SQLite WAL\nkind: source\n---\n\n# SQLite WAL\n\nWAL keeps readers on a stable snapshot.\n",
+		},
+	}
+
+	question := "What about [click](javascript:alert(1)) and {{TOKEN}} and [[wikiref]]?"
+	draft := renderTopicDraft(question, pages, time.Date(2026, 6, 16, 0, 0, 0, 0, time.UTC))
+
+	for _, bad := range []string{"javascript:", "{{", "}}", "[[", "]]"} {
+		if strings.Contains(draft, bad) {
+			t.Fatalf("filed topic draft must not contain %q from the question:\n%s", bad, draft)
+		}
+	}
+}

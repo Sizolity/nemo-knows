@@ -415,6 +415,38 @@ func TestEvaluateBundleCrosslinksFlagsResidualWikilink(t *testing.T) {
 	}
 }
 
+func TestEvaluateBundleCrosslinksFlagsUnsafeLinkTargets(t *testing.T) {
+	root := t.TempDir()
+	bundle := filepath.Join(root, "drafts", "bundle")
+	writeFile(t, filepath.Join(bundle, "apply-plan.md"), "## Candidate Changes\n\n"+
+		"- `wiki/concepts/first.md` — create new page.\n")
+	// Candidate body carries a dangerous-scheme link; source draft carries a
+	// repo-escaping path. Both must be flagged so the eval gate matches lint.
+	writeFile(t, filepath.Join(bundle, "candidates", "wiki", "concepts", "first.md"), "# First\n\nClick [run](javascript:alert(1)) here.\n")
+	writeFile(t, filepath.Join(bundle, "source.md"), "---\nkind: source\n---\n\n# Source\n\nRead [esc](../../../etc/passwd) now.\n")
+
+	result, err := EvaluateBundleCrosslinks(root, bundle)
+	if err != nil {
+		t.Fatalf("EvaluateBundleCrosslinks returned error: %v", err)
+	}
+	candidateFlagged := false
+	sourceFlagged := false
+	for _, issue := range result.Issues {
+		if issue.Code != "unsafe-link-target" {
+			continue
+		}
+		if issue.Path == "wiki/concepts/first.md" {
+			candidateFlagged = true
+		}
+		if issue.Path == "source.md" {
+			sourceFlagged = true
+		}
+	}
+	if !candidateFlagged || !sourceFlagged {
+		t.Fatalf("expected unsafe-link-target for candidate and source, got %#v", result.Issues)
+	}
+}
+
 func TestEvaluateCandidatesFlagsResidualWikilinkSyntax(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "source.md"), "---\nkind: source\nsources:\n  - raw/llm-wiki.md\n---\n\n# Source\n\nThe LLM Wiki pattern keeps a durable wiki from raw documents.\n")

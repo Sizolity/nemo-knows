@@ -178,3 +178,33 @@ func mapsEqual(a, b map[string]bool) bool {
 	}
 	return true
 }
+
+// TestSanitizeConvertedBody covers the post-wikilink-resolution stage used by
+// candidate generation: it must flatten {{placeholder}} tokens and drop unsafe
+// link/image targets while leaving already-resolved [[...]] (the caller's job)
+// and safe relative links alone, and never touch code spans.
+func TestSanitizeConvertedBody(t *testing.T) {
+	in := "Keep [[raw]] as-is, drop {{TOK}}, strip [x](javascript:bad), keep [ok](ok.md), code `{{KEEP}}`."
+	want := "Keep [[raw]] as-is, drop TOK, strip x, keep [ok](ok.md), code `{{KEEP}}`."
+	if got := SanitizeConvertedBody(fromPage, in); got != want {
+		t.Fatalf("SanitizeConvertedBody = %q, want %q", got, want)
+	}
+}
+
+// TestPlaceholderTokens verifies the apply-gate detector finds {{...}} tokens in
+// prose but ignores those confined to inline code or fenced blocks.
+func TestPlaceholderTokens(t *testing.T) {
+	content := strings.Join([]string{
+		"Prose {{ALPHA}} and {{ BETA }} remain visible.",
+		"Inline `{{GAMMA}}` and fenced:",
+		"```",
+		"{{DELTA}}",
+		"```",
+	}, "\n")
+	if got := PlaceholderTokens(content); len(got) != 2 {
+		t.Fatalf("PlaceholderTokens = %#v, want 2 tokens outside code", got)
+	}
+	if got := PlaceholderTokens("No tokens, just `{{code}}` and a fenced block:\n```\n{{x}}\n```\n"); len(got) != 0 {
+		t.Fatalf("PlaceholderTokens on code-only content = %#v, want none", got)
+	}
+}

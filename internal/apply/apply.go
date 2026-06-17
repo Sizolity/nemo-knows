@@ -22,6 +22,14 @@ var (
 	// because the filename slug is each page's identity for de-duplication, index
 	// catalogue entries, and the renderer's defensive wikilink fallback.
 	ErrSlugConflict = errors.New("wiki slug conflict: slugs must be unique across the whole wiki")
+	// ErrUnsafeContent is returned when an approved bundle would write content
+	// that violates the wiki link-safety invariants (dangerous URI scheme, path
+	// traversal, or residual [[wikilink]]/{{placeholder}} syntax). Apply refuses
+	// outright rather than silently rewriting approved content: the prompt and
+	// generation-time sanitizer are the upstream layers, and this is the
+	// deterministic write-time backstop that actually guards wiki/. Re-sanitize
+	// or regenerate the bundle, then re-approve.
+	ErrUnsafeContent = errors.New("refuse to apply unsafe wiki content")
 
 	candidateLineRE = regexp.MustCompile("(?m)^- `([^`]+)` — (.+)$")
 	duplicateOfRE   = regexp.MustCompile("possible duplicate of `([^`]+)`")
@@ -87,6 +95,9 @@ func ApplyApproved(root string, bundleDir string, opts Options) (Result, error) 
 		return Result{}, err
 	}
 	if err := checkSlugConflicts(root, writes); err != nil {
+		return Result{}, err
+	}
+	if err := checkWriteSafety(writes); err != nil {
 		return Result{}, err
 	}
 
@@ -398,6 +409,42 @@ func checkSlugConflicts(root string, writes []plannedWrite) error {
 			return fmt.Errorf("%w: slug %q is used by both %s and %s; rename one page so every slug is unique", ErrSlugConflict, slug, other, item.target)
 		}
 		bySlug[slug] = item.target
+	}
+	return nil
+}
+
+// checkWriteSafety is the deterministic write-time backstop for the wiki body
+// link-safety invariants. Prompts are layer 1 and the generation-time sanitizer
+// (SanitizeBodyLinks / SanitizeConvertedBody on source and candidate drafts) is
+// layer 2; this gate is layer 3 — the one that actually guarantees wiki/ never
+// receives a dangerous-scheme or path-traversal link target, a residual
+// [[wikilink]], or a {{placeholder}}, even from a hand-edited bundle or a future
+// code path that forgets to sanitize. It refuses the whole apply with
+// ErrUnsafeContent rather than silently rewriting already-approved content, and
+// lists every offending page and token so the bundle can be re-sanitized or
+// regenerated. All checks run outside code spans/fenced blocks, so legitimate
+// samples (e.g. a literal javascript: URL inside a code block) are never flagged.
+func checkWriteSafety(writes []plannedWrite) error {
+	problems := []string{}
+	for _, item := range writes {
+		content := string(item.draft)
+		for _, link := range wikischema.UnsafeLinkTargets(item.target, content) {
+			switch link.Reason {
+			case wikischema.ReasonDangerousScheme:
+				problems = append(problems, fmt.Sprintf("%s: link uses dangerous %q scheme: %s", item.target, link.Scheme, link.Target))
+			default:
+				problems = append(problems, fmt.Sprintf("%s: link target escapes the repository: %s", item.target, link.Target))
+			}
+		}
+		for _, ref := range wikischema.WikilinkReferences(content) {
+			problems = append(problems, fmt.Sprintf("%s: residual [[%s]] wikilink; use a Markdown relative link", item.target, ref))
+		}
+		for _, token := range wikischema.PlaceholderTokens(content) {
+			problems = append(problems, fmt.Sprintf("%s: residual %s placeholder", item.target, token))
+		}
+	}
+	if len(problems) > 0 {
+		return fmt.Errorf("%w:\n  %s", ErrUnsafeContent, strings.Join(problems, "\n  "))
 	}
 	return nil
 }

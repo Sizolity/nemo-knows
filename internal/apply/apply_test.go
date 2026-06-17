@@ -353,6 +353,43 @@ func TestApplyApprovedRejectsUnsafeEntityTraversalPath(t *testing.T) {
 	}
 }
 
+func TestApplyApprovedRejectsUnsafeContent(t *testing.T) {
+	root, bundle := makeApplyFixture(t, "pass")
+	writeFile(t, filepath.Join(bundle, "source.md"), "---\nkind: source\nsources: [raw/llm-wiki.md]\n---\n\n# LLM Wiki\n\nSee [run](javascript:alert(1)) and read [esc](../../../etc/passwd).\n")
+
+	_, err := ApplyApproved(root, bundle, Options{Approve: true})
+	if !errors.Is(err, ErrUnsafeContent) {
+		t.Fatalf("expected ErrUnsafeContent, got %v", err)
+	}
+	source, readErr := os.ReadFile(filepath.Join(root, "wiki", "sources", "llm-wiki.md"))
+	if readErr != nil {
+		t.Fatalf("read source after refused apply: %v", readErr)
+	}
+	if !strings.Contains(string(source), "# Old") || strings.Contains(string(source), "javascript:") {
+		t.Fatalf("unsafe content must not reach wiki/; existing page must be untouched:\n%s", source)
+	}
+}
+
+func TestApplyApprovedAllowsDangerousTokenInsideCodeBlock(t *testing.T) {
+	root, bundle := makeApplyFixture(t, "pass")
+	writeFile(t, filepath.Join(bundle, "source.md"), "---\nkind: source\nsources: [raw/llm-wiki.md]\n---\n\n# LLM Wiki\n\nExample only:\n\n```\n[run](javascript:alert(1))\n```\n")
+
+	result, err := ApplyApproved(root, bundle, Options{Approve: true})
+	if err != nil {
+		t.Fatalf("a dangerous token confined to a code block must not be rejected: %v", err)
+	}
+	if !contains(result.Written, "wiki/sources/llm-wiki.md") {
+		t.Fatalf("expected source to be applied, got %#v", result.Written)
+	}
+	source, readErr := os.ReadFile(filepath.Join(root, "wiki", "sources", "llm-wiki.md"))
+	if readErr != nil {
+		t.Fatalf("read applied source: %v", readErr)
+	}
+	if !strings.Contains(string(source), "[run](javascript:alert(1))") {
+		t.Fatalf("code-block content must be preserved verbatim:\n%s", source)
+	}
+}
+
 func TestApplyApprovedSkipsCandidateWithoutReviewedDraft(t *testing.T) {
 	root, bundle := makeApplyFixture(t, "pass")
 

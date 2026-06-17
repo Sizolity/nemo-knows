@@ -113,12 +113,39 @@ func SanitizeBodyLinks(fromRepoPath string, body string) string {
 	// Flatten cross-references first using the shared migration primitive with a
 	// nil resolver so all [[...]] degrade to plain text.
 	body = ConvertWikilinks(fromRepoPath, body, nil)
+	return SanitizeConvertedBody(fromRepoPath, body)
+}
+
+// SanitizeConvertedBody enforces the body-link invariants that do not involve
+// wikilink resolution: it flattens {{placeholder}} tokens to their inner text
+// and drops unsafe link/image targets (dangerous scheme or repo-escaping
+// relative path), always operating strictly outside code spans and fenced
+// blocks.
+//
+// It is split out of SanitizeBodyLinks for callers that must resolve [[...]]
+// cross-references with their own LinkResolver first — candidate generation, for
+// example, turns [[slug]] into real Markdown relative links via ConvertWikilinks
+// and then calls this to apply the remaining invariants without re-running
+// wikilink conversion with a nil resolver (which would discard those links).
+func SanitizeConvertedBody(fromRepoPath string, body string) string {
 	return rewriteOutsideCode(body, func(segment string) string {
 		segment = stripPlaceholders(segment)
 		segment = flattenUnsafeImages(fromRepoPath, segment)
 		segment = flattenUnsafeLinks(fromRepoPath, segment)
 		return segment
 	})
+}
+
+// PlaceholderTokens returns the {{...}} template placeholders that remain in
+// content outside code spans and fenced blocks, in document order. A non-empty
+// result means generation-time sanitization (SanitizeBodyLinks, which flattens
+// these) was skipped or bypassed; the apply write-gate uses it to refuse such
+// content. Placeholders inside inline code or fenced blocks are ignored so
+// legitimate examples survive verbatim.
+func PlaceholderTokens(content string) []string {
+	tokens := []string{}
+	tokens = append(tokens, placeholderRE.FindAllString(StripCode(content), -1)...)
+	return tokens
 }
 
 // stripPlaceholders flattens {{...}} tokens in segment to their trimmed inner

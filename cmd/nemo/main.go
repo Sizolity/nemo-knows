@@ -568,10 +568,20 @@ func adjustExcerptEnd(content string, end int) int {
 
 func normalizeCandidateDraft(cleaned string, target candidateDraftTarget, sourceRefs []string, allowedLinks map[string]string) string {
 	title := candidateTitleOrDefault(cleaned, target.Title)
+	// The title flows into both the frontmatter and the H1, so flatten any
+	// forbidden link/cross-reference syntax (e.g. a [[slug]] or {{placeholder}}
+	// the model left in the title) to plain text before it is reused.
+	title = wikischema.SanitizeBodyLinks(target.Path, title)
 	body := markdownFrontmatterRE.ReplaceAllString(cleaned, "")
 	body = nestedFrontmatterPreludeRE.ReplaceAllString(body, "")
 	body = strings.TrimSpace(body)
+	// First resolve [[wikilinks]] into real Markdown relative links (or plain
+	// text), then enforce the remaining body invariants deterministically:
+	// {{placeholder}} flattening and dropping dangerous-scheme/path-traversal
+	// link targets. This is the same generation-time guarantee source pages get
+	// via SanitizeBodyLinks; code spans/blocks are preserved byte-for-byte.
 	body = convertCandidateLinks(body, target.Path, allowedLinks)
+	body = wikischema.SanitizeConvertedBody(target.Path, body)
 	body = normalizeCandidateHeading(body, title)
 
 	var b strings.Builder
