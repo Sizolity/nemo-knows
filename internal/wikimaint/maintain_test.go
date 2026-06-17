@@ -377,6 +377,71 @@ This page links to [[missing-target]].
 	}
 }
 
+// TestReportModeSurfacesUnsafeLinkTargetsWithoutRewriting verifies the
+// current-phase backstop: maintain REPORT mode surfaces dangerous-scheme and
+// path-traversal links as tasks (so the periodic scan flags them) but performs
+// no content rewriting and writes no log entry. Active auto-fix for this defect
+// class is deferred to the future LLM-based maintainer.
+func TestReportModeSurfacesUnsafeLinkTargetsWithoutRewriting(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "wiki/index.md", indexWithConcepts("- [adversarial](concepts/adversarial.md) — Adversarial.\n"))
+	writeFile(t, root, "wiki/log.md", logContent())
+	bad := `---
+title: Adversarial
+kind: concept
+sources:
+  - wiki/sources/example.md
+confidence: medium
+---
+
+# Adversarial
+
+Script [run](javascript:alert(1)) and traversal [leak](../../../etc/passwd).
+`
+	writeFile(t, root, "wiki/concepts/adversarial.md", bad)
+
+	beforePage := readFile(t, root, "wiki/concepts/adversarial.md")
+	beforeLog := readFile(t, root, "wiki/log.md")
+
+	result, err := Maintain(root, Options{
+		Mode:   ModeReport,
+		OutDir: filepath.Join(root, ".wiki-maintain"),
+	})
+	if err != nil {
+		t.Fatalf("Maintain returned error: %v", err)
+	}
+
+	if result.Changed {
+		t.Fatal("report mode must not mark the wiki as changed")
+	}
+	if !hasTask(result.Tasks, "unsafe-link-target") {
+		t.Fatalf("expected unsafe-link-target task in report queue, got %#v", result.Tasks)
+	}
+	if got := readFile(t, root, "wiki/concepts/adversarial.md"); got != beforePage {
+		t.Fatalf("report mode must not rewrite the planted page:\n%s", got)
+	}
+	if got := readFile(t, root, "wiki/log.md"); got != beforeLog {
+		t.Fatalf("report mode must not modify the log:\n%s", got)
+	}
+}
+
+// TestReportModeOnCleanWikiReportsNoUnsafeLinks ensures a clean wiki yields no
+// unsafe-link-target task, so the scan is a no-op on conforming content.
+func TestReportModeOnCleanWikiReportsNoUnsafeLinks(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "wiki/index.md", indexWithConcepts("- [known](concepts/known.md) — Known.\n"))
+	writeFile(t, root, "wiki/log.md", logContent())
+	writeFile(t, root, "wiki/concepts/known.md", conceptPage("Known"))
+
+	result, err := Maintain(root, Options{Mode: ModeReport})
+	if err != nil {
+		t.Fatalf("Maintain returned error: %v", err)
+	}
+	if hasTask(result.Tasks, "unsafe-link-target") {
+		t.Fatalf("clean wiki must not surface unsafe-link-target tasks, got %#v", result.Tasks)
+	}
+}
+
 func writeFile(t *testing.T, root string, rel string, content string) {
 	t.Helper()
 	path := filepath.Join(root, filepath.FromSlash(rel))

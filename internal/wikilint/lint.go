@@ -101,6 +101,7 @@ func LintWiki(root string) (Result, error) {
 		}
 	}
 	lintImages(root, pages, &result)
+	lintUnsafeLinkTargets(pages, &result)
 	lintIndex(root, &result)
 	lintLog(root, &result)
 	for _, page := range pages {
@@ -298,6 +299,27 @@ func imageRepoPath(pagePath string, target string) (string, bool) {
 		repoPath = path.Clean(repoPath)
 	}
 	return repoPath, true
+}
+
+// lintUnsafeLinkTargets flags Markdown link/image targets that break the wiki's
+// link-safety invariants but slip past the relative-.md checks: dangerous URI
+// schemes (javascript:, data:, file:, vbscript:) on any target, and relative
+// targets that escape the repository root. This closes the detection gap so the
+// periodic scan surfaces traversal and dangerous-scheme links. It is detection
+// only: the scan reports the issue for review and never rewrites content.
+func lintUnsafeLinkTargets(pages []page, result *Result) {
+	for _, page := range pages {
+		for _, unsafe := range wikischema.UnsafeLinkTargets(page.Path, page.Content) {
+			switch unsafe.Reason {
+			case wikischema.ReasonDangerousScheme:
+				addIssue(result, "unsafe-link-target", "error", page.Path,
+					"link uses a dangerous URI scheme ("+unsafe.Scheme+":): "+unsafe.Target)
+			case wikischema.ReasonPathTraversal:
+				addIssue(result, "unsafe-link-target", "error", page.Path,
+					"relative link target escapes the repository: "+unsafe.Target)
+			}
+		}
+	}
 }
 
 func splitFrontmatter(content string) (string, string) {

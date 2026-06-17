@@ -122,7 +122,7 @@ Used by the [serverless database](../concepts/serverless-database.md).
 	if err != nil {
 		t.Fatalf("LintWiki returned error: %v", err)
 	}
-	for _, code := range []string{"forbidden-wikilink", "missing-link-target", "orphan-page"} {
+	for _, code := range []string{"forbidden-wikilink", "missing-link-target", "orphan-page", "unsafe-link-target"} {
 		if hasIssue(result, code) {
 			t.Fatalf("did not expect issue code %q for valid relative links in %#v", code, result.Issues)
 		}
@@ -360,6 +360,80 @@ confidence: medium
 	}
 	if !strings.Contains(msg, "missing.png") {
 		t.Fatalf("missing-image message should name the missing file, got %q", msg)
+	}
+}
+
+// TestLintWikiFlagsUnsafeLinkTargets is the scan/detection backstop: the linter
+// must surface dangerous-scheme and path-traversal link targets that bypass the
+// relative-.md checks, while never flagging the same tokens inside code.
+func TestLintWikiFlagsUnsafeLinkTargets(t *testing.T) {
+	root := t.TempDir()
+	writeWikiFile(t, root, "wiki/index.md", `---
+title: Index
+kind: index
+---
+
+## Concepts
+- [adversarial](concepts/adversarial.md) — Adversarial page.
+`)
+	writeWikiFile(t, root, "wiki/log.md", `---
+title: Log
+kind: log
+---
+
+## [2026-06-16] note | ok
+`)
+	writeWikiFile(t, root, "wiki/concepts/adversarial.md", "---\n"+
+		"title: Adversarial\n"+
+		"kind: concept\n"+
+		"sources:\n"+
+		"  - raw/source.md\n"+
+		"confidence: medium\n"+
+		"---\n"+
+		"\n"+
+		"# Adversarial\n"+
+		"\n"+
+		"Script [run](javascript:alert(1)) and data ![logo](data:text/html,x).\n"+
+		"Traversal [leak](../../../etc/passwd) escapes the repo.\n"+
+		"Safe [site](https://ok.com) and anchor [top](#intro).\n"+
+		"\n"+
+		"`[hidden](javascript:incode)` stays as code, and:\n"+
+		"\n"+
+		"```\n"+
+		"[fenced](javascript:fenced) plus [t](../../../etc/passwd)\n"+
+		"```\n")
+
+	result, err := LintWiki(root)
+	if err != nil {
+		t.Fatalf("LintWiki returned error: %v", err)
+	}
+	if !hasIssue(result, "unsafe-link-target") {
+		t.Fatalf("expected unsafe-link-target issue in %#v", result.Issues)
+	}
+
+	count := 0
+	sawScheme := false
+	sawTraversal := false
+	for _, issue := range result.Issues {
+		if issue.Code != "unsafe-link-target" {
+			continue
+		}
+		count++
+		if strings.Contains(issue.Message, "dangerous URI scheme") {
+			sawScheme = true
+		}
+		if strings.Contains(issue.Message, "escapes the repository") {
+			sawTraversal = true
+		}
+		if strings.Contains(issue.Message, "incode") || strings.Contains(issue.Message, "fenced") {
+			t.Fatalf("in-code target must not be flagged: %s", issue.Message)
+		}
+	}
+	if count != 3 {
+		t.Fatalf("expected 3 unsafe-link-target issues (javascript, data, traversal), got %d in %#v", count, result.Issues)
+	}
+	if !sawScheme || !sawTraversal {
+		t.Fatalf("expected both dangerous-scheme and traversal messages, scheme=%v traversal=%v", sawScheme, sawTraversal)
 	}
 }
 

@@ -485,6 +485,87 @@ Summary text.
 	}
 }
 
+// TestNormalizeSourceDraftSanitizesForbiddenLinkSyntax exercises the
+// generation-time cleaner end-to-end: forbidden link/cross-reference syntax in
+// the body is neutralized while sections, safe links, and code spans survive.
+func TestNormalizeSourceDraftSanitizesForbiddenLinkSyntax(t *testing.T) {
+	got := normalizeSourceDraft("---\n"+
+		"title: Adversarial Source\n"+
+		"kind: source\n"+
+		"---\n"+
+		"\n"+
+		"## What It Is\n"+
+		"A page referencing [[wikilink]] and a {{PLACEHOLDER}} token.\n"+
+		"\n"+
+		"## Summary\n"+
+		"See [docs](https://example.com/page) and [sibling](sibling.md).\n"+
+		"Bad link [click](javascript:alert(1)) and traversal [leak](../../../etc/passwd).\n"+
+		"Bad image ![logo](data:image/png;base64,AAAA).\n"+
+		"\n"+
+		"## Key Claims\n"+
+		"- The Web IDL slot `[[ArrayBufferData]]` stays in code.\n"+
+		"\n"+
+		"```js\n"+
+		"const u = \"javascript:alert(1)\"; // {{TEMPLATE}} and [[slot]]\n"+
+		"```\n"+
+		"\n"+
+		"## Suggested Links\n"+
+		"- [Example](https://example.com)\n", "pipeline/raw/adversarial.md")
+
+	// Sections survive.
+	for _, want := range []string{"## What It Is", "## Summary", "## Key Claims", "## Suggested Links"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("normalized source missing section %q:\n%s", want, got)
+		}
+	}
+	// Forbidden syntax in prose is flattened to plain text.
+	for _, want := range []string{
+		"A page referencing wikilink and a PLACEHOLDER token.",
+		"Bad link click and traversal leak.",
+		"Bad image logo.",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected sanitized prose %q in:\n%s", want, got)
+		}
+	}
+	// Safe links are preserved verbatim.
+	for _, want := range []string{
+		"[docs](https://example.com/page)",
+		"[sibling](sibling.md)",
+		"[Example](https://example.com)",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected preserved safe link %q in:\n%s", want, got)
+		}
+	}
+	// Code spans/blocks are preserved verbatim, including slot/template tokens.
+	for _, want := range []string{
+		"`[[ArrayBufferData]]`",
+		"const u = \"javascript:alert(1)\"; // {{TEMPLATE}} and [[slot]]",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected preserved code %q in:\n%s", want, got)
+		}
+	}
+	// Forbidden tokens only remain where they are legitimately inside code:
+	// [[ArrayBufferData]] + [[slot]] (2), {{TEMPLATE}} (1), one javascript: in
+	// the code block, and none of the traversal/data targets in prose.
+	if c := strings.Count(got, "[["); c != 2 {
+		t.Fatalf("expected 2 residual [[ (both in code), got %d:\n%s", c, got)
+	}
+	if c := strings.Count(got, "{{"); c != 1 {
+		t.Fatalf("expected 1 residual {{ (in code), got %d:\n%s", c, got)
+	}
+	if c := strings.Count(got, "javascript:"); c != 1 {
+		t.Fatalf("expected 1 residual javascript: (in code), got %d:\n%s", c, got)
+	}
+	for _, forbidden := range []string{"../../../etc/passwd", "data:image/png"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("expected %q to be removed from prose:\n%s", forbidden, got)
+		}
+	}
+}
+
 func TestRunAcceptsProfileFlag(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shell script fake is Unix-specific")

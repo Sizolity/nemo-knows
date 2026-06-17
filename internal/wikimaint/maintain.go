@@ -743,6 +743,8 @@ func taskFromIssue(n int, issue wikilint.Issue) Task {
 		task.Recommendation = "Replace the deprecated [[wikilink]] with a standard Markdown relative link to the target page, or with plain text when no target page exists."
 	case "missing-link-target":
 		task.Recommendation = "Repair the broken Markdown relative link by retargeting it to an existing page or creating a sourced page if the concept is worth keeping."
+	case "unsafe-link-target":
+		task.Recommendation = "Review the flagged link: remove or retarget the dangerous-scheme/path-escaping target (generation cleaning normally prevents this; a future LLM maintainer can flatten it to plain text)."
 	case "duplicate-index-entry":
 		task.Recommendation = "Run safe maintenance to deduplicate the index entry."
 		task.AutoSafe = true

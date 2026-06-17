@@ -1257,8 +1257,13 @@ func runBundle(source string, bundleDir string, cfg config.Config) error {
 		if err := runDraft(source, job.promptPath, job.outputPath, cfg); err != nil {
 			return err
 		}
-		if filepath.Base(job.outputPath) == "source.md" {
+		switch filepath.Base(job.outputPath) {
+		case "source.md":
 			if err := normalizeSourceDraftFile(job.outputPath, source); err != nil {
+				return err
+			}
+		case "ingest-plan.md":
+			if err := sanitizeIngestPlanDraftFile(job.outputPath, source); err != nil {
 				return err
 			}
 		}
@@ -1346,6 +1351,9 @@ func runChunkedBundle(source string, sourceContent string, bundleDir string, cfg
 		return err
 	}
 	if err := runChunkSynthesis(filepath.Join("prompts", "chunk-ingest-plan.md"), filepath.Join(bundleDir, "ingest-plan.md"), source, outline, string(indexJSON), finalChunkNotes, groupNotes, cfg); err != nil {
+		return err
+	}
+	if err := sanitizeIngestPlanDraftFile(filepath.Join(bundleDir, "ingest-plan.md"), source); err != nil {
 		return err
 	}
 	return nil
@@ -1438,6 +1446,46 @@ func normalizeSourceDraftFile(path string, source string) error {
 	return nil
 }
 
+// sanitizeIngestPlanDraftFile cleans forbidden link/cross-reference syntax from
+// a generated ingest-plan draft (its ## Suggested Links section copies links
+// from the raw document the same way the source page does). The ingest plan has
+// no dedicated normalize hook, so this is a minimal body-sanitization pass that
+// preserves the leading YAML frontmatter and all code spans.
+func sanitizeIngestPlanDraftFile(path string, source string) error {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read ingest plan draft for sanitization: %w", err)
+	}
+	sanitized := sanitizeMarkdownBody(string(content), sourceDraftRepoPath(source))
+	if err := os.WriteFile(path, []byte(sanitized), 0o644); err != nil {
+		return fmt.Errorf("write sanitized ingest plan draft: %w", err)
+	}
+	return nil
+}
+
+// sanitizeMarkdownBody applies the shared link sanitizer to a Markdown
+// document's body while leaving any leading YAML frontmatter block byte-for-byte
+// intact. Frontmatter never carries body link syntax, and reformatting it is
+// out of scope for link cleaning.
+func sanitizeMarkdownBody(content string, fromRepoPath string) string {
+	if loc := sourceDraftFrontmatterRE.FindStringIndex(content); loc != nil {
+		return content[:loc[1]] + wikischema.SanitizeBodyLinks(fromRepoPath, content[loc[1]:])
+	}
+	return wikischema.SanitizeBodyLinks(fromRepoPath, content)
+}
+
+// sourceDraftRepoPath returns the repo-relative slash path a generated draft
+// will occupy in the wiki (wiki/sources/<slug>.md). It anchors the link
+// sanitizer's repository-escape check at the correct directory depth so a
+// relative target like ../../../etc/passwd is recognized as escaping the repo.
+func sourceDraftRepoPath(source string) string {
+	slug := slugFromFilename(filepath.Base(source))
+	if slug == "" {
+		slug = "source"
+	}
+	return "wiki/sources/" + slug + ".md"
+}
+
 func normalizeSourceDraft(content string, source string) string {
 	frontmatter, body := splitMarkdownFrontmatter(content)
 	title := frontmatterField(frontmatter, "title")
@@ -1449,6 +1497,12 @@ func normalizeSourceDraft(content string, source string) string {
 	}
 	body = strings.TrimSpace(body)
 	body = normalizeSourceSectionHeadings(body)
+	// Clean any forbidden link/cross-reference syntax that the model copied
+	// verbatim out of the raw document (e.g. [[wikilink]], {{placeholder}},
+	// path-traversal or dangerous-scheme links). This conforms the draft to the
+	// wiki's Markdown-link format without rejecting the bundle; code spans are
+	// preserved. See internal/wiki.SanitizeBodyLinks.
+	body = wikischema.SanitizeBodyLinks(sourceDraftRepoPath(source), body)
 
 	var b strings.Builder
 	b.WriteString("---\n")
