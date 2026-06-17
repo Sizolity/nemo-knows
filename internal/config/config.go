@@ -115,8 +115,9 @@ type DeepSeekConfig struct {
 
 // Defaults returns the local default configuration for the nemo command.
 //
-// The returned configuration points at the verified local llama.cpp CUDA
-// binary and GGUF model path by default.
+// Defaults to the DeepSeek provider. The llama backend requires
+// NEMO_LLAMA_CLI and NEMO_LLAMA_MODEL to be both set explicitly; otherwise
+// ForProfileWithProvider returns an error.
 //
 // NEMO_MODEL_PROVIDER selects the generation backend ("llama" or "deepseek").
 // NEMO_LLAMA_CLI overrides the llama.cpp executable path.

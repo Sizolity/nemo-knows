@@ -45,7 +45,7 @@ Go CLI that maintains the wiki:
 - `tmp/` — scratch space for ad-hoc development tests
 - `cmd/`, `internal/`, `prompts/`, `docs/`, `deploy/` — Go toolchain and docs
 
-The Go CLI (`nemo`) and the autonomous maintainer (`nemo -maintain-wiki`)
+The Go CLI (`nemocli`) and the autonomous maintainer (`nemocli maintain`)
 operate on `wiki/`. The maintainer never reads `pipeline/` or `tmp/`.
 
 ## Core Workflows
@@ -62,38 +62,43 @@ The wiki is maintained by LLM agents following [`AGENTS.md`](AGENTS.md):
 
 ## Go CLI
 
-The `nemo` CLI supports draft generation, review, deterministic evaluation,
+The `nemocli` CLI supports draft generation, review, deterministic evaluation,
 approved wiki writes, and autonomous maintenance. It works with local
 `llama.cpp` models and DeepSeek's API.
 
 Quick start:
 
 ```sh
-go build -o .bin/nemo ./cmd/nemo
+go build -o .bin/nemocli ./cmd/nemocli
+
+# Quick start: bootstrap a new wiki at $WIKI_ROOT (default ~/.wiki)
+.bin/nemocli init
+cp ~/.wiki/.env.example ~/.wiki/.env  &&  $EDITOR ~/.wiki/.env
 
 # Lint the wiki
-.bin/nemo -lint-wiki -out-dir tmp/wiki-lint
+.bin/nemocli lint
 
 # Autonomous maintenance (report only)
-.bin/nemo -maintain-wiki -mode report -out-dir tmp/wiki-maint
+.bin/nemocli maintain --mode report --out-dir tmp/wiki-maint
 
 # Autonomous maintenance (apply safe fixes)
-.bin/nemo -maintain-wiki -mode safe -out-dir tmp/wiki-maint
+.bin/nemocli maintain --mode safe --out-dir tmp/wiki-maint
 
-# Query the maintained wiki without writing
-.bin/nemo -query "How does WAL affect SQLite readers?"
+# End-to-end ingest (auto-apply, single-instance lock)
+.bin/nemocli ingest path/to/source.md
 
-# Draft a filed query answer for review under tmp/query-drafts/
-.bin/nemo -query "How does WAL affect SQLite readers?" -file-query
-
-# File a reviewed query answer back into wiki/topics/ with an audit log entry
-.bin/nemo -query "How does WAL affect SQLite readers?" -file-query -approve
+# Query the maintained wiki (V2; not on V0)
+# .bin/nemocli query "How does WAL affect SQLite readers?"
 ```
 
 The full development pipeline (bundle → review → eval → candidates → apply) is
 documented in `docs/development/`. It routes model output through
 `pipeline/drafts/` and `pipeline/evals/` for development testing before anything
 reaches `wiki/`. Production wiki-only debugging output should go under `tmp/`.
+
+Production wikis live at `$WIKI_ROOT` (default `~/.wiki`); the in-repo `wiki/`
+is the development/test corpus and is operated by `nemocli` only when you
+point `--wiki-root .` explicitly.
 
 ## Web Console
 
@@ -108,7 +113,7 @@ through the explicit CLI apply workflow.
 
 ## Configuration
 
-`nemo` reads `.env` and environment variables:
+`nemocli` reads `.env` and environment variables:
 
 ```text
 NEMO_MODEL_PROVIDER=llama     # local llama.cpp (default)
@@ -128,7 +133,7 @@ and
 **Wiki-only (no CLI):** Open the repository in an LLM agent, ask it to ingest a
 source, query the wiki, or run a lint pass. The agent follows `AGENTS.md`.
 
-**CLI for reviewable drafts:** Use `nemo` when you want deterministic evaluation
+**CLI for reviewable drafts:** Use `nemocli` when you want deterministic evaluation
 and an explicit apply gate before wiki writes.
 
 **Browser console:** Use `nemo-web` for local browsing, graph navigation, and a
@@ -138,7 +143,7 @@ UI for starting ingest jobs.
 
 ```sh
 go test ./...
-go build -o .bin/nemo ./cmd/nemo
+go build -o .bin/nemocli ./cmd/nemocli
 go build -o .bin/nemo-web ./cmd/nemo-web
 ```
 

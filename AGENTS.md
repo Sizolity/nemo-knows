@@ -14,15 +14,15 @@ If a rule here conflicts with a user instruction in chat, the user wins
 
 This repository has two distinct surfaces:
 
-- **`wiki/`** is the LLM-maintained Markdown knowledge base that `nemo`
+- **`wiki/`** is the LLM-maintained Markdown knowledge base that `nemocli`
   builds and maintains. An agent maintaining wiki *content* reads
   `wiki/AGENTS.md`, not this file.
 - **Everything else** is development infrastructure for the Go CLI
-  (`nemo`) that builds and maintains the wiki.
+  (`nemocli`) that builds and maintains the wiki.
 
 > **Current phase — `wiki/` is the test corpus.** Its contents are
 > presently **test data, not production product content**. Test the core
-> framework **black-box, directly against `wiki/`** (run real `nemo`
+> framework **black-box, directly against `wiki/`** (run real `nemocli`
 > commands and observe real effects); treat `wiki/` changes made while
 > testing as expected, not as production edits.
 
@@ -34,7 +34,7 @@ nemo-knows/
 │   ├── drafts/           #   model-output buffers
 │   └── evals/            #   evaluation harness
 ├── tmp/                  # transient scratch (gitignored); clean up periodically
-├── cmd/                  # Go CLI entry points (nemo, nemo-web, nemo-server)
+├── cmd/                  # Go CLI entry points (nemocli, nemo-web, nemo-server)
 ├── internal/             # Go packages
 ├── prompts/              # prompt templates for the ingest pipeline
 ├── deploy/               # deployment scripts (release, systemd)
@@ -56,7 +56,7 @@ nemo-knows/
   not depend on `pipeline/` unless the user is explicitly running a development
   or stability-evaluation pipeline.
 - **`wiki/` is the maintained knowledge base** (currently the test corpus,
-  see Mental model). The autonomous maintainer (`nemo -maintain-wiki`) uses
+  see Mental model). The autonomous maintainer (`nemocli maintain --mode safe`) uses
   `wiki/` as its knowledge input, never reads `pipeline/`, and may write
   transient reports or debug artifacts under `tmp/`.
 - **Do not run `git push` automatically.** The user controls what
@@ -66,46 +66,44 @@ nemo-knows/
 
 ## 2. Go CLI
 
-The `nemo` CLI supports draft generation, review, deterministic
+The `nemocli` CLI supports draft generation, review, deterministic
 evaluation, approved wiki writes, and autonomous maintenance. It works
 with local `llama.cpp` models and DeepSeek's API.
 
 ```sh
-go build -o .bin/nemo ./cmd/nemo
+go build -o .bin/nemocli ./cmd/nemocli
 go build -o .bin/nemo-web ./cmd/nemo-web
 
 go test ./...
 ```
 
 **Testing convention (current).** Prefer **black-box testing directly
-against `wiki/`**: run the real `nemo` pipeline end-to-end on `wiki/`
+against `wiki/`**: run the real `nemocli` pipeline end-to-end on `wiki/`
 content and observe actual effects (apply → index/log → lint). The
 `pipeline/` scaffold below is **legacy / deprecated as the primary test
 path** — kept for reference and optional reuse. Put intermediate or debug
 artifacts under `tmp/` (transient quality/stability verification only),
 clean them up when done, and keep production-runtime artifacts minimal.
 
+**Two independent products.** `cmd/nemo-server` and `cmd/nemo-web` continue
+to be maintained under their original names; they are not in nemocli's
+scope. See `deploy/systemd/install-user-units.sh` for their service units.
+
 Legacy development pipeline (optional, for prompt/review-logic experiments):
 
 ```sh
-.bin/nemo -provider llama -source pipeline/raw/example.md \
-  -bundle-dir pipeline/drafts/example -profile stable
-
-.bin/nemo -review-bundle pipeline/drafts/example \
-  -out pipeline/drafts/example/apply-plan.md
-
-.bin/nemo -eval-bundle pipeline/drafts/example \
-  -out-dir pipeline/evals/runs/example
-
-.bin/nemo -apply-approved pipeline/drafts/example -approve
+.bin/nemocli init                                  # 一次,首跑骨架
+.bin/nemocli ingest pipeline/raw/example.md        # 端到端 ingest
+.bin/nemocli lint                                  # read-only 审计
+.bin/nemocli maintain --mode safe                  # 确定性维护
 ```
 
 Wiki maintenance:
 
 ```sh
-.bin/nemo -lint-wiki -out-dir tmp/wiki-lint
-.bin/nemo -maintain-wiki -mode report -out-dir tmp/wiki-maint
-.bin/nemo -maintain-wiki -mode safe -out-dir tmp/wiki-maint
+.bin/nemocli lint --out-dir tmp/wiki-lint
+.bin/nemocli maintain --mode report --out-dir tmp/wiki-maint
+.bin/nemocli maintain --mode safe --out-dir tmp/wiki-maint
 ```
 
 ## 3. Prompt templates
@@ -129,9 +127,11 @@ path pulls source over SSH and builds locally.
 - Do not commit secrets or credentials.
 - Do not run `git push` automatically.
 - Do not collapse `wiki/log.md` or rewrite past entries.
+- Do not point `$NEMO_WIKI_ROOT` at the repo root in production; the in-repo
+  `wiki/` is the development corpus.
 
 ## 6. Open questions
 
-- When does a development pipeline stage graduate to a production
-  workflow?
+- When does nemocli's V1 daemon (`nemocli serve`) replace the systemd timer
+  + `nemocli once` pattern in production?
 - How should the web console handle the pipeline directory migration?

@@ -72,7 +72,7 @@ if [ -z "$release_dir" ]; then
 	exit 1
 fi
 
-install -m 0755 "$release_dir/nemo" "$deploy_dir/.bin/nemo"
+install -m 0755 "$release_dir/nemocli" "$deploy_dir/.bin/nemocli"
 install -m 0755 "$release_dir/nemo-web" "$deploy_dir/.bin/nemo-web"
 
 printf '%s\n' "$checksum" > "$state_file"

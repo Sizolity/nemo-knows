@@ -27,7 +27,7 @@ if [ "$run_tests" = "true" ]; then
 fi
 
 mkdir -p .bin
-go build -trimpath -ldflags="-s -w" -o .bin/nemo ./cmd/nemo
+go build -trimpath -ldflags="-s -w" -o .bin/nemocli ./cmd/nemocli
 go build -trimpath -ldflags="-s -w" -o .bin/nemo-web ./cmd/nemo-web
 
 if [ "$restart_after_build" = "true" ]; then

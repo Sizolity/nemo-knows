@@ -108,7 +108,7 @@ git merge --ff-only "$remote/$branch"
 after="$(git rev-parse HEAD)"
 ensure_deploy_script_modes
 
-if [ "$before" = "$after" ] && [ "$force_build" != "true" ] && [ -x .bin/nemo ] && [ -x .bin/nemo-web ]; then
+if [ "$before" = "$after" ] && [ "$force_build" != "true" ] && [ -x .bin/nemocli ] && [ -x .bin/nemo-web ]; then
 	echo "checkout unchanged at $after"
 	exit 0
 fi
@@ -119,7 +119,7 @@ if [ "$run_tests" = "true" ]; then
 	"$go_bin" test ./...
 fi
 
-"$go_bin" build -trimpath -ldflags="-s -w" -o .bin/nemo ./cmd/nemo
+"$go_bin" build -trimpath -ldflags="-s -w" -o .bin/nemocli ./cmd/nemocli
 "$go_bin" build -trimpath -ldflags="-s -w" -o .bin/nemo-web ./cmd/nemo-web
 
 mkdir -p .deploy-state
