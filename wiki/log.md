@@ -352,3 +352,14 @@ Touched:
 - wiki/sources/081-attention-is-all-you-need.md (created)
 - wiki/topics/sequence-transduction-models.md (created)
 Open: review skipped candidates before creating entity, concept, or topic pages.
+
+## [2026-06-16] ingest | The Republic
+Source: pipeline/raw/web/corpus-2026-05-18/109-the-republic.md
+Applied bundle: tmp/gen-stress2-20260616/types/the-republic
+Touched:
+- wiki/concepts/justice.md (created)
+- wiki/index.md (updated)
+- wiki/entities/plato.md (created)
+- wiki/sources/the-republic-plato.md (created)
+- wiki/topics/ideal-city-state.md (created)
+Open: review skipped candidates before creating entity, concept, or topic pages.

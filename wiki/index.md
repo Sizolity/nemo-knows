@@ -16,12 +16,14 @@ updated: 2026-06-16
 - [mit-6004-c10s1-assembly-models](sources/mit-6004-c10s1-assembly-models.md) — MIT 6.004 lecture 10.1 annotated slides on assembly language and models of computation; carries the wiki image-assets demo figure.
 - [llama-cpp-overview](sources/llama-cpp-overview.md) — llama.cpp.
 - [081-attention-is-all-you-need](sources/081-attention-is-all-you-need.md) — The Transformer Architecture.
+- [the-republic-plato](sources/the-republic-plato.md) — The Republic.
 
 ## Entities
 
 - [sqlite](entities/sqlite.md) — SQLite.
 - [georgi-gerganov](entities/georgi-gerganov.md) — Georgi Gerganov.
 - [llama-cpp](entities/llama-cpp.md) — llama.cpp.
+- [plato](entities/plato.md) — Plato.
 
 ## Concepts
 
@@ -30,6 +32,7 @@ updated: 2026-06-16
 - [llama-cpp-backends](concepts/llama-cpp-backends.md) — Llama Cpp Backends.
 - [quantization](concepts/quantization.md) — Quantization.
 - [transformer-architecture](concepts/transformer-architecture.md) — Transformer Architecture.
+- [justice](concepts/justice.md) — Justice.
 
 ## Topics
 
@@ -38,3 +41,4 @@ updated: 2026-06-16
 - [makes-sqlite-suitable-long-term-data](topics/makes-sqlite-suitable-long-term-data.md) — What makes SQLite suitable for long-term data preservation.
 - [llama-cpp-gguf-quantization-cpu-inference](topics/llama-cpp-gguf-quantization-cpu-inference.md) — How does llama.cpp combine the GGUF format and.
 - [sequence-transduction-models](topics/sequence-transduction-models.md) — Sequence Transduction Models.
+- [ideal-city-state](topics/ideal-city-state.md) — Ideal City State.

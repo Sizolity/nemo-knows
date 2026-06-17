@@ -119,6 +119,13 @@ by reporting any relative link whose target file does not exist as
 `missing-link-target` (error), so a move must update its inbound links in the
 same change. Slugs (page filenames) stay globally unique and are still used for
 page identity and de-duplication — only the cross-reference syntax changed.
+Link and image targets must also be **safe**: an external target must use a
+benign scheme — only `http`, `https`, and `mailto` are allowed, so script/data
+schemes such as `javascript:`, `data:`, `file:`, and `vbscript:` are rejected —
+and a relative target may not climb above the repository root with `../`. The
+lint pass reports either violation as `unsafe-link-target` (error), and the
+ingest pipeline strips such targets to plain text at generation time so they
+never reach `wiki/`.
 
 **Index format.** `index.md` is navigation-only. It contains the four
 category headings — `## Sources`, `## Entities`, `## Concepts`,

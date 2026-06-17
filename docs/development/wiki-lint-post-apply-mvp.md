@@ -44,7 +44,10 @@ MVP-9 checks:
 - duplicated index entries in either Markdown-link or legacy wikilink form,
 - semantic wikilinks that point to missing pages,
 - orphan pages that are not linked from any other page or `wiki/index.md`,
-- invalid `wiki/log.md` entry actions.
+- invalid `wiki/log.md` entry actions,
+- unsafe link/image targets: dangerous URI schemes (`javascript:`, `data:`,
+  `file:`, `vbscript:`) or relative targets that escape the repository root
+  (reported as `unsafe-link-target`; detection only, no rewrite).
 
 Bundle crosslink lint checks:
 
