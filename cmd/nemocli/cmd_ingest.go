@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/huic/nemo-knows/internal/apply"
@@ -116,6 +117,11 @@ func runIngestFresh(source string, cfg config.Config, g *globalConfig, force boo
 	pipeErr := runPipeline(source, bundleDir, cfg, g, force)
 	end := time.Now()
 
+	// V0 stress-test debug affordance: when NEMO_KEEP_RUNDIR_DIR is set,
+	// snapshot the (about-to-be-removed) runDir for offline inspection.
+	if pipeErr == nil {
+		keepRunDirIfRequested(runDir, runID)
+	}
 	checkpoint, closeErr := rundir.Close(pipeErr == nil, runDir, runID)
 	entry := runslog.RunEntry{
 		RunID:      runID,
@@ -348,6 +354,26 @@ func stageApply(wikiRoot, bundleDir string, force bool) error {
 }
 
 // --- helpers ----------------------------------------------------------------
+
+// keepRunDirIfRequested copies the successful runDir into
+// $NEMO_KEEP_RUNDIR_DIR/<runID>/ when that env var is non-empty.
+// Failures are logged but never propagate; this is a debug-only knob
+// for V0 stress testing where the success path otherwise discards
+// intermediate artifacts (source.md / ingest-plan.md / candidates).
+func keepRunDirIfRequested(runDir, runID string) {
+	keep := strings.TrimSpace(os.Getenv("NEMO_KEEP_RUNDIR_DIR"))
+	if keep == "" {
+		return
+	}
+	if err := os.MkdirAll(keep, 0o755); err != nil {
+		fmt.Fprintf(os.Stderr, "warn: NEMO_KEEP_RUNDIR_DIR mkdir %s: %v\n", keep, err)
+		return
+	}
+	dst := filepath.Join(keep, runID)
+	if out, err := exec.Command("cp", "-a", runDir, dst).CombinedOutput(); err != nil {
+		fmt.Fprintf(os.Stderr, "warn: NEMO_KEEP_RUNDIR_DIR cp -a %s %s: %v\n%s\n", runDir, dst, err, out)
+	}
+}
 
 func fileExists(p string) bool {
 	_, err := os.Stat(p)
