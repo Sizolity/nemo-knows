@@ -1,11 +1,3 @@
----
-title: Git Branches in a Nutshell Notes
-kind: source
-sources:
-  - pipeline/raw/web/git-branching.md
-confidence: medium
----
-
 # Git Branches in a Nutshell Notes
 
 Source URL: https://git-scm.com/book/en/v2/Git-Branching-Branches-in-a-Nutshell

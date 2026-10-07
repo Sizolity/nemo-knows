@@ -1,11 +1,3 @@
----
-title: Qwen llama.cpp Local Inference Notes
-kind: source
-sources:
-  - pipeline/raw/web/qwen-llama-cpp.md
-confidence: medium
----
-
 # Qwen llama.cpp Local Inference Notes
 
 Source URL: https://qwen.readthedocs.io/en/v3.0/run_locally/llama.cpp.html

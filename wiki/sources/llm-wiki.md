@@ -1,11 +1,3 @@
----
-title: LLM Wiki
-kind: source
-sources:
-  - pipeline/raw/llm-wiki.md
-confidence: medium
----
-
 # LLM Wiki
 
 A pattern for building personal knowledge bases using LLMs.
