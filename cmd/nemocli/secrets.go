@@ -24,7 +24,7 @@ func requireSecrets(cfg config.Config, wikiRoot string) error {
 					"  looked in: env NEMO_DEEPSEEK_API_KEY, file %s/.env\n"+
 					"  fix: run `nemocli init` to scaffold $WIKI_ROOT/.env.example,\n"+
 					"       then `cp .env.example .env && $EDITOR .env`,\n"+
-					"       or `set -x NEMO_DEEPSEEK_API_KEY <key>` (fish).",
+					"       or `set -x NEMO_DEEPSEEK_API_KEY <key>` (fish)",
 				wikiRoot,
 			)
 		}
@@ -35,7 +35,7 @@ func requireSecrets(cfg config.Config, wikiRoot string) error {
 					"  looked in: env vars, file %s/.env\n"+
 					"  fix: `set -x NEMO_LLAMA_CLI /path/to/llama-cli` and\n"+
 					"       `set -x NEMO_LLAMA_MODEL /path/to/model.gguf` (fish),\n"+
-					"       or set both in %s/.env.",
+					"       or set both in %s/.env",
 				wikiRoot, wikiRoot,
 			)
 		}
